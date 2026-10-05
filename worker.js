@@ -1,4 +1,4 @@
-// Cloudflare Pages / Workers Advanced Proxy Worker
+// Cloudflare Workers Reverse Proxy & Static Assets Entrypoint
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -68,7 +68,7 @@ export default {
       }
     }
 
-    // Para arquivos estaticos (HTML, CSS, JS, logo, etc.)
+    // Para arquivos estáticos (HTML, CSS, JS, etc.)
     return env.ASSETS.fetch(request);
   }
 };

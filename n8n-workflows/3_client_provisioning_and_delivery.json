@@ -1,0 +1,101 @@
+{
+  "name": "M3U PLAY - Provisionamento Automático de Clientes & Entrega de Acesso",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "provision-client",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node-order-webhook",
+      "name": "Webhook: Nova Venda / Pedido",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 300],
+      "webhookId": "m3u-provision-incoming"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\n\n// Extract client info\nconst name = body.name || body.customer_name || 'Cliente VIP';\nconst email = body.email || body.customer_email || 'cliente@email.com';\nconst daysValid = Number(body.days || body.plan_days || 30);\n\n// Generate username and password\nconst randomNum = Math.floor(1000 + Math.random() * 9000);\nconst cleanName = (name.split(' ')[0] || 'vip').toLowerCase().replace(/[^a-z0-9]/g, '');\nconst username = body.username || `${cleanName}_${randomNum}`;\nconst password = body.password || `play_${Math.random().toString(36).substring(2, 8)}`;\n\nreturn {\n  json: {\n    name,\n    email,\n    username,\n    password,\n    daysValid,\n    phone: body.phone || body.customer_phone || ''\n  }\n};"
+      },
+      "id": "node-generate-credentials",
+      "name": "Gerar Credenciais Seguras",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/webhooks/provision-user",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "m3u_secret_key_889922aabbcc"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"name\": \"{{ $json.name }}\",\n  \"username\": \"{{ $json.username }}\",\n  \"password\": \"{{ $json.password }}\",\n  \"email\": \"{{ $json.email }}\",\n  \"daysValid\": {{ $json.daysValid }}\n}",
+        "options": {}
+      },
+      "id": "node-create-user-api",
+      "name": "Criar Usuário no M3U PLAY",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $input.first().json;\nconst creds = res.loginCredentials || {};\nconst user = res.user || {};\n\nconst whatsappMessage = `\n🌟 *Seu Acesso ao M3U PLAY Está Liberado!*\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nOlá, *${user.name}*!\n\nSeu painel de reprodução exclusivo foi criado com sucesso:\n\n🌐 *Acesso Web:* ${creds.loginUrl}\n👤 *Usuário:* \`${creds.username}\`\n🔑 *Senha:* \`${creds.password}\`\n📅 *Validade do Acesso:* ${new Date(user.expiresAt).toLocaleDateString('pt-BR')} (${user.daysValid} dias)\n\n📺 *Dica:* Você pode assistir no celular, computador ou diretamente no navegador da sua Smart TV!\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n_Bom entretenimento!_\n`;\n\nreturn {\n  json: {\n    success: true,\n    user,\n    loginCredentials: creds,\n    formattedMessage: whatsappMessage\n  }\n};"
+      },
+      "id": "node-format-welcome-msg",
+      "name": "Montar Mensagem de Entrega (WhatsApp/Email)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [920, 300]
+    }
+  ],
+  "connections": {
+    "Webhook: Nova Venda / Pedido": {
+      "main": [
+        [
+          {
+            "node": "Gerar Credenciais Seguras",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar Credenciais Seguras": {
+      "main": [
+        [
+          {
+            "node": "Criar Usuário no M3U PLAY",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Usuário no M3U PLAY": {
+      "main": [
+        [
+          {
+            "node": "Montar Mensagem de Entrega (WhatsApp/Email)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

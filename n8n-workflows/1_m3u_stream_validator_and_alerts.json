@@ -1,0 +1,220 @@
+{
+  "name": "M3U PLAY - Validador de Streams & Alertas Automáticos",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "node-schedule",
+      "name": "Agendador (Cada 6h)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3000/api/playlists",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "m3u_secret_key_889922aabbcc"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-get-playlists",
+      "name": "Buscar Playlists",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://localhost:3000/api/automation/check/{{ $json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "m3u_secret_key_889922aabbcc"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"concurrency\": 15,\n  \"timeout\": 3500\n}",
+        "options": {}
+      },
+      "id": "node-trigger-check",
+      "name": "Disparar Validação Multi-Worker",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "id": "node-wait",
+      "name": "Aguardar Processamento",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [860, 300],
+      "webhookId": "m3u-wait-check"
+    },
+    {
+      "parameters": {
+        "url": "=http://localhost:3000/api/automation/check/{{ $json.playlistId || $('Buscar Playlists').item.json.id }}/status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "m3u_secret_key_889922aabbcc"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-check-status",
+      "name": "Obter Status da Checagem",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1080, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $json.onlineCount }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-health",
+      "name": "Streams OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1300, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst playlist = $('Buscar Playlists').item.json;\n\nconst report = `\n✅ *RELATÓRIO DE MONITORAMENTO - M3U PLAY*\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📺 *Playlist:* ${playlist.name}\n🟢 *Canais Online:* ${data.onlineCount || 0} canais\n🔴 *Canais com Falha:* ${(playlist.total || 0) - (data.onlineCount || 0)} canais\n📊 *Disponibilidade:* ${Math.round(((data.onlineCount || 0) / (playlist.total || 1)) * 100)}%\n\n📥 *Download M3U Limpa:* http://localhost:3000/api/playlists/${playlist.id}/export?filter=online\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n⏰ Atualizado em: ${new Date().toLocaleString('pt-BR')}\n`;\n\nreturn { json: { message: report, playlistId: playlist.id, online: data.onlineCount } };"
+      },
+      "id": "node-format-report",
+      "name": "Formatar Relatório",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 200]
+    },
+    {
+      "parameters": {
+        "content": "=## Alerta de Monitoramento M3U PLAY\n{{ $json.message }}",
+        "height": 280,
+        "width": 380
+      },
+      "id": "node-sticky-note",
+      "name": "Painel de Notificação",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1780, 160]
+    }
+  ],
+  "connections": {
+    "Agendador (Cada 6h)": {
+      "main": [
+        [
+          {
+            "node": "Buscar Playlists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Playlists": {
+      "main": [
+        [
+          {
+            "node": "Disparar Validação Multi-Worker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Disparar Validação Multi-Worker": {
+      "main": [
+        [
+          {
+            "node": "Aguardar Processamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aguardar Processamento": {
+      "main": [
+        [
+          {
+            "node": "Obter Status da Checagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obter Status da Checagem": {
+      "main": [
+        [
+          {
+            "node": "Streams OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Streams OK?": {
+      "main": [
+        [
+          {
+            "node": "Formatar Relatório",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

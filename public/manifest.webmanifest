@@ -1,0 +1,35 @@
+{
+  "name": "JstudioPlay Pro — TV & Streaming Hub",
+  "short_name": "JstudioPlay",
+  "description": "JstudioPlay: Central Inteligente de Reprodução e Gerenciamento M3U, EPG ao Vivo & Xtream Codes.",
+  "start_url": "/#/player",
+  "display": "standalone",
+  "background_color": "#07111e",
+  "theme_color": "#07111e",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/static/logo.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Player Ao Vivo",
+      "url": "/#/player",
+      "description": "Assistir canais de TV e transmissões ao vivo"
+    },
+    {
+      "name": "M3U Hub & Xtream",
+      "url": "/#/automation",
+      "description": "Explorar playlists públicas e credenciais Xtream"
+    },
+    {
+      "name": "Grade de Programação (EPG)",
+      "url": "/#/player?view=epg",
+      "description": "Visualizar guia e grade horária de programas"
+    }
+  ]
+}

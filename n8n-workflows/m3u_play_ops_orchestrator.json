@@ -1,0 +1,205 @@
+{
+  "name": "M3U PLAY Pro — Autonomous Ops Orchestrator",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "id": "node_cron_m3u",
+      "name": "Cron: Cada 10 min (M3U Sync)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [100, 200]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "node_cron_epg",
+      "name": "Cron: Cada 30 min (EPG Sync)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [100, 400]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "node_cron_health",
+      "name": "Cron: Cada 5 min (Health Check)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [100, 600]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/ops/trigger-m3u",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.M3UPLAY_API_KEY || 'm3u_live_sec_99a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node_http_m3u",
+      "name": "POST: Sincronizar M3U",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [380, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/ops/trigger-epg",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.M3UPLAY_API_KEY || 'm3u_live_sec_99a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node_http_epg",
+      "name": "POST: Atualizar EPG",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [380, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/ops/trigger-health",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.M3UPLAY_API_KEY || 'm3u_live_sec_99a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node_http_health",
+      "name": "POST: Stream Health Check",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [380, 600]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.healthScore }}",
+              "operation": "smaller",
+              "value2": 90
+            }
+          ]
+        }
+      },
+      "id": "node_if_degraded",
+      "name": "IF: Health Score < 90%?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [620, 600]
+    },
+    {
+      "parameters": {
+        "content": "=🚨 **Alerta M3U PLAY Pro — Degradação de Streams**\n- **Health Score**: {{ $json.healthScore }}%\n- **Streams Down**: {{ $json.downCount }} canais\n- **Timestamp**: {{ new Date().toLocaleString('pt-BR') }}",
+        "options": {}
+      },
+      "id": "node_alert_telegram",
+      "name": "Disparar Alerta (Telegram / Discord)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [880, 580]
+    }
+  ],
+  "connections": {
+    "Cron: Cada 10 min (M3U Sync)": {
+      "main": [
+        [
+          {
+            "node": "POST: Sincronizar M3U",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cron: Cada 30 min (EPG Sync)": {
+      "main": [
+        [
+          {
+            "node": "POST: Atualizar EPG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cron: Cada 5 min (Health Check)": {
+      "main": [
+        [
+          {
+            "node": "POST: Stream Health Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST: Stream Health Check": {
+      "main": [
+        [
+          {
+            "node": "IF: Health Score < 90%?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Health Score < 90%?": {
+      "main": [
+        [
+          {
+            "node": "Disparar Alerta (Telegram / Discord)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

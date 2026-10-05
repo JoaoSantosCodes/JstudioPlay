@@ -1435,5 +1435,80 @@
   box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
 }
 
+/* ==========================================================================
+   Automation & Player Light Theme Overrides
+   ========================================================================== */
+:root[data-theme=light] .player-epg-bar {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
+}
+:root[data-theme=light] .epg-title {
+  color: var(--ink);
+}
+:root[data-theme=light] .epg-category-badge {
+  background: #EFF6FF;
+  border-color: #BFDBFE;
+  color: #1D4ED8;
+}
+:root[data-theme=light] .epg-desc {
+  color: var(--ink-muted);
+}
+:root[data-theme=light] .epg-timeline-bar {
+  background: #E2E8F0;
+}
+:root[data-theme=light] .epg-next-show strong {
+  color: var(--ink);
+}
+:root[data-theme=light] .tool-pill-btn {
+  background: var(--surface-200);
+  border-color: var(--border);
+  color: var(--ink-muted);
+}
+:root[data-theme=light] .tool-pill-btn:hover {
+  background: #EFF6FF;
+  border-color: #2563EB;
+  color: #1D4ED8;
+}
+:root[data-theme=light] .tool-pill-btn.active {
+  background: #2563EB;
+  border-color: #1D4ED8;
+  color: #FFFFFF;
+}
+:root[data-theme=light] .filter-chip {
+  background: var(--surface-200);
+  border-color: var(--border);
+  color: var(--ink-muted);
+}
+:root[data-theme=light] .filter-chip:hover {
+  background: #EFF6FF;
+  border-color: #BFDBFE;
+  color: #1D4ED8;
+}
+:root[data-theme=light] .filter-chip.active {
+  background: #EFF6FF;
+  border-color: #2563EB;
+  color: #1D4ED8;
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.2);
+}
+:root[data-theme=light] .eq-popover {
+  background: #FFFFFF;
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-lg);
+}
+:root[data-theme=light] .eq-item {
+  color: var(--ink-muted);
+}
+:root[data-theme=light] .eq-item:hover,
+:root[data-theme=light] .eq-item.active {
+  background: #EFF6FF;
+  color: #1D4ED8;
+}
+:root[data-theme=light] .multiview-grid {
+  background: #F1F5F9;
+  border-color: var(--border);
+}
+
+
 
 

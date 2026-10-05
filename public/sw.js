@@ -1,10 +1,10 @@
-const CACHE_NAME = 'jstudioplay-cache-v7.3.1';
+const CACHE_NAME = 'jstudioplay-cache-v7.3.2';
 const ASSETS_TO_CACHE = [
   '/',
-  '/static/app.js?v=7.3.1',
-  '/static/styles.css?v=7.3.1',
-  '/static/automation.js?v=7.3.1',
-  '/static/automation.css?v=7.3.1',
+  '/static/app.js?v=7.3.2',
+  '/static/styles.css?v=7.3.2',
+  '/static/automation.js?v=7.3.2',
+  '/static/automation.css?v=7.3.2',
   '/static/logo.svg',
   '/manifest.webmanifest'
 ];

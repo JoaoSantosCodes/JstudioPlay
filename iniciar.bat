@@ -96,13 +96,21 @@ echo   [4] Ativar Inicializacao Automatica com o Windows
 echo   [5] Desativar Inicializacao Automatica do Windows
 echo   [6] Liberar Porta %APP_PORT% (Fechar processos Node)
 echo   [7] Iniciar Cloudflare Tunnel (Acesso Externo Seguro)
+echo   [8] Compilar APK Android (Celular & Android TV)
 echo   [0] Sair
 echo.
 
-choice /c 12345670 /t 3 /d 1 /m " Selecione uma opcao [Iniciando padrao em 3s]: "
+choice /c 123456780 /t 3 /d 1 /m " Selecione uma opcao [Iniciando padrao em 3s]: "
 set "OPT=%errorlevel%"
 
-if "%OPT%"=="8" exit /b 0
+if "%OPT%"=="9" exit /b 0
+
+if "%OPT%"=="8" (
+    echo.
+    call "%~dp0build_apk.bat"
+    cls
+    goto :mode_start
+)
 
 if "%OPT%"=="7" (
     echo.

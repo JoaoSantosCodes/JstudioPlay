@@ -26,3 +26,13 @@ Thumbs.db
 # Binarios Cloudflare
 cloudflared.exe
 .cloudflared/
+
+# Android & Gradle
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+dist-apk/
+*.apk
+*.aab
+

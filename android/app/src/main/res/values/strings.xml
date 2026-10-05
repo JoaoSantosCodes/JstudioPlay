@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">JstudioPlay</string>
+    <string name="title_activity_main">JstudioPlay</string>
+    <string name="package_name">com.jstudioplay.app</string>
+    <string name="custom_url_scheme">com.jstudioplay.app</string>
+</resources>

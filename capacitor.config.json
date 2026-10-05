@@ -1,0 +1,18 @@
+{
+  "appId": "com.jstudioplay.app",
+  "appName": "JstudioPlay",
+  "webDir": "public",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true,
+    "allowNavigation": [
+      "*"
+    ]
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "backgroundColor": "#080B11"
+  }
+}

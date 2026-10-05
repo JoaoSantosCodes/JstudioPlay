@@ -22,3 +22,7 @@ Thumbs.db
 # Cache de IDEs
 .vscode/
 .idea/
+
+# Binarios Cloudflare
+cloudflared.exe
+.cloudflared/

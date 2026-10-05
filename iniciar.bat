@@ -95,13 +95,23 @@ echo   [3] Atualizar / Reinstalar Dependencias (npm install)
 echo   [4] Ativar Inicializacao Automatica com o Windows
 echo   [5] Desativar Inicializacao Automatica do Windows
 echo   [6] Liberar Porta %APP_PORT% (Fechar processos Node)
+echo   [7] Iniciar Cloudflare Tunnel (Acesso Externo Seguro)
 echo   [0] Sair
 echo.
 
-choice /c 1234560 /t 3 /d 1 /m " Selecione uma opcao [Iniciando padrao em 3s]: "
+choice /c 12345670 /t 3 /d 1 /m " Selecione uma opcao [Iniciando padrao em 3s]: "
 set "OPT=%errorlevel%"
 
-if "%OPT%"=="7" exit /b 0
+if "%OPT%"=="8" exit /b 0
+
+if "%OPT%"=="7" (
+    echo.
+    echo  [+] Abrindo Cloudflare Tunnel em nova janela...
+    start "" "%~dp0iniciar_tunnel.bat"
+    timeout /t 2 /nobreak >nul
+    cls
+    goto :mode_start
+)
 
 if "%OPT%"=="6" (
     echo.

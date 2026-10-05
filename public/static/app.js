@@ -88,10 +88,29 @@ function applyTheme(value) {
 applyTheme(theme);
 function themeButton() {return `<button class="theme-toggle" data-action="theme" aria-label="${theme==='dark'?'Ativar modo claro':'Ativar modo escuro'}" aria-pressed="${theme==='light'}">${icon('sun')}<span class="theme-dot"></span></button>`;}
 function toast(message,error=false) {const el=$('#toast');el.textContent=message;el.className=error?'error':'';el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{el.hidden=true;},6000);}
+function getBackendBase() {
+  const custom = localStorage.getItem('m3u-backend-url');
+  if (custom && custom.trim()) return custom.trim().replace(/\/+$/, '');
+  return '';
+}
 async function api(path,method='GET',data,options={}) {
   let response;
-  try {response=await fetch('/api'+path,{method,credentials:'same-origin',headers:{'Content-Type':'application/json'},...(data!==undefined?{body:JSON.stringify(data)}:{}),...options});}
-  catch {throw new Error('Não foi possível conectar ao servidor. Verifique sua conexão.');}
+  const base = getBackendBase();
+  const url = (base ? base : '') + '/api' + path;
+  try {
+    response = await fetch(url, {
+      method,
+      credentials: base ? 'include' : 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(state.token ? { 'Authorization': 'Bearer ' + state.token } : {})
+      },
+      ...(data!==undefined?{body:JSON.stringify(data)}:{}),
+      ...options
+    });
+  } catch {
+    throw new Error('Não foi possível conectar ao servidor. Verifique se o servidor está rodando ou se a URL está correta.');
+  }
   const body=await response.json().catch(()=>({error:'O servidor retornou uma resposta inválida.'}));
   if (!response.ok) {
     if(response.status===401 && state.user && path!=='/login') {state.user=null;clearPrivateState();$('#modal').close();location.hash='/login';}
@@ -489,5 +508,46 @@ async function verifySession(){
   try{const session=await api('/session');if(state.user?.id===userID&&session.user?.id!==userID){state.user=null;clearPrivateState();navigate('login');toast('Este acesso foi encerrado após a entrada em outro dispositivo.',true);}}catch{}
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)verifySession();});
-async function boot(){try{const session=await api('/session');Object.assign(state,session);if(state.user)applyTheme(state.user.theme);await renderRoute();if(!sessionCheckTimer)sessionCheckTimer=setInterval(verifySession,15000);}catch(error){$('#app').innerHTML=`<div class="boot">${empty('Não foi possível iniciar',error.message,'<button class="btn" id="boot-retry">Tentar novamente</button>','info')}</div>`;$('#boot-retry').addEventListener('click',boot);}}
+async function boot(){
+  try{
+    const session=await api('/session');
+    Object.assign(state,session);
+    if(state.user)applyTheme(state.user.theme);
+    await renderRoute();
+    if(!sessionCheckTimer)sessionCheckTimer=setInterval(verifySession,15000);
+  }catch(error){
+    const currentBase = localStorage.getItem('m3u-backend-url') || '';
+    $('#app').innerHTML=`
+      <div class="boot" style="max-width:520px; margin:4rem auto; padding:2rem; background:rgba(20,21,23,0.9); border:1px solid rgba(255,255,255,0.1); border-radius:16px; box-shadow:0 12px 40px rgba(0,0,0,0.5);">
+        <div style="display:flex; align-items:center; gap:0.85rem; margin-bottom:1.25rem;">
+          <span style="display:inline-flex; padding:0.5rem; background:rgba(59,130,246,0.15); color:#3b82f6; border-radius:10px;">${icon('settings')}</span>
+          <div>
+            <h2 style="margin:0; font-size:1.2rem; color:#fff;">Conexão com o Servidor</h2>
+            <small style="color:rgba(255,255,255,0.55);">O frontend na nuvem precisa alcançar seu servidor ou túnel Cloudflare.</small>
+          </div>
+        </div>
+        <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); border-radius:8px; padding:0.75rem 1rem; color:#fca5a5; font-size:0.85rem; margin-bottom:1.25rem;">
+          ${esc(error.message)}
+        </div>
+        <div style="margin-bottom:1.25rem;">
+          <label for="backend-url-input" style="display:block; font-size:0.85rem; font-weight:600; color:#fff; margin-bottom:0.4rem;">Endereço do Servidor / Cloudflare Tunnel:</label>
+          <input id="backend-url-input" type="text" placeholder="https://seu-tunnel.trycloudflare.com" value="${esc(currentBase)}" style="width:100%; box-sizing:border-box; padding:0.7rem 0.9rem; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.35); color:#fff; font-family:monospace; font-size:0.9rem;">
+          <small style="display:block; margin-top:0.4rem; color:rgba(255,255,255,0.45); font-size:0.75rem;">Para acesso local, deixe em branco ou use <code>http://localhost:3000</code>. Para acesso externo, use o link gerado pelo <b>iniciar_tunnel.bat</b>.</small>
+        </div>
+        <div style="display:flex; gap:0.75rem;">
+          <button class="btn primary" id="btn-save-backend-url" style="flex:1;">Salvar e Conectar</button>
+          <button class="btn secondary" id="boot-retry">Tentar novamente</button>
+        </div>
+      </div>
+    `;
+    $('#btn-save-backend-url')?.addEventListener('click', () => {
+      const val = $('#backend-url-input')?.value?.trim() || '';
+      localStorage.setItem('m3u-backend-url', val);
+      toast('Endereço do servidor salvo! Conectando...');
+      boot();
+    });
+    $('#boot-retry')?.addEventListener('click', boot);
+  }
+}
 boot();
+

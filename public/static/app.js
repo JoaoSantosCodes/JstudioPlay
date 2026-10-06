@@ -93,6 +93,12 @@ function toast(message,error=false) {const el=$('#toast');el.textContent=message
 function getBackendBase() {
   const custom = localStorage.getItem('m3u-backend-url');
   if (custom && custom.trim()) return custom.trim().replace(/\/+$/, '');
+  
+  // Se estiver no aplicativo nativo Android (Capacitor), conecta automaticamente à nuvem
+  const isNativeApp = window.Capacitor || location.protocol === 'capacitor:' || (location.hostname === 'localhost' && !location.port);
+  if (isNativeApp) {
+    return 'https://jstudioplay.joaocarlosrh23.workers.dev';
+  }
   return '';
 }
 async function api(path,method='GET',data,options={}) {
@@ -635,37 +641,23 @@ async function boot(){
     await renderRoute();
     if(!sessionCheckTimer)sessionCheckTimer=setInterval(verifySession,15000);
   }catch(error){
-    const currentBase = localStorage.getItem('m3u-backend-url') || '';
+    console.error('Falha na inicialização:', error);
     $('#app').innerHTML=`
-      <div class="boot" style="max-width:520px; margin:4rem auto; padding:2rem; background:rgba(20,21,23,0.9); border:1px solid rgba(255,255,255,0.1); border-radius:16px; box-shadow:0 12px 40px rgba(0,0,0,0.5);">
-        <div style="display:flex; align-items:center; gap:0.85rem; margin-bottom:1.25rem;">
-          <span style="display:inline-flex; padding:0.5rem; background:rgba(59,130,246,0.15); color:#3b82f6; border-radius:10px;">${icon('settings')}</span>
-          <div>
-            <h2 style="margin:0; font-size:1.2rem; color:#fff;">Conexão com o Servidor</h2>
-            <small style="color:rgba(255,255,255,0.55);">O frontend na nuvem precisa alcançar seu servidor ou túnel Cloudflare.</small>
-          </div>
+      <div class="boot-reconnect" style="max-width:440px; margin:7rem auto; padding:2.5rem 2rem; background:rgba(20,21,23,0.95); border:1px solid rgba(255,255,255,0.08); border-radius:24px; box-shadow:0 24px 60px rgba(0,0,0,0.6); text-align:center; backdrop-filter:blur(20px);">
+        <div style="width:64px; height:64px; margin:0 auto 1.25rem; border-radius:50%; background:rgba(59,130,246,0.12); display:flex; align-items:center; justify-content:center; color:#3b82f6;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:32px; height:32px;"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
         </div>
-        <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); border-radius:8px; padding:0.75rem 1rem; color:#fca5a5; font-size:0.85rem; margin-bottom:1.25rem;">
-          ${esc(error.message)}
-        </div>
-        <div style="margin-bottom:1.25rem;">
-          <label for="backend-url-input" style="display:block; font-size:0.85rem; font-weight:600; color:#fff; margin-bottom:0.4rem;">Endereço do Servidor / Cloudflare Tunnel:</label>
-          <input id="backend-url-input" type="text" placeholder="https://seu-tunnel.trycloudflare.com" value="${esc(currentBase)}" style="width:100%; box-sizing:border-box; padding:0.7rem 0.9rem; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.35); color:#fff; font-family:monospace; font-size:0.9rem;">
-          <small style="display:block; margin-top:0.4rem; color:rgba(255,255,255,0.45); font-size:0.75rem;">Para acesso local, deixe em branco ou use <code>http://localhost:3000</code>. Para acesso externo, use o link gerado pelo <b>iniciar_tunnel.bat</b>.</small>
-        </div>
-        <div style="display:flex; gap:0.75rem;">
-          <button class="btn primary" id="btn-save-backend-url" style="flex:1;">Salvar e Conectar</button>
-          <button class="btn secondary" id="boot-retry">Tentar novamente</button>
-        </div>
+        <h2 style="margin:0 0 0.5rem; font-size:1.35rem; color:#fff; font-weight:700;">Conectando ao JstudioPlay</h2>
+        <p style="margin:0 0 1.5rem; color:rgba(255,255,255,0.6); font-size:0.9rem; line-height:1.5;">
+          Aguardando conexão com o servidor. O sistema tentará reconectar automaticamente.
+        </p>
+        <button class="btn primary" id="boot-retry" style="width:100%; justify-content:center; padding:0.85rem 1.5rem; font-size:0.95rem; border-radius:12px;">
+          Tentar agora
+        </button>
       </div>
     `;
-    $('#btn-save-backend-url')?.addEventListener('click', () => {
-      const val = $('#backend-url-input')?.value?.trim() || '';
-      localStorage.setItem('m3u-backend-url', val);
-      toast('Endereço do servidor salvo! Conectando...');
-      boot();
-    });
     $('#boot-retry')?.addEventListener('click', boot);
+    setTimeout(boot, 4000);
   }
 }
 boot();

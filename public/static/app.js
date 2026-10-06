@@ -73,6 +73,7 @@ const paths = {
   globe:'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0M2 12h20M12 2c5 5 5 15 0 20-5-5-5-15 0-20',
 };
 function icon(name) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name] || paths.tv}"/></svg>`; }
+function brand(route = 'home') { return `<a class="brand" href="#/${route}" aria-label="JstudioPlay — Início"><img src="/static/logo.svg" alt="JstudioPlay"><span>Jstudio<span>Play</span></span></a>`; }
 let initialToken=null;
 try { initialToken = localStorage.getItem('m3u-token'); } catch {}
 const state = {user:null,token:initialToken,setupRequired:false,setupAllowed:false,relayEnabled:false,relayMode:false,page:'',playlists:[],favorites:[],history:[],progress:[],users:[],logs:[],channels:[],activePlaylist:'',category:'',query:'',channelPage:1,selected:null,groups:[],loading:false};

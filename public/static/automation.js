@@ -41,6 +41,21 @@
     }
   }
 
+  async function authFetch(url, options = {}) {
+    const token = localStorage.getItem('m3u-token');
+    const custom = localStorage.getItem('m3u-backend-url');
+    let base = (custom && custom.trim()) ? custom.trim().replace(/\/+$/, '') : '';
+    if (!base && (window.Capacitor || location.protocol === 'capacitor:' || (location.hostname === 'localhost' && !location.port))) {
+      base = 'https://jstudioplay.joaocarlosrh23.workers.dev';
+    }
+    const finalUrl = (url.startsWith('/api') || url.startsWith('/proxy')) ? (base + url) : url;
+    const headers = {
+      ...(options.headers || {}),
+      ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+    };
+    return fetch(finalUrl, { ...options, headers });
+  }
+
   // ---------------------------------------------------------------------------
   // 1. Sidebar Navigation Integration
   // ---------------------------------------------------------------------------
@@ -320,7 +335,7 @@
     if (!targetName) return;
 
     try {
-      const epg = await fetch(`/api/epg/now?name=${encodeURIComponent(targetName)}`).then(r => r.json());
+      const epg = await authFetch(`/api/epg/now?name=${encodeURIComponent(targetName)}`).then(r => r.json());
       currentEpgData = epg;
 
       let epgBox = document.getElementById('player-epg-box');
@@ -744,7 +759,7 @@
     showFailoverBanner(`⚠️ Transmissão instável. Buscando mirror alternativo para "${channelName}"...`);
 
     try {
-      const res = await fetch(`/api/channels/mirrors?name=${encodeURIComponent(channelName)}`).then(r => r.json());
+      const res = await authFetch(`/api/channels/mirrors?name=${encodeURIComponent(channelName)}`).then(r => r.json());
       if (res.mirrors && res.mirrors.length > 0) {
         const mirror = res.mirrors[0];
         toast(`🔄 Alternando para mirror: ${mirror.playlistName} (${mirror.name})`);
@@ -1085,9 +1100,9 @@
 
     try {
       const [session, hubCatalog, opsDashboard] = await Promise.all([
-        fetch('/api/session').then(r => r.json()),
-        fetch('/api/hub/playlists').then(r => r.json()).catch(() => []),
-        fetch('/api/ops/dashboard').then(r => r.json()).catch(() => null)
+        authFetch('/api/session').then(r => r.json()),
+        authFetch('/api/hub/playlists').then(r => r.json()).catch(() => []),
+        authFetch('/api/ops/dashboard').then(r => r.json()).catch(() => null)
       ]);
 
       const playlists = session.playlists || [];
@@ -1423,7 +1438,7 @@
           toast('Baixando e indexando playlist do Hub...');
 
           try {
-            const res = await fetch(`/api/hub/import/${hubId}`, { method: 'POST' }).then(r => r.json());
+            const res = await authFetch(`/api/hub/import/${hubId}`, { method: 'POST' }).then(r => r.json());
             if (res.error) throw new Error(res.error);
             toast(`Playlist "${res.name}" importada com sucesso! (${res.total} canais)`);
             renderAutomationPage();
@@ -1476,7 +1491,7 @@
         const btn = e.target;
         btn.disabled = true;
         try {
-          const res = await fetch('/api/ops/rotate-key', { method: 'POST' }).then(r => r.json());
+          const res = await authFetch('/api/ops/rotate-key', { method: 'POST' }).then(r => r.json());
           toast('Chave de API rotacionada com sucesso!');
           const keyInput = document.getElementById('cfg-api-key');
           if (keyInput) keyInput.value = res.newApiKey;
@@ -1495,7 +1510,7 @@
         btn.textContent = '⏳ Sincronizando...';
         toast('Iniciando sincronização autônoma de playlists M3U...');
         try {
-          const res = await fetch('/api/ops/trigger-m3u', { method: 'POST' }).then(r => r.json());
+          const res = await authFetch('/api/ops/trigger-m3u', { method: 'POST' }).then(r => r.json());
           toast(`Sincronização M3U finalizada! ${res.totalUpdated || 0} canais atualizados.`);
           setTimeout(renderAutomationPage, 1000);
         } catch (err) {
@@ -1512,7 +1527,7 @@
         btn.textContent = '⏳ Atualizando...';
         toast('Atualizando grade de programação (EPG)...');
         try {
-          await fetch('/api/ops/trigger-epg', { method: 'POST' }).then(r => r.json());
+          await authFetch('/api/ops/trigger-epg', { method: 'POST' }).then(r => r.json());
           toast('Grade EPG atualizada com sucesso!');
           setTimeout(renderAutomationPage, 1000);
         } catch (err) {
@@ -1529,7 +1544,7 @@
         btn.textContent = '⏳ Sondando...';
         toast('Executando teste de saúde dos streams...');
         try {
-          const res = await fetch('/api/ops/trigger-health', { method: 'POST' }).then(r => r.json());
+          const res = await authFetch('/api/ops/trigger-health', { method: 'POST' }).then(r => r.json());
           toast(`Health Check concluído! Score: ${res.healthScore || 94}% (${res.okCount || 0} canais OK).`);
           setTimeout(renderAutomationPage, 1000);
         } catch (err) {
@@ -1555,8 +1570,8 @@
             return;
           }
 
-          const channels = await fetch(`/api/playlists/${playlists[0].id}/channels`).then(r => r.json());
-          const res = await fetch('/api/automation/probe-speed', {
+          const channels = await authFetch(`/api/playlists/${playlists[0].id}/channels`).then(r => r.json());
+          const res = await authFetch('/api/automation/probe-speed', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ channels: channels.slice(0, 30) })
@@ -1594,7 +1609,7 @@
           btn.disabled = true;
           toast('Auto-enriquecendo logos e categorias...');
           try {
-            const res = await fetch(`/api/playlists/${pid}/enrich`, { method: 'POST' }).then(r => r.json());
+            const res = await authFetch(`/api/playlists/${pid}/enrich`, { method: 'POST' }).then(r => r.json());
             toast(`Metadados atualizados! ${res.updatedCount || 0} canais enriquecidos.`);
             renderAutomationPage();
           } catch (e) {
@@ -1618,7 +1633,7 @@
         const url = document.getElementById('cfg-n8n-url')?.value.trim();
         e.target.disabled = true;
         try {
-          await fetch('/api/settings', {
+          await authFetch('/api/settings', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ n8nWebhookUrl: url })
@@ -1635,7 +1650,7 @@
       document.getElementById('btn-sync-all')?.addEventListener('click', async (e) => {
         e.target.disabled = true;
         toast('Iniciando sincronização de todas as listas...');
-        await fetch('/api/automation/sync', { method: 'POST' });
+        await authFetch('/api/automation/sync', { method: 'POST' });
         setTimeout(() => {
           e.target.disabled = false;
           toast('Sincronização concluída!');
@@ -1652,11 +1667,11 @@
           if (box) box.style.display = 'block';
           toast('Iniciando teste de streams com 15 workers simultâneos...');
 
-          await fetch(`/api/automation/check/${pid}`, { method: 'POST' });
+          await authFetch(`/api/automation/check/${pid}`, { method: 'POST' });
 
           const interval = setInterval(async () => {
             try {
-              const res = await fetch(`/api/automation/check/${pid}/status`).then(r => r.json());
+              const res = await authFetch(`/api/automation/check/${pid}/status`).then(r => r.json());
               const fill = document.getElementById(`prog-fill-${pid}`);
               const pct = document.getElementById(`prog-pct-${pid}`);
               const onEl = document.getElementById(`prog-on-${pid}`);
@@ -1688,7 +1703,7 @@
           btn.disabled = true;
           toast('Otimizando lista e removendo canais inativos...');
           try {
-            const res = await fetch(`/api/playlists/${pid}/sanitize`, { method: 'POST' }).then(r => r.json());
+            const res = await authFetch(`/api/playlists/${pid}/sanitize`, { method: 'POST' }).then(r => r.json());
             toast(`Lista otimizada! ${res.removed || 0} canais offline removidos.`);
             renderAutomationPage();
           } catch (e) {
@@ -1704,7 +1719,7 @@
           const pid = btn.dataset.id;
           btn.disabled = true;
           try {
-            const res = await fetch(`/api/playlists/${pid}/deduplicate`, { method: 'POST' }).then(r => r.json());
+            const res = await authFetch(`/api/playlists/${pid}/deduplicate`, { method: 'POST' }).then(r => r.json());
             toast(`Deduplicação concluída: ${res.removed || 0} canais duplicados removidos.`);
             renderAutomationPage();
           } catch (e) {

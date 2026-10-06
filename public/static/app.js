@@ -105,13 +105,14 @@ async function api(path,method='GET',data,options={}) {
   let response;
   const base = getBackendBase();
   const url = (base ? base : '') + '/api' + path;
+  const currentToken = state.token || localStorage.getItem('m3u-token');
   try {
     response = await fetch(url, {
       method,
       credentials: base ? 'include' : 'same-origin',
       headers: {
         'Content-Type': 'application/json',
-        ...(state.token ? { 'Authorization': 'Bearer ' + state.token } : {})
+        ...(currentToken ? { 'Authorization': 'Bearer ' + currentToken } : {})
       },
       ...(data!==undefined?{body:JSON.stringify(data)}:{}),
       ...options
@@ -126,6 +127,7 @@ async function api(path,method='GET',data,options={}) {
   }
   return body;
 }
+window.api = api;
 function clearPrivateState(){stopPlayback(false);Object.assign(state,{playlists:[],favorites:[],history:[],progress:[],users:[],logs:[],channels:[],groups:[],selected:null,activePlaylist:'',loading:false,relayMode:false});}
 async function loadLibrary(){const userID=state.user?.id;await progressWrites.catch(()=>{});const data=await api('/library');if(state.user?.id!==userID)return;state.playlists=data.playlists||[];state.favorites=data.favorites||[];state.history=data.history||[];state.progress=data.progress||[];}
 function navigate(page){if(location.hash==='#/'+page)renderRoute();else location.hash='/'+page;}
@@ -633,6 +635,10 @@ async function boot(){
     try{const savedToken=localStorage.getItem('m3u-token');if(savedToken)state.token=savedToken;}catch{}
     const session=await api('/session');
     Object.assign(state,session);
+    if(session.token){
+      state.token=session.token;
+      try{localStorage.setItem('m3u-token',session.token);}catch{}
+    }
     if(!session.user){
       state.user=null;
       state.token=null;

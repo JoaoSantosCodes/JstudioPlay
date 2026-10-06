@@ -83,6 +83,7 @@ apiRouter.get('/session', (req, res) => {
     const userId = user ? user.id : null;
 
     res.json({
+        token: user ? security.createSessionToken(user) : null,
         user: user ? {
             id: user.id,
             name: user.name,

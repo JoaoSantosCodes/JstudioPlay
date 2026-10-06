@@ -278,6 +278,10 @@ class Database {
         this.save();
     }
 
+    updateChannels(playlistId, channels) {
+        return this.saveChannels(playlistId, channels);
+    }
+
     // -------------------------------------------------------------------------
     // M3U OPTIMIZATION TOOLS: Sanitize, Deduplicate, Sort
     // -------------------------------------------------------------------------

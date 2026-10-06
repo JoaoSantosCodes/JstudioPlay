@@ -73,8 +73,9 @@ const paths = {
   globe:'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0M2 12h20M12 2c5 5 5 15 0 20-5-5-5-15 0-20',
 };
 function icon(name) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name] || paths.tv}"/></svg>`; }
-function brand(route = 'home') { return `<a class="brand" href="#/${route}" aria-label="JstudioPlay — Início"><img src="/static/logo.svg" alt="JstudioPlay"><span>Jstudio<span>Play</span></span></a>`; }
-const state = {user:null,setupRequired:false,setupAllowed:false,relayEnabled:false,relayMode:false,page:'',playlists:[],favorites:[],history:[],progress:[],users:[],logs:[],channels:[],activePlaylist:'',category:'',query:'',channelPage:1,selected:null,groups:[],loading:false};
+let initialToken=null;
+try { initialToken = localStorage.getItem('m3u-token'); } catch {}
+const state = {user:null,token:initialToken,setupRequired:false,setupAllowed:false,relayEnabled:false,relayMode:false,page:'',playlists:[],favorites:[],history:[],progress:[],users:[],logs:[],channels:[],activePlaylist:'',category:'',query:'',channelPage:1,selected:null,groups:[],loading:false};
 let hls = null, playbackGeneration = 0, routeGeneration = 0, toastTimer, searchTimer, playbackTimer;
 let theme = 'dark';
 try { theme = localStorage.getItem('m3u-theme') === 'light' ? 'light' : 'dark'; } catch {}
@@ -589,7 +590,17 @@ document.addEventListener('submit',async event=>{
   if(button.disabled)return;button.disabled=true;button.textContent=form.id==='playlist-form'?'Importando…':form.id==='refresh-form'?'Atualizando…':'Salvando…';errorEl.textContent='';
   const fields=new FormData(form),value=Object.fromEntries(fields.entries());
   try{
-    if(form.id==='login-form'){state.user=await api(state.setupRequired?'/setup':'/login','POST',{username:value.username,password:value.password,remember:fields.has('remember')});state.setupRequired=false;applyTheme(state.user.theme);navigate('dashboard');}
+    if(form.id==='login-form'){
+      const res=await api(state.setupRequired?'/setup':'/login','POST',{username:value.username,password:value.password,remember:fields.has('remember')});
+      state.user=res;
+      if(res.token){
+        state.token=res.token;
+        try{localStorage.setItem('m3u-token',res.token);}catch{}
+      }
+      state.setupRequired=false;
+      applyTheme(state.user.theme);
+      navigate('dashboard');
+    }
     if(form.id==='playlist-form'){
       let text='';if(!$('#playlist-file').disabled){const file=fields.get('file');if(!file?.size)throw new Error('Escolha um arquivo M3U.');if(file.size>100*1024*1024)throw new Error('O arquivo excede o limite de 100 MiB.');text=await file.text();}
       const p=await api('/playlists','POST',{name:value.name,url:value.url||'',text,organize:fields.has('organize')});state.activePlaylist=p.id;$('#modal').close();await renderRoute();toast(`${number(p.total)} canais adicionados à sua conta.`);
@@ -606,7 +617,7 @@ window.addEventListener('pagehide',()=>{const v=$('#video');if(v&&state.selected
 let sessionCheckTimer=null;
 async function verifySession(){
   const userID=state.user?.id;if(!userID)return;
-  try{const session=await api('/session');if(state.user?.id===userID&&session.user?.id!==userID){state.user=null;clearPrivateState();navigate('login');toast('Este acesso foi encerrado após a entrada em outro dispositivo.',true);}}catch{}
+  try{const session=await api('/session');if(state.user?.id===userID&&session.user?.id!==userID){state.user=null;state.token=null;try{localStorage.removeItem('m3u-token');}catch{}clearPrivateState();navigate('login');toast('Este acesso foi encerrado após a entrada em outro dispositivo.',true);}}catch{}
 }
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)verifySession();});
 async function boot(){
@@ -614,6 +625,11 @@ async function boot(){
     try{const savedToken=localStorage.getItem('m3u-token');if(savedToken)state.token=savedToken;}catch{}
     const session=await api('/session');
     Object.assign(state,session);
+    if(!session.user){
+      state.user=null;
+      state.token=null;
+      try{localStorage.removeItem('m3u-token');}catch{}
+    }
     if(state.user)applyTheme(state.user.theme);
     await renderRoute();
     if(!sessionCheckTimer)sessionCheckTimer=setInterval(verifySession,15000);

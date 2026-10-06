@@ -31,15 +31,26 @@ app.use(express.urlencoded({ extended: true, limit: '120mb' }));
 app.use('/static', express.static(path.join(__dirname, '..', 'public', 'static')));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-// Default to Admin user
-let currentSessionUser = db.data.users[0] || null;
+function getSessionUser(req) {
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7).trim();
+        const payload = security.verifySessionToken(token);
+        if (payload) {
+            const user = db.findUserById(payload.id);
+            if (user && (!user.expiresAt || new Date(user.expiresAt) >= new Date())) {
+                return user;
+            }
+        }
+    }
+    return null;
+}
 
 function requireAuth(req, res, next) {
-    const authHeader = req.headers['authorization'];
     const apiKey = req.headers['x-api-key'] || req.query.api_key;
     const settings = db.getSettings();
 
-    // 1. API Key Check
+    // 1. API Key Check (para n8n / webhooks)
     if (apiKey && (apiKey === security.apiSecretKey || apiKey === settings.apiKey)) {
         req.isApiKey = true;
         req.user = db.data.users.find(u => u.role === 'admin') || db.data.users[0];
@@ -47,26 +58,19 @@ function requireAuth(req, res, next) {
     }
 
     // 2. Bearer Session Token Check
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.substring(7).trim();
-        const payload = security.verifySessionToken(token);
-        if (payload) {
-            req.user = db.findUserById(payload.id) || payload;
-            return next();
+    const user = getSessionUser(req);
+    if (user) {
+        if (user.blocked) {
+            return res.status(403).json({ error: 'Esta conta está temporariamente bloqueada.' });
         }
+        if (user.expiresAt && new Date(user.expiresAt) < new Date()) {
+            return res.status(403).json({ error: 'Seu acesso expirou. Entre em contato com o suporte.' });
+        }
+        req.user = user;
+        return next();
     }
 
-    // 3. Fallback for authenticated session user in local dev
-    if (!currentSessionUser && db.data.users.length > 0) {
-        currentSessionUser = db.data.users[0];
-    }
-
-    if (currentSessionUser && currentSessionUser.expiresAt && new Date(currentSessionUser.expiresAt) < new Date()) {
-        return res.status(403).json({ error: 'Seu acesso expirou. Entre em contato com o suporte.' });
-    }
-
-    req.user = currentSessionUser;
-    next();
+    return res.status(401).json({ error: 'Não autorizado. Faça login para continuar.' });
 }
 
 const apiRouter = express.Router();
@@ -75,11 +79,7 @@ const apiRouter = express.Router();
 // 1. Session & Auth Endpoints
 // -----------------------------------------------------------------------------
 apiRouter.get('/session', (req, res) => {
-    if (!currentSessionUser && db.data.users.length > 0) {
-        currentSessionUser = db.data.users[0];
-    }
-
-    const user = currentSessionUser;
+    const user = getSessionUser(req);
     const userId = user ? user.id : null;
 
     res.json({
@@ -87,6 +87,8 @@ apiRouter.get('/session', (req, res) => {
             id: user.id,
             name: user.name,
             username: user.username,
+            email: user.email || null,
+            avatar: user.avatar || null,
             role: user.role,
             theme: user.theme || 'dark',
             blocked: !!user.blocked,
@@ -137,13 +139,16 @@ apiRouter.post('/login', (req, res) => {
     user.lastLoginAt = new Date().toISOString();
     db.save();
 
-    currentSessionUser = user;
     db.addLog('auth', `Login realizado: ${user.username} (${user.role})`, user.id);
+    const token = security.createSessionToken(user);
 
     res.json({
+        token,
         id: user.id,
         name: user.name,
         username: user.username,
+        email: user.email || null,
+        avatar: user.avatar || null,
         role: user.role,
         theme: user.theme || 'dark',
         blocked: false
@@ -172,7 +177,6 @@ apiRouter.post('/auth/google', async (req, res) => {
                 googleId: 'demo_google_123456789'
             });
         }
-        currentSessionUser = user;
         const token = security.createSessionToken(user);
         return res.json({
             token,
@@ -243,7 +247,6 @@ apiRouter.post('/auth/google', async (req, res) => {
             return res.status(403).json({ error: `Acesso expirado em ${new Date(user.expiresAt).toLocaleDateString('pt-BR')}.` });
         }
 
-        currentSessionUser = user;
         db.addLog('auth', `Login realizado via Google: ${user.name} (${user.email || user.username})`, user.id);
 
         const token = security.createSessionToken(user);
@@ -278,8 +281,9 @@ apiRouter.post('/setup', (req, res) => {
         role: 'admin'
     });
 
-    currentSessionUser = admin;
+    const token = security.createSessionToken(admin);
     res.json({
+        token,
         id: admin.id,
         name: admin.name,
         username: admin.username,
@@ -289,10 +293,10 @@ apiRouter.post('/setup', (req, res) => {
 });
 
 apiRouter.post('/logout', (req, res) => {
-    if (currentSessionUser) {
-        db.addLog('auth', `Logout realizado: ${currentSessionUser.username}`, currentSessionUser.id);
+    const user = getSessionUser(req);
+    if (user) {
+        db.addLog('auth', `Logout realizado: ${user.username}`, user.id);
     }
-    currentSessionUser = null;
     res.json({ success: true });
 });
 
@@ -303,9 +307,8 @@ apiRouter.patch('/account', requireAuth, (req, res) => {
     if (theme) updates.theme = theme;
     if (password) updates.password = password;
 
-    const user = currentSessionUser || db.data.users[0];
+    const user = req.user;
     const updated = db.updateUser(user.id, updates);
-    currentSessionUser = updated;
     res.json({
         id: updated.id,
         name: updated.name,
@@ -331,7 +334,7 @@ apiRouter.patch('/settings', requireAuth, (req, res) => {
 // 2. Library & Playlists Endpoints
 // -----------------------------------------------------------------------------
 apiRouter.get('/library', requireAuth, (req, res) => {
-    const user = currentSessionUser || db.data.users[0];
+    const user = req.user;
     const userId = user.id;
     res.json({
         playlists: db.getPlaylists(userId),
@@ -342,7 +345,7 @@ apiRouter.get('/library', requireAuth, (req, res) => {
 });
 
 apiRouter.get('/playlists', requireAuth, (req, res) => {
-    const user = currentSessionUser || db.data.users[0];
+    const user = req.user;
     res.json(db.getPlaylists(user.id));
 });
 
@@ -363,7 +366,7 @@ apiRouter.post('/playlists', requireAuth, async (req, res) => {
             return res.status(400).json({ error: 'Nenhum canal ou transmissão válida foi encontrada na playlist.' });
         }
 
-        const user = currentSessionUser || db.data.users[0];
+        const user = req.user;
         const playlist = db.createPlaylist({
             userId: user.id,
             name: name || 'Playlist ' + (db.data.playlists.length + 1),
@@ -448,7 +451,7 @@ apiRouter.post('/hub/import/:id', requireAuth, async (req, res) => {
         if (!item) return res.status(404).json({ error: 'Playlist do Hub não encontrada.' });
 
         const channels = await m3uParser.fetchFromUrl(item.url);
-        const user = currentSessionUser || db.data.users[0];
+        const user = req.user;
 
         const playlist = db.createPlaylist({
             userId: user.id,
@@ -477,8 +480,8 @@ apiRouter.get('/epg/channel/:id', (req, res) => {
 
 // Custom M3U Generator Endpoint
 apiRouter.get('/m3u/custom', (req, res) => {
-    const { filter, groups, sort, userId } = req.query;
-    const targetUser = userId ? db.findUserById(userId) : (currentSessionUser || db.data.users[0]);
+    const sessionUser = getSessionUser(req);
+    const targetUser = userId ? db.findUserById(userId) : sessionUser;
     if (!targetUser) return res.status(401).send('#EXTM3U\n#EXTINF:-1,ACESSO NÃO AUTORIZADO\nhttp://invalid');
 
     let allChannels = [];
@@ -526,7 +529,7 @@ apiRouter.post('/backup/import', requireAuth, (req, res) => {
 });
 
 apiRouter.delete('/playlists/:id', requireAuth, (req, res) => {
-    const user = currentSessionUser || db.data.users[0];
+    const user = req.user;
     const success = db.deletePlaylist(req.params.id, user.id);
     if (!success) return res.status(404).json({ error: 'Playlist não encontrada.' });
     res.json({ success: true });
@@ -558,7 +561,7 @@ apiRouter.get('/epg/now', (req, res) => {
 
 apiRouter.get('/epg/grid', requireAuth, (req, res) => {
     const { playlistId, hours = 4, group } = req.query;
-    const user = currentSessionUser || db.data.users[0];
+    const user = req.user;
     let channels = [];
 
     if (playlistId) {
@@ -579,7 +582,9 @@ apiRouter.get('/epg/grid', requireAuth, (req, res) => {
 });
 
 apiRouter.get('/epg/xmltv', (req, res) => {
-    const user = currentSessionUser || db.data.users[0];
+    const sessionUser = getSessionUser(req);
+    const user = (req.query.userId ? db.findUserById(req.query.userId) : sessionUser) || db.data.users.find(u => u.role === 'admin');
+    if (!user) return res.status(401).send('<!-- Não autorizado -->');
     const playlists = db.getPlaylists(user.id);
     let channels = [];
     for (const pl of playlists) {
@@ -598,7 +603,7 @@ apiRouter.get('/channels/mirrors', requireAuth, (req, res) => {
     const { name, currentUrl } = req.query;
     if (!name) return res.json({ mirrors: [] });
 
-    const user = currentSessionUser || db.data.users[0];
+    const user = req.user;
     const playlists = db.getPlaylists(user.id);
     const cleanSearchName = name.toLowerCase().replace(/[^\w\s]/gi, '').trim();
 
@@ -683,7 +688,7 @@ apiRouter.post('/automation/probe-speed', requireAuth, async (req, res) => {
 apiRouter.put('/favorites', requireAuth, (req, res) => {
     const { channel, playlistId } = req.body;
     if (!channel) return res.status(400).json({ error: 'Canal inválido.' });
-    const user = currentSessionUser || db.data.users[0];
+    const user = req.user;
     const favs = db.toggleFavorite(user.id, channel, playlistId || 'default');
     res.json(favs);
 });
@@ -691,13 +696,13 @@ apiRouter.put('/favorites', requireAuth, (req, res) => {
 apiRouter.post('/history', requireAuth, (req, res) => {
     const { playlistId, channel } = req.body;
     if (!channel) return res.status(400).json({ error: 'Canal inválido.' });
-    const user = currentSessionUser || db.data.users[0];
+    const user = req.user;
     const hist = db.addHistory(user.id, playlistId, channel);
     res.json(hist);
 });
 
 apiRouter.delete('/history', requireAuth, (req, res) => {
-    const user = currentSessionUser || db.data.users[0];
+    const user = req.user;
     const hist = db.clearHistory(user.id);
     res.json(hist);
 });
@@ -705,7 +710,7 @@ apiRouter.delete('/history', requireAuth, (req, res) => {
 apiRouter.put('/progress', requireAuth, (req, res) => {
     const { playlistId, channel, position, duration } = req.body;
     if (!channel) return res.status(400).json({ error: 'Canal inválido.' });
-    const user = currentSessionUser || db.data.users[0];
+    const user = req.user;
     const progs = db.saveProgress(user.id, playlistId, channel, position, duration);
     res.json(progs);
 });
@@ -795,7 +800,7 @@ apiRouter.post('/webhooks/validate', requireAuth, async (req, res) => {
         if (url && !playlistId) {
             const channels = await m3uParser.fetchFromUrl(url);
             const newPl = db.createPlaylist({
-                userId: db.data.users[0].id,
+                userId: req.user.id,
                 name: name || 'Importada via n8n',
                 url,
                 channels

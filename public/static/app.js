@@ -73,7 +73,7 @@ const paths = {
   globe:'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0M2 12h20M12 2c5 5 5 15 0 20-5-5-5-15 0-20',
 };
 function icon(name) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name] || paths.tv}"/></svg>`; }
-function brand(route = 'home') { return `<a class="brand" href="#/${route}" aria-label="JstudioPlay — Início"><img src="/static/logo.svg" alt="JstudioPlay"><span>Jstudio<span>Play</span></span></a>`; }
+function brand(route = 'login') { return `<a class="brand" href="#/${state.user ? 'dashboard' : 'login'}" aria-label="JstudioPlay — Início"><img src="/static/logo.svg" alt="JstudioPlay"><span>Jstudio<span>Play</span></span></a>`; }
 let initialToken=null;
 try { initialToken = localStorage.getItem('m3u-token'); } catch {}
 const state = {user:null,token:initialToken,setupRequired:false,setupAllowed:false,relayEnabled:false,relayMode:false,page:'',playlists:[],favorites:[],history:[],progress:[],users:[],logs:[],channels:[],activePlaylist:'',category:'',query:'',channelPage:1,selected:null,groups:[],loading:false};
@@ -190,17 +190,18 @@ function userRows(query){return state.users.filter(({user:u})=>(u.name+' '+u.use
 function logsPage(){return `${heading('Logs da plataforma','Acompanhe os últimos acessos e alterações administrativas no JstudioPlay.')}<section class="card table-wrap"><table class="data-table"><thead><tr><th>Data e hora</th><th>Usuário</th><th>Atividade</th></tr></thead><tbody>${state.logs.map(l=>`<tr><td><small>${dateTime(l.at)}</small></td><td>${esc(l.user)}</td><td>${esc(l.action)}</td></tr>`).join('')||'<tr><td colspan="3">Nenhuma atividade registrada.</td></tr>'}</tbody></table><div class="table-foot">Até 500 atividades mais recentes. Endereços das playlists e senhas não são registrados.</div></section>`;}
 
 async function renderRoute(){
-  const raw=location.hash.slice(1)||'/home';
-  if(!raw.startsWith('/')){if(state.page==='home'){document.getElementById(raw)?.scrollIntoView({behavior:'smooth'});return;}navigate('home');return;}
+  const defaultPage = state.user ? '/dashboard' : '/login';
+  const raw = location.hash.slice(1) || defaultPage;
+  if(!raw.startsWith('/')){navigate(state.user ? 'dashboard' : 'login');return;}
   const generation=++routeGeneration;
   let page=raw.slice(1).split('?')[0];
-  if(!['home','login',...Object.keys(pageNames)].includes(page))page='home';
-  if(!state.user && page!=='home' && page!=='login'){navigate('login');return;}
+  if(page==='home') page = state.user ? 'dashboard' : 'login';
+  if(!['login',...Object.keys(pageNames)].includes(page))page = state.user ? 'dashboard' : 'login';
+  if(!state.user && page!=='login'){navigate('login');return;}
   if(state.user && page==='login'){navigate('dashboard');return;}
   if((page==='users'&&!['admin','manager'].includes(state.user?.role))||(page==='logs'&&state.user?.role!=='admin')){navigate('dashboard');return;}
   stopPlayback();state.page=page;$('#modal').close();
   document.title=`${pageNames[page]|| (page==='login'?'Entrar':'Do seu jeito.')} — JstudioPlay`;
-  if(page==='home'){$('#app').innerHTML=landing();window.scrollTo(0,0);if(tvMode)focusTV(visibleTVTargets()[0]);return;}
   if(page==='login'){$('#app').innerHTML=loginPage();if(tvMode)focusTV($('#username')||visibleTVTargets()[0]);initGoogleAuth();return;}
   $('#app').innerHTML=shell('<div class="loading-state">Carregando JstudioPlay…<div class="loading-line"></div></div>');
   setMenu(false);
@@ -529,7 +530,7 @@ document.addEventListener('click',async event=>{
       state.token=null;
       state.user=null;
       clearPrivateState();
-      navigate('home');
+      navigate('login');
       return;
     }
     if(action==='add-playlist'){if(state.playlists.length>=maxPlaylistsPerAccount){toast('Limite de 2 playlists por conta.',true);return;}playlistModal();return;}

@@ -97,13 +97,21 @@ echo   [5] Desativar Inicializacao Automatica do Windows
 echo   [6] Liberar Porta %APP_PORT% (Fechar processos Node)
 echo   [7] Iniciar Cloudflare Tunnel (Acesso Externo Seguro)
 echo   [8] Compilar APK Android (Celular & Android TV)
+echo   [9] Compilar Android Bundle (.AAB) para Google Play Store
 echo   [0] Sair
 echo.
 
-choice /c 123456780 /t 3 /d 1 /m " Selecione uma opcao [Iniciando padrao em 3s]: "
+choice /c 1234567890 /t 3 /d 1 /m " Selecione uma opcao [Iniciando padrao em 3s]: "
 set "OPT=%errorlevel%"
 
-if "%OPT%"=="9" exit /b 0
+if "%OPT%"=="10" exit /b 0
+
+if "%OPT%"=="9" (
+    echo.
+    call "%~dp0build_aab.bat"
+    cls
+    goto :mode_start
+)
 
 if "%OPT%"=="8" (
     echo.

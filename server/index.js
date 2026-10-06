@@ -221,10 +221,14 @@ apiRouter.post('/auth/google', async (req, res) => {
         // Localiza usuário por Google ID ou por e-mail correspondente
         let user = db.findUserByGoogleId(googleId) || db.findUserByEmail(email);
 
+        const adminEmail = (process.env.ADMIN_EMAIL || 'joaocarlosrh23@gmail.com').toLowerCase();
+        const shouldBeAdmin = email && email.toLowerCase() === adminEmail;
+
         if (user) {
             // Atualiza Google ID e avatar se necessário
             if (!user.googleId) user.googleId = googleId;
             if (picture && !user.avatar) user.avatar = picture;
+            if (shouldBeAdmin && user.role !== 'admin') user.role = 'admin';
             user.lastLoginAt = new Date().toISOString();
             db.save();
         } else {
@@ -236,7 +240,7 @@ apiRouter.post('/auth/google', async (req, res) => {
                 email,
                 googleId,
                 avatar: picture,
-                role: isFirst ? 'admin' : 'user'
+                role: (isFirst || shouldBeAdmin) ? 'admin' : 'user'
             });
         }
 
@@ -1033,6 +1037,10 @@ app.get('/series/:username/:password/:streamId', (req, res) => {
 
 app.use('/api', apiRouter);
 app.use('/', apiRouter);
+
+app.get('/privacy', (req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'public', 'privacy.html'));
+});
 
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));

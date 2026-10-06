@@ -164,13 +164,13 @@ function landing(){
 function loginPage(){
   const setup=state.setupRequired;
   const allowed=!setup||state.setupAllowed;
-  return `<div class="auth-page"><header class="auth-top"><a class="back-link" href="#/home">${icon('left')}Voltar ao início</a>${themeButton()}</header><main class="auth-wrap"><section class="auth-card">${brand('home')}<h1>${setup?'Configurar JstudioPlay':'Bem-vindo de volta'}</h1><p>${setup?'Configure o primeiro administrador da plataforma.':'Acesse sua conta para continuar'}</p>${allowed?`<form id="login-form" class="stack"><div><label for="username">Usuário</label><div class="field">${icon('user')}<input id="username" name="username" placeholder="Seu usuário" autocomplete="username" required minlength="3" maxlength="40" pattern="[a-zA-Z0-9_.\\x2d]+" autofocus></div></div><div><label for="password">Senha</label><div class="field password">${icon('lock')}<input id="password" name="password" placeholder="${setup?'Crie uma senha (mín. 10 caracteres)':'Sua senha'}" type="password" autocomplete="${setup?'new-password':'current-password'}" required ${setup?'minlength="10"':''} maxlength="256"><button class="icon-btn" type="button" data-action="password" data-target="password" aria-label="Mostrar senha">${icon('eye')}</button></div></div>${!setup?'<label class="check"><input name="remember" type="checkbox">Lembrar de mim</label>':'<div class="info">'+icon('shield')+'Você poderá criar as contas dos clientes no painel de usuários.</div>'}<div class="form-error" role="alert"></div><button class="btn" type="submit">${setup?'Criar administrador':'Entrar no JstudioPlay'}</button></form>`:`<div class="info">${icon('info')}Configure ADMIN_USERNAME e ADMIN_PASSWORD no servidor para criar o administrador.</div>`}${!setup?'<button class="forgot" data-action="forgot">Esqueceu sua senha?</button>':''}</section></main><footer class="auth-footer">JstudioPlay · TV, Cinema & Streaming.</footer></div>`;
+  return `<div class="auth-page"><header class="auth-top"><a class="back-link" href="#/home">${icon('left')}Voltar ao início</a>${themeButton()}</header><main class="auth-wrap"><section class="auth-card">${brand('home')}<h1>${setup?'Configurar JstudioPlay':'Bem-vindo de volta'}</h1><p>${setup?'Configure o primeiro administrador da plataforma.':'Acesse sua conta para continuar'}</p>${allowed?`<form id="login-form" class="stack"><div><label for="username">Usuário</label><div class="field">${icon('user')}<input id="username" name="username" placeholder="Seu usuário" autocomplete="username" required minlength="3" maxlength="40" pattern="[a-zA-Z0-9_.\\x2d]+" autofocus></div></div><div><label for="password">Senha</label><div class="field password">${icon('lock')}<input id="password" name="password" placeholder="${setup?'Crie uma senha (mín. 10 caracteres)':'Sua senha'}" type="password" autocomplete="${setup?'new-password':'current-password'}" required ${setup?'minlength="10"':''} maxlength="256"><button class="icon-btn" type="button" data-action="password" data-target="password" aria-label="Mostrar senha">${icon('eye')}</button></div></div>${!setup?'<label class="check"><input name="remember" type="checkbox">Lembrar de mim</label>':'<div class="info">'+icon('shield')+'Você poderá criar as contas dos clientes no painel de usuários.</div>'}<div class="form-error" role="alert"></div><button class="btn" type="submit">${setup?'Criar administrador':'Entrar no JstudioPlay'}</button></form><div class="auth-divider"><span>ou continue com</span></div><button class="google-btn" type="button" data-action="google-login"><svg class="google-icon" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>Continuar com o Google</button>`:`<div class="info">${icon('info')}Configure ADMIN_USERNAME e ADMIN_PASSWORD no servidor para criar o administrador.</div>`}${!setup?'<button class="forgot" data-action="forgot">Esqueceu sua senha?</button>':''}</section></main><footer class="auth-footer">JstudioPlay · TV, Cinema & Streaming.</footer></div>`;
 }
 const pageNames={dashboard:'Início',playlists:'Minhas Playlists',player:'Player',automation:'M3U Hub & Automação',favorites:'Favoritos',history:'Histórico',settings:'Configurações',users:'Usuários',logs:'Logs'};
 function navLink(page,symbol,label,count){return `<a class="nav-link ${state.page===page?'active':''}" href="#/${page}" title="${esc(label)}" aria-label="${esc(label)}" ${state.page===page?'aria-current="page"':''}>${icon(symbol)}<span class="nav-label">${label}</span>${count!==undefined?`<span class="nav-count">${count}</span>`:''}</a>`;}
 function shell(content){
   const collapsed=sidebarCollapsed();
-  return `<div class="shell ${collapsed?'sidebar-collapsed':''}"><button class="mobile-overlay" data-action="menu" aria-label="Fechar menu"></button><aside class="sidebar" id="account-sidebar">${brand('dashboard')}<button class="sidebar-toggle" data-action="toggle-sidebar" aria-controls="account-sidebar" aria-expanded="${!collapsed}" aria-label="${collapsed?'Expandir menu':'Recolher menu'}" title="${collapsed?'Expandir menu':'Recolher menu'}">${icon('right')}</button><div class="nav-caption">Biblioteca</div><nav class="nav-list" aria-label="Menu da conta">${navLink('dashboard','home','Início')}${navLink('playlists','playlist','Minhas Playlists',state.playlists.length)}${navLink('player','tv','Player')}${navLink('automation','globe','M3U Hub & Automação')}${navLink('favorites','heart','Favoritos')}${navLink('history','clock','Histórico')}${navLink('settings','settings','Configurações')}${['admin','manager'].includes(state.user.role)?`<div class="divider"></div><div class="nav-caption">${state.user.role==='manager'?'Gestão':'Administração'}</div>${navLink('users','users','Usuários')}${state.user.role==='admin'?navLink('logs','playlist','Logs'):''}`:''}</nav><div class="sidebar-bottom"><button class="nav-link" data-action="logout" title="Sair" aria-label="Sair">${icon('logout')}<span class="nav-label">Sair</span></button><div class="plan-note"><span>JstudioPlay Pro</span>Seu conteúdo sempre por perto.</div></div></aside><div class="main"><header class="topbar"><button class="icon-btn mobile-menu" data-action="menu" aria-label="Abrir menu" aria-expanded="false">${icon('menu')}</button><div class="breadcrumb"><span>Biblioteca</span>${icon('right')}<strong>${pageNames[state.page]||'Início'}</strong></div><div class="user-menu">${themeButton()}<span class="top-separator"></span><a class="avatar" href="#/settings" aria-label="Configurações da conta">${esc(initials(state.user.name))}</a><div class="user-name">${esc(state.user.name)}<small>${state.user.role==='admin'?'Administrador':state.user.role==='manager'?'Gestor':'Minha conta'}</small></div></div></header><main class="content ${state.page==='player'?'player-content':''}" id="content">${content}</main></div></div>`;
+  return `<div class="shell ${collapsed?'sidebar-collapsed':''}"><button class="mobile-overlay" data-action="menu" aria-label="Fechar menu"></button><aside class="sidebar" id="account-sidebar">${brand('dashboard')}<button class="sidebar-toggle" data-action="toggle-sidebar" aria-controls="account-sidebar" aria-expanded="${!collapsed}" aria-label="${collapsed?'Expandir menu':'Recolher menu'}" title="${collapsed?'Expandir menu':'Recolher menu'}">${icon('right')}</button><div class="nav-caption">Biblioteca</div><nav class="nav-list" aria-label="Menu da conta">${navLink('dashboard','home','Início')}${navLink('playlists','playlist','Minhas Playlists',state.playlists.length)}${navLink('player','tv','Player')}${navLink('automation','globe','M3U Hub & Automação')}${navLink('favorites','heart','Favoritos')}${navLink('history','clock','Histórico')}${navLink('settings','settings','Configurações')}${['admin','manager'].includes(state.user.role)?`<div class="divider"></div><div class="nav-caption">${state.user.role==='manager'?'Gestão':'Administração'}</div>${navLink('users','users','Usuários')}${state.user.role==='admin'?navLink('logs','playlist','Logs'):''}`:''}</nav><div class="sidebar-bottom"><button class="nav-link" data-action="logout" title="Sair" aria-label="Sair">${icon('logout')}<span class="nav-label">Sair</span></button><div class="plan-note"><span>JstudioPlay Pro</span>Seu conteúdo sempre por perto.</div></div></aside><div class="main"><header class="topbar"><button class="icon-btn mobile-menu" data-action="menu" aria-label="Abrir menu" aria-expanded="false">${icon('menu')}</button><div class="breadcrumb"><span>Biblioteca</span>${icon('right')}<strong>${pageNames[state.page]||'Início'}</strong></div><div class="user-menu">${themeButton()}<span class="top-separator"></span><a class="avatar" href="#/settings" aria-label="Configurações da conta">${state.user.avatar?`<img src="${esc(state.user.avatar)}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`:esc(initials(state.user.name))}</a><div class="user-name">${esc(state.user.name)}<small>${state.user.role==='admin'?'Administrador':state.user.role==='manager'?'Gestor':'Minha conta'}</small></div></div></header><main class="content ${state.page==='player'?'player-content':''}" id="content">${content}</main></div></div>`;
 }
 function playlistRows(){return state.playlists.map((p,i)=>`<article class="card playlist-row"><div class="playlist-icon" style="${tileStyle(i)}">${icon('playlist')}</div><div class="playlist-info"><h3>${esc(p.name)}</h3><p>${number(p.total)} canais · ${number(p.categories)} categorias</p><p>Última atualização: ${p.updated?dateTime(p.updated):'data indisponível'}</p></div><span class="badge">Ativa</span>${p.sourceKind!=='file'?`<button class="icon-btn subtle-icon" data-action="refresh-playlist" data-id="${p.id}" aria-label="Atualizar ${esc(p.name)}" title="Atualizar playlist">${icon('refresh')}</button>`:''}<button class="icon-btn play-circle" data-action="open-playlist" data-id="${p.id}" aria-label="Abrir ${esc(p.name)}">${icon('play')}</button><button class="icon-btn subtle-icon" data-action="playlist-options" data-id="${p.id}" aria-label="Opções de ${esc(p.name)}">${icon('more')}</button></article>`).join('');}
 function playlistSection(){return `<section><div class="section-heading"><h2>Minhas playlists</h2>${addButton()}</div><div class="playlist-grid">${state.playlists.length?playlistRows():`<div class="card">${empty('Sua próxima experiência começa aqui','Adicione uma playlist para organizar seus canais e começar a assistir.',addButton())}</div>`}</div></section>`;}
@@ -193,7 +193,7 @@ async function renderRoute(){
   stopPlayback();state.page=page;$('#modal').close();
   document.title=`${pageNames[page]|| (page==='login'?'Entrar':'Do seu jeito.')} — JstudioPlay`;
   if(page==='home'){$('#app').innerHTML=landing();window.scrollTo(0,0);if(tvMode)focusTV(visibleTVTargets()[0]);return;}
-  if(page==='login'){$('#app').innerHTML=loginPage();if(tvMode)focusTV($('#username')||visibleTVTargets()[0]);return;}
+  if(page==='login'){$('#app').innerHTML=loginPage();if(tvMode)focusTV($('#username')||visibleTVTargets()[0]);initGoogleAuth();return;}
   $('#app').innerHTML=shell('<div class="loading-state">Carregando JstudioPlay…<div class="loading-line"></div></div>');
   setMenu(false);
   try {
@@ -413,16 +413,117 @@ function playlistModal(){openModal('Adicionar playlist',`<form id="playlist-form
 function userModal(){openModal('Novo usuário',`<form id="user-form" class="stack"><div><label for="new-user-name">Nome</label><input name="name" id="new-user-name" required maxlength="80" autofocus autocomplete="off"></div><div><label for="new-user-username">Usuário</label><input name="username" id="new-user-username" required minlength="3" maxlength="40" pattern="[a-zA-Z0-9_.\\x2d]+" autocomplete="off"><p class="help-text">Letras, números, ponto, hífen ou sublinhado.</p></div><div><label for="new-user-password">Senha inicial</label><input id="new-user-password" name="password" type="password" minlength="10" maxlength="256" required autocomplete="new-password"><p class="help-text">Mínimo de 10 caracteres. O cliente poderá alterá-la em Configurações.</p></div>${state.user.role==='admin'?'<div><label for="new-user-role">Perfil</label><select name="role" id="new-user-role"><option value="client">Usuário do player</option><option value="manager">Gestor (até 10 usuários)</option></select></div>':''}<div class="form-error" role="alert"></div><div class="dialog-actions"><button type="button" class="btn secondary" data-action="close-modal">Cancelar</button><button type="submit" class="btn">Criar usuário</button></div></form>`);}
 function userOptions(id){const u=state.users.find(v=>v.user.id===id)?.user;if(!u)return;openModal(`Gerenciar ${esc(u.username)}`,`<div class="stack"><p>${u.blocked?'A conta está bloqueada. Reative para permitir novos acessos.':'Ao bloquear a conta, as sessões do cliente serão encerradas.'}</p><button class="btn ${u.blocked?'':'danger'}" data-action="block-user" data-id="${id}">${u.blocked?'Reativar conta':'Bloquear conta'}</button><div class="divider"></div><form id="reset-form" class="stack" data-id="${id}"><div><label for="reset-password">Redefinir senha</label><input id="reset-password" name="password" type="password" minlength="10" maxlength="256" placeholder="Nova senha (mínimo de 10 caracteres)" autocomplete="new-password" required></div><div class="form-error" role="alert"></div><button class="btn secondary" type="submit">Salvar nova senha</button></form></div>`);}
 
+async function initGoogleAuth(){
+  try{
+    const config=await api('/auth/google/config');
+    if(window.google?.accounts?.id && config.clientId){
+      window.google.accounts.id.initialize({
+        client_id: config.clientId,
+        callback: handleGoogleCredentialResponse,
+        auto_select: false,
+        cancel_on_tap_outside: true
+      });
+    }
+  }catch{}
+}
+
+async function handleGoogleCredentialResponse(response){
+  if(!response?.credential)return;
+  try{
+    const data=await api('/auth/google','POST',{credential:response.credential});
+    state.user=data;
+    if(data.token){
+      state.token=data.token;
+      try{localStorage.setItem('m3u-token',data.token);}catch{}
+    }
+    state.setupRequired=false;
+    applyTheme(state.user.theme||'dark');
+    toast(`Bem-vindo, ${state.user.name}!`);
+    navigate('dashboard');
+  }catch(err){
+    toast(err.message,true);
+  }
+}
+
+async function triggerGoogleLogin(){
+  try{
+    const config=await api('/auth/google/config');
+    if(config.enabled && config.clientId && window.google?.accounts?.id){
+      window.google.accounts.id.initialize({
+        client_id: config.clientId,
+        callback: handleGoogleCredentialResponse
+      });
+      window.google.accounts.id.prompt(notification=>{
+        if(notification.isNotDisplayed() || notification.isSkippedMoment()){
+          toast('Permita popups do Google para continuar o login.',true);
+        }
+      });
+    }else{
+      openModal('Login com Google',`
+        <div class="stack" style="text-align:center; padding:10px 0;">
+          <div style="font-size:36px; margin-bottom:4px;">🔐</div>
+          <h3>Configuração do Google OAuth</h3>
+          <p style="font-size:12px; line-height:1.6; color:var(--muted);">
+            Para ativar o login oficial com o Google, defina a chave <code>GOOGLE_CLIENT_ID</code> no arquivo <code>.env</code> do servidor.
+          </p>
+          <div class="info" style="text-align:left;">
+            ${icon('info')}
+            <span>Você pode criar seu Client ID gratuitamente no <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="text-decoration:underline; font-weight:700;">Google Cloud Console</a>.</span>
+          </div>
+          <div style="margin-top:10px;">
+            <button class="btn primary" data-action="google-demo-login" style="width:100%;">
+              Entrar em Modo Demonstração (Teste)
+            </button>
+          </div>
+        </div>
+      `);
+    }
+  }catch(err){
+    toast(err.message,true);
+  }
+}
+
 document.addEventListener('click',async event=>{
   const b=event.target.closest('[data-action]');if(!b||b.disabled)return;const action=b.dataset.action;
   try{
+    if(action==='google-login'){await triggerGoogleLogin();return;}
+    if(action==='google-demo-login'){
+      b.disabled=true;
+      try{
+        const data=await api('/auth/google','POST',{demo:true});
+        state.user=data;
+        if(data.token){
+          state.token=data.token;
+          try{localStorage.setItem('m3u-token',data.token);}catch{}
+        }
+        state.setupRequired=false;
+        $('#modal').close();
+        applyTheme(state.user.theme||'dark');
+        toast(`Conectado como ${state.user.name}!`);
+        navigate('dashboard');
+      }catch(err){
+        b.disabled=false;
+        toast(err.message,true);
+      }
+      return;
+    }
     if(action==='theme'){applyTheme(theme==='dark'?'light':'dark');if(state.user)state.user=await api('/account','PATCH',{theme});return;}
     if(action==='menu'){setMenu(!$('.shell').classList.contains('menu-open'));return;}
     if(action==='toggle-sidebar'){toggleSidebar();return;}
     if(action==='close-modal'){$('#modal').close();return;}
     if(action==='password'){const input=document.getElementById(b.dataset.target);input.type=input.type==='password'?'text':'password';b.setAttribute('aria-label',input.type==='password'?'Mostrar senha':'Ocultar senha');return;}
     if(action==='forgot'){openModal('Recuperar acesso',`<p>Solicite ao administrador da plataforma uma nova senha. Depois de entrar, você pode alterá-la em Configurações.</p><p class="help-text">Se você é o administrador, consulte o procedimento de recuperação no README do servidor.</p><button class="btn" data-action="close-modal">Entendi</button>`);return;}
-    if(action==='logout'){stopPlayback();await progressWrites.catch(()=>{});await api('/logout','POST',{});state.user=null;clearPrivateState();navigate('home');return;}
+    if(action==='logout'){
+      stopPlayback();
+      await progressWrites.catch(()=>{});
+      await api('/logout','POST',{});
+      try{localStorage.removeItem('m3u-token');}catch{}
+      state.token=null;
+      state.user=null;
+      clearPrivateState();
+      navigate('home');
+      return;
+    }
     if(action==='add-playlist'){if(state.playlists.length>=maxPlaylistsPerAccount){toast('Limite de 2 playlists por conta.',true);return;}playlistModal();return;}
     if(action==='source-tab'){const file=b.dataset.source==='file';$('#url-field').hidden=file;$('#file-field').hidden=!file;$('#playlist-url').disabled=file;$('#playlist-url').required=!file;$('#playlist-file').disabled=!file;$('#playlist-file').required=file;document.querySelectorAll('[data-action="source-tab"]').forEach(x=>x.classList.toggle('active',x===b));return;}
     if(action==='open-playlist'){state.activePlaylist=b.dataset.id;pendingChannel=null;navigate('player');return;}
@@ -510,6 +611,7 @@ async function verifySession(){
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)verifySession();});
 async function boot(){
   try{
+    try{const savedToken=localStorage.getItem('m3u-token');if(savedToken)state.token=savedToken;}catch{}
     const session=await api('/session');
     Object.assign(state,session);
     if(state.user)applyTheme(state.user.theme);

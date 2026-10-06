@@ -112,22 +112,42 @@ class Database {
     }
 
     findUserByUsername(username) {
-        return this.data.users.find(u => u.username.toLowerCase() === username.toLowerCase());
+        if (!username) return null;
+        return this.data.users.find(u => u.username && u.username.toLowerCase() === username.toLowerCase());
     }
 
     findUserById(id) {
+        if (!id) return null;
         return this.data.users.find(u => u.id === id);
     }
 
-    createUser({ name, username, password, role = 'user', expiresAt = null, playlists = [] }) {
-        if (this.findUserByUsername(username)) {
+    findUserByGoogleId(googleId) {
+        if (!googleId) return null;
+        return this.data.users.find(u => u.googleId === googleId);
+    }
+
+    findUserByEmail(email) {
+        if (!email) return null;
+        const norm = email.toLowerCase().trim();
+        return this.data.users.find(u => 
+            (u.email && u.email.toLowerCase() === norm) || 
+            (u.username && u.username.toLowerCase() === norm)
+        );
+    }
+
+    createUser({ name, username, password, role = 'user', expiresAt = null, playlists = [], googleId = null, email = null, avatar = null }) {
+        if (username && this.findUserByUsername(username)) {
             throw new Error('Nome de usuário já está em uso.');
         }
+        const pwd = password || crypto.randomBytes(32).toString('hex');
         const user = {
             id: 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-            name: name || username,
-            username,
-            passwordHash: crypto.createHash('sha256').update(password).digest('hex'),
+            name: name || username || 'Usuário Google',
+            username: username || email || ('google_' + Date.now()),
+            email: email || null,
+            googleId: googleId || null,
+            avatar: avatar || null,
+            passwordHash: crypto.createHash('sha256').update(pwd).digest('hex'),
             role: role || 'user',
             theme: 'dark',
             blocked: false,
@@ -137,7 +157,7 @@ class Database {
             lastLoginAt: null
         };
         this.data.users.push(user);
-        this.addLog('user', `Novo usuário cadastrado: ${username} (Expira: ${expiresAt || 'Nunca'})`);
+        this.addLog('user', `Novo usuário cadastrado: ${user.username} ${googleId ? '(via Google OAuth)' : ''} (Expira: ${expiresAt || 'Nunca'})`);
         this.save();
         return user;
     }

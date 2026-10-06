@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const crypto = require('crypto');
+const axios = require('axios');
 
 const db = require('./database');
 const m3uParser = require('./m3uParser');
@@ -147,6 +148,121 @@ apiRouter.post('/login', (req, res) => {
         theme: user.theme || 'dark',
         blocked: false
     });
+});
+
+apiRouter.get('/auth/google/config', (req, res) => {
+    res.json({
+        enabled: !!process.env.GOOGLE_CLIENT_ID,
+        clientId: process.env.GOOGLE_CLIENT_ID || ''
+    });
+});
+
+apiRouter.post('/auth/google', async (req, res) => {
+    const { credential, demo } = req.body;
+
+    // Suporte a modo Demonstração / Teste local enquanto o usuário configura o Client ID no Google Cloud
+    if (demo && !process.env.GOOGLE_CLIENT_ID) {
+        let user = db.findUserByEmail('demo.google@jstudioplay.app');
+        if (!user) {
+            user = db.createUser({
+                name: 'Usuário Google (Demo)',
+                username: 'google_demo',
+                email: 'demo.google@jstudioplay.app',
+                role: db.data.users.length === 0 ? 'admin' : 'user',
+                googleId: 'demo_google_123456789'
+            });
+        }
+        currentSessionUser = user;
+        const token = security.createSessionToken(user);
+        return res.json({
+            token,
+            id: user.id,
+            name: user.name,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            theme: user.theme || 'dark',
+            avatar: user.avatar,
+            blocked: false
+        });
+    }
+
+    if (!credential) {
+        return res.status(400).json({ error: 'Credencial do Google não informada.' });
+    }
+
+    try {
+        // Validação criptográfica oficial via endpoint tokeninfo do Google
+        const googleRes = await axios.get('https://oauth2.googleapis.com/tokeninfo', {
+            params: { id_token: credential },
+            timeout: 7000
+        });
+
+        const payload = googleRes.data;
+        if (!payload || !payload.sub || !payload.email) {
+            return res.status(401).json({ error: 'Token do Google inválido ou expirado.' });
+        }
+
+        // Validação opcional de Client ID se configurado no .env
+        if (process.env.GOOGLE_CLIENT_ID && payload.aud !== process.env.GOOGLE_CLIENT_ID) {
+            return res.status(401).json({ error: 'O token do Google não corresponde ao Client ID configurado no servidor.' });
+        }
+
+        const googleId = payload.sub;
+        const email = payload.email;
+        const name = payload.name || payload.given_name || email.split('@')[0];
+        const picture = payload.picture || null;
+
+        // Localiza usuário por Google ID ou por e-mail correspondente
+        let user = db.findUserByGoogleId(googleId) || db.findUserByEmail(email);
+
+        if (user) {
+            // Atualiza Google ID e avatar se necessário
+            if (!user.googleId) user.googleId = googleId;
+            if (picture && !user.avatar) user.avatar = picture;
+            user.lastLoginAt = new Date().toISOString();
+            db.save();
+        } else {
+            // Cria novo usuário automaticamente
+            const isFirst = db.data.users.length === 0;
+            user = db.createUser({
+                name,
+                username: email,
+                email,
+                googleId,
+                avatar: picture,
+                role: isFirst ? 'admin' : 'user'
+            });
+        }
+
+        if (user.blocked) {
+            return res.status(403).json({ error: 'Esta conta está temporariamente bloqueada.' });
+        }
+
+        if (user.expiresAt && new Date(user.expiresAt) < new Date()) {
+            return res.status(403).json({ error: `Acesso expirado em ${new Date(user.expiresAt).toLocaleDateString('pt-BR')}.` });
+        }
+
+        currentSessionUser = user;
+        db.addLog('auth', `Login realizado via Google: ${user.name} (${user.email || user.username})`, user.id);
+
+        const token = security.createSessionToken(user);
+
+        res.json({
+            token,
+            id: user.id,
+            name: user.name,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            theme: user.theme || 'dark',
+            avatar: user.avatar,
+            blocked: false
+        });
+    } catch (err) {
+        console.error('Erro na autenticação do Google:', err.message);
+        return res.status(401).json({ error: 'Falha ao validar credencial com o Google: ' + (err.response?.data?.error_description || err.message) });
+    }
 });
 
 apiRouter.post('/setup', (req, res) => {

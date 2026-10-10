@@ -20,10 +20,21 @@ if not exist "cloudflared.exe" (
     echo  [OK] Download concluido com sucesso!
 )
 
-echo  [+] Iniciando tunel HTTPS para http://localhost:3000 ...
+set "APP_PORT=3030"
+if exist "CREDENCIAIS\.env" (
+    for /f "usebackq tokens=1,2 delims==" %%a in ("CREDENCIAIS\.env") do (
+        if /i "%%a"=="PORT" set "APP_PORT=%%b"
+    )
+) else if exist ".env" (
+    for /f "usebackq tokens=1,2 delims==" %%a in (".env") do (
+        if /i "%%a"=="PORT" set "APP_PORT=%%b"
+    )
+)
+
+echo  [+] Iniciando tunel HTTPS para http://localhost:%APP_PORT% ...
 echo  [+] Aguarde a URL .trycloudflare.com ser gerada abaixo:
 echo.
 
-cloudflared.exe tunnel --url http://localhost:3000
+cloudflared.exe tunnel --url http://localhost:%APP_PORT%
 
 pause

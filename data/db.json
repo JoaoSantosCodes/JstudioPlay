@@ -23,7 +23,7 @@
       "theme": "dark",
       "blocked": false,
       "createdAt": "2026-10-04T17:15:09.425Z",
-      "lastLoginAt": "2026-10-10T22:23:13.009Z"
+      "lastLoginAt": "2026-10-10T22:52:03.724Z"
     },
     {
       "id": "usr_1791136453845_ic3l",
@@ -147,7 +147,7 @@
       "checkStatus": "running",
       "lastChecked": "2026-10-04T17:58:05.974Z",
       "autoSync": true,
-      "updated": "2026-10-10T22:23:13.035Z",
+      "updated": "2026-10-10T22:52:03.762Z",
       "created": "2026-10-04T17:15:36.320Z",
       "categories": 44
     },
@@ -658,7 +658,7 @@
         "chno": "",
         "status": "offline",
         "latency": null,
-        "lastChecked": "2026-10-10T22:23:13.313Z",
+        "lastChecked": "2026-10-10T22:52:04.015Z",
         "url": "https://cdn.jmvstream.com/w/LVW-8155/ngrp:LVW8155_41E1ciuCvO_all/playlist.m3u8",
         "streamType": "live"
       },
@@ -672,8 +672,8 @@
         "group": "Entertainment",
         "chno": "",
         "status": "online",
-        "latency": 51,
-        "lastChecked": "2026-10-10T22:23:13.124Z",
+        "latency": 79,
+        "lastChecked": "2026-10-10T22:52:03.918Z",
         "url": "http://170.83.16.50/AeE/index.m3u8",
         "streamType": "live"
       },
@@ -687,8 +687,8 @@
         "group": "General",
         "chno": "",
         "status": "online",
-        "latency": 203,
-        "lastChecked": "2026-10-10T22:23:13.278Z",
+        "latency": 107,
+        "lastChecked": "2026-10-10T22:52:03.949Z",
         "url": "https://cdn.jmvstream.com/w/LVW-9715/LVW9715_12B26T62tm/playlist.m3u8",
         "streamType": "live"
       },
@@ -717,8 +717,8 @@
         "group": "Entertainment",
         "chno": "",
         "status": "online",
-        "latency": 104,
-        "lastChecked": "2026-10-06T19:54:55.750Z",
+        "latency": 74,
+        "lastChecked": "2026-10-10T22:52:03.920Z",
         "url": "http://168.197.104.22/ADULT_SWIM/index.m3u8",
         "streamType": "live"
       },
@@ -747,8 +747,8 @@
         "group": "Education;Outdoor",
         "chno": "",
         "status": "online",
-        "latency": 126,
-        "lastChecked": "2026-10-06T19:54:55.774Z",
+        "latency": 68,
+        "lastChecked": "2026-10-10T22:52:03.988Z",
         "url": "http://45.162.64.114/AGRO_CANAL/index.m3u8",
         "streamType": "live"
       },
@@ -762,8 +762,8 @@
         "group": "News",
         "chno": "",
         "status": "online",
-        "latency": 126,
-        "lastChecked": "2026-10-06T19:54:55.774Z",
+        "latency": 53,
+        "lastChecked": "2026-10-10T22:52:04.002Z",
         "url": "http://45.162.64.114/AGROMAIS/index.m3u8",
         "streamType": "live"
       },
@@ -216088,6 +216088,13 @@
   },
   "logs": [
     {
+      "id": "log_1791672723724_gl1v0",
+      "type": "auth",
+      "user": "admin",
+      "action": "Login realizado: admin (admin)",
+      "at": "2026-10-10T22:52:03.724Z"
+    },
+    {
       "id": "log_1791670993009_nsxax",
       "type": "auth",
       "user": "admin",
@@ -219579,13 +219586,6 @@
       "user": "Sistema",
       "action": "Canal \"BET Pluto TV\" indisponível (HTTP 405)",
       "at": "2026-10-06T05:03:34.175Z"
-    },
-    {
-      "id": "log_1791263014129_zmqso",
-      "type": "OpsEngine",
-      "user": "Sistema",
-      "action": "Canal \"Adrenalina Pura TV Brazil\" indisponível (HTTP 405)",
-      "at": "2026-10-06T05:03:34.129Z"
     }
   ]
 }

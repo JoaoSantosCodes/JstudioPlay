@@ -6,10 +6,14 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+const envFile = fs.existsSync(path.join(__dirname, '..', 'CREDENCIAIS', '.env'))
+    ? path.join(__dirname, '..', 'CREDENCIAIS', '.env')
+    : path.join(__dirname, '..', '.env');
+require('dotenv').config({ path: envFile });
 
 class SecurityManager {
     constructor() {
+        this.envPath = envFile;
         this.adminUsername = process.env.ADMIN_USERNAME || 'admin';
         this.adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
         this.apiSecretKey = process.env.API_SECRET_KEY || this.generateSecureKey(32);
@@ -135,13 +139,6 @@ class SecurityManager {
                 }
             }
 
-            // 3. Fallback: Check active session user in memory / local loopback development
-            const defaultAdmin = db.data.users.find(u => u.username === this.adminUsername) || db.data.users[0];
-            if (defaultAdmin) {
-                req.user = defaultAdmin;
-                return next();
-            }
-
             return res.status(401).json({ error: 'Acesso não autorizado. Forneça um token ou chave de API válida.' });
         };
     }
@@ -165,8 +162,8 @@ class SecurityManager {
         const newKey = `m3u_sec_${this.generateSecureKey(24)}`;
         this.apiSecretKey = newKey;
 
-        // Persist to .env
-        const envPath = path.join(__dirname, '..', '.env');
+        // Persist to env
+        const envPath = this.envPath || path.join(__dirname, '..', '.env');
         if (fs.existsSync(envPath)) {
             let envContent = fs.readFileSync(envPath, 'utf8');
             if (envContent.includes('API_SECRET_KEY=')) {

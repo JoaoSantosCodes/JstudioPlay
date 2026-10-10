@@ -37,3 +37,12 @@ dist-playstore/
 *.apk
 *.aab
 
+# Segurança IAM - MCP Governance
+CREDENCIAIS/*
+!CREDENCIAIS/.gitignore
+!CREDENCIAIS/README.md
+!CREDENCIAIS/*.example
+*.env
+*.key
+*.jks
+*.keystore

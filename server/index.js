@@ -1,8 +1,11 @@
+const fs = require('fs');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+const envFile = fs.existsSync(path.join(__dirname, '..', 'CREDENCIAIS', '.env'))
+    ? path.join(__dirname, '..', 'CREDENCIAIS', '.env')
+    : path.join(__dirname, '..', '.env');
+require('dotenv').config({ path: envFile });
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
 const crypto = require('crypto');
 const axios = require('axios');
 

@@ -32,14 +32,18 @@ if %errorlevel% neq 0 (
 for /f "tokens=*" %%v in ('node -v 2^>nul') do set "NODE_VER=%%v"
 echo  [OK] Node.js detectado: %NODE_VER%
 
-:: 2. Carregar configuracoes do .env
-set "APP_PORT=3000"
+:: 2. Carregar configuracoes do CREDENCIAIS/.env (ou .env legado)
+set "APP_PORT=3030"
 set "APP_USER=admin"
 set "APP_PASS=admin123"
-set "APP_KEY=m3u_sec_d2241659862dc2a4886bc1c2cb65e710930b28e5472591ea"
+set "APP_KEY=m3u_secret_key"
 
-if exist ".env" (
-    for /f "usebackq tokens=1,2 delims==" %%a in (".env") do (
+set "ENV_TARGET="
+if exist "CREDENCIAIS\.env" set "ENV_TARGET=CREDENCIAIS\.env"
+if not defined ENV_TARGET if exist ".env" set "ENV_TARGET=.env"
+
+if defined ENV_TARGET (
+    for /f "usebackq tokens=1,2 delims==" %%a in ("%ENV_TARGET%") do (
         if /i "%%a"=="PORT" set "APP_PORT=%%b"
         if /i "%%a"=="ADMIN_USERNAME" set "APP_USER=%%b"
         if /i "%%a"=="ADMIN_PASSWORD" set "APP_PASS=%%b"
@@ -73,10 +77,17 @@ for /f "tokens=5" %%p in ('netstat -ano 2^>nul ^| findstr /R /C:":%APP_PORT% .*L
 if defined PORT_PID (
     echo.
     echo  [!] AVISO: A porta %APP_PORT% ja esta em uso pelo processo PID %PORT_PID%.
-    echo  [+] Encerrando processo conflitante...
-    taskkill /F /PID %PORT_PID% >nul 2>nul
-    timeout /t 1 /nobreak >nul
-    echo  [OK] Porta %APP_PORT% liberada com sucesso!
+    echo  [+] Verificando se e um processo Node anterior...
+    tasklist /FI "PID eq %PORT_PID%" 2>nul | findstr /I "node.exe" >nul
+    if not errorlevel 1 (
+        echo  [+] Encerrando instancia anterior do Node.js...
+        taskkill /F /PID %PORT_PID% >nul 2>nul
+        timeout /t 1 /nobreak >nul
+        echo  [OK] Porta %APP_PORT% liberada!
+    ) else (
+        echo  [AVISO] A porta esta em uso por outro servico do sistema (PID %PORT_PID%).
+        echo  Recomendado verificar ou definir outra porta no arquivo CREDENCIAIS\.env.
+    )
 )
 
 echo.
@@ -196,16 +207,21 @@ goto :check_error
 
 :run_silent
 :: Modo silencioso para inicializacao automatica com o Windows
-set "APP_PORT=3000"
-if exist ".env" (
-    for /f "usebackq tokens=1,2 delims==" %%a in (".env") do (
+set "APP_PORT=3030"
+set "ENV_TARGET_SILENT="
+if exist "CREDENCIAIS\.env" set "ENV_TARGET_SILENT=CREDENCIAIS\.env"
+if not defined ENV_TARGET_SILENT if exist ".env" set "ENV_TARGET_SILENT=.env"
+
+if defined ENV_TARGET_SILENT (
+    for /f "usebackq tokens=1,2 delims==" %%a in ("%ENV_TARGET_SILENT%") do (
         if /i "%%a"=="PORT" set "APP_PORT=%%b"
     )
 )
 
-:: Se a porta estiver em uso, libera silenciosamente
+:: Se a porta estiver em uso por instancia anterior do node, libera
 for /f "tokens=5" %%p in ('netstat -ano 2^>nul ^| findstr /R /C:":%APP_PORT% .*LISTENING"') do (
-    taskkill /F /PID %%p >nul 2>nul
+    tasklist /FI "PID eq %%p" 2>nul | findstr /I "node.exe" >nul
+    if not errorlevel 1 taskkill /F /PID %%p >nul 2>nul
 )
 
 :: Garante dependencias se for primeira vez

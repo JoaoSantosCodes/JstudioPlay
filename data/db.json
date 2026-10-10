@@ -23,7 +23,7 @@
       "theme": "dark",
       "blocked": false,
       "createdAt": "2026-10-04T17:15:09.425Z",
-      "lastLoginAt": "2026-10-06T19:42:23.822Z"
+      "lastLoginAt": "2026-10-10T22:23:13.009Z"
     },
     {
       "id": "usr_1791136453845_ic3l",
@@ -144,10 +144,10 @@
       "vod": 27,
       "series": 26,
       "onlineCount": 0,
-      "checkStatus": "completed",
+      "checkStatus": "running",
       "lastChecked": "2026-10-04T17:58:05.974Z",
       "autoSync": true,
-      "updated": "2026-10-06T19:47:51.463Z",
+      "updated": "2026-10-10T22:23:13.035Z",
       "created": "2026-10-04T17:15:36.320Z",
       "categories": 44
     },
@@ -657,8 +657,8 @@
         "group": "Shop",
         "chno": "",
         "status": "offline",
-        "latency": 603,
-        "lastChecked": "2026-10-06T19:54:56.224Z",
+        "latency": null,
+        "lastChecked": "2026-10-10T22:23:13.313Z",
         "url": "https://cdn.jmvstream.com/w/LVW-8155/ngrp:LVW8155_41E1ciuCvO_all/playlist.m3u8",
         "streamType": "live"
       },
@@ -672,8 +672,8 @@
         "group": "Entertainment",
         "chno": "",
         "status": "online",
-        "latency": 105,
-        "lastChecked": "2026-10-06T19:54:55.749Z",
+        "latency": 51,
+        "lastChecked": "2026-10-10T22:23:13.124Z",
         "url": "http://170.83.16.50/AeE/index.m3u8",
         "streamType": "live"
       },
@@ -687,8 +687,8 @@
         "group": "General",
         "chno": "",
         "status": "online",
-        "latency": 576,
-        "lastChecked": "2026-10-06T19:54:56.220Z",
+        "latency": 203,
+        "lastChecked": "2026-10-10T22:23:13.278Z",
         "url": "https://cdn.jmvstream.com/w/LVW-9715/LVW9715_12B26T62tm/playlist.m3u8",
         "streamType": "live"
       },
@@ -216088,6 +216088,13 @@
   },
   "logs": [
     {
+      "id": "log_1791670993009_nsxax",
+      "type": "auth",
+      "user": "admin",
+      "action": "Login realizado: admin (admin)",
+      "at": "2026-10-10T22:23:13.009Z"
+    },
+    {
       "id": "log_1791316496594_19u7w",
       "type": "OpsEngine",
       "user": "Sistema",
@@ -219579,13 +219586,6 @@
       "user": "Sistema",
       "action": "Canal \"Adrenalina Pura TV Brazil\" indisponível (HTTP 405)",
       "at": "2026-10-06T05:03:34.129Z"
-    },
-    {
-      "id": "log_1791263014023_f5tpn",
-      "type": "OpsEngine",
-      "user": "Sistema",
-      "action": "Canal \"Avatar: A lenda de Aang\" indisponível (HTTP 405)",
-      "at": "2026-10-06T05:03:34.023Z"
     }
   ]
 }

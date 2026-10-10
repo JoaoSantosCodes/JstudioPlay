@@ -14,6 +14,14 @@ if "%ANDROID_HOME%"=="" (
     )
 )
 
+if exist "CREDENCIAIS\.env" (
+    for /f "usebackq tokens=1,2 delims==" %%a in ("CREDENCIAIS\.env") do (
+        if /i "%%a"=="ANDROID_KEYSTORE_PASSWORD" set "ANDROID_KEYSTORE_PASSWORD=%%b"
+        if /i "%%a"=="ANDROID_KEY_ALIAS" set "ANDROID_KEY_ALIAS=%%b"
+        if /i "%%a"=="ANDROID_KEY_PASSWORD" set "ANDROID_KEY_PASSWORD=%%b"
+    )
+)
+
 echo [1/3] Sincronizando assets web com o projeto nativo Capacitor...
 call npx cap sync android
 if %errorlevel% neq 0 (

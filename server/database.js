@@ -57,7 +57,14 @@ const defaultDb = {
 class Database {
     constructor() {
         this.data = defaultDb;
+        this._saveTimeout = null;
+        this._isDirty = false;
         this.load();
+
+        const flushHandler = () => this.flushSync();
+        process.on('beforeExit', flushHandler);
+        process.on('SIGINT', () => { flushHandler(); process.exit(0); });
+        process.on('SIGTERM', () => { flushHandler(); process.exit(0); });
     }
 
     load() {
@@ -76,11 +83,30 @@ class Database {
         }
     }
 
-    save() {
+    save(immediate = false) {
+        this._isDirty = true;
+        if (immediate) {
+            this.flushSync();
+            return;
+        }
+
+        if (this._saveTimeout) return;
+
+        this._saveTimeout = setTimeout(() => {
+            this._saveTimeout = null;
+            this.flushSync();
+        }, 300);
+    }
+
+    flushSync() {
+        if (!this._isDirty) return;
         try {
-            fs.writeFileSync(DB_FILE, JSON.stringify(this.data, null, 2), 'utf8');
+            const tmpFile = `${DB_FILE}.${Date.now()}.tmp`;
+            fs.writeFileSync(tmpFile, JSON.stringify(this.data, null, 2), 'utf8');
+            fs.renameSync(tmpFile, DB_FILE);
+            this._isDirty = false;
         } catch (e) {
-            console.error('Error saving db.json:', e);
+            console.error('Error saving db.json atomically:', e);
         }
     }
 

@@ -806,21 +806,39 @@ function epgPage(){
 }
 
 function iptvSmartSidebar(active='dashboard'){
+  const role = state.user?.role || 'user';
   const items = [
     { id: 'dashboard', label: 'Início', icon: 'home' },
     { id: 'live', label: 'TV Ao Vivo', icon: 'tv' },
     { id: 'movies', label: 'Filmes', icon: 'film' },
-    { id: 'series', label: 'Séries', icon: 'grid' },
-    { id: 'playlists', label: 'Playlists', icon: 'playlist' },
-    { id: 'recordings', label: 'Gravações', icon: 'clock' },
-    { id: 'epg', label: 'EPG', icon: 'refresh' },
-    { id: 'favorites', label: 'Favoritos', icon: 'heart' },
-    { id: 'settings', label: 'Configurações', icon: 'settings' }
+    { id: 'series', label: 'Séries', icon: 'grid' }
   ];
-  if(state.user && ['admin','manager'].includes(state.user.role)){
-    items.push({ id: 'users', label: 'Usuários', icon: 'users' });
-    if(state.user.role === 'admin') items.push({ id: 'logs', label: 'Logs', icon: 'clock' });
+
+  // Playlists: Pro, Adm e Master
+  if(['pro','admin','master'].includes(role)){
+    items.push({ id: 'playlists', label: 'Playlists', icon: 'playlist' });
   }
+
+  // Gravações: Pro, Adm e Master
+  if(['pro','admin','master'].includes(role)){
+    items.push({ id: 'recordings', label: 'Gravações', icon: 'clock' });
+  }
+
+  items.push({ id: 'epg', label: 'EPG', icon: 'refresh' });
+  items.push({ id: 'favorites', label: 'Favoritos', icon: 'heart' });
+
+  // M3U Hub e Usuários: Adm e Master
+  if(['admin','master'].includes(role)){
+    items.push({ id: 'automation', label: 'M3U Hub', icon: 'globe' });
+    items.push({ id: 'users', label: 'Usuários', icon: 'users' });
+  }
+
+  // Logs do Sistema: Exclusivo Master
+  if(role === 'master'){
+    items.push({ id: 'logs', label: 'Logs', icon: 'clock' });
+  }
+
+  items.push({ id: 'settings', label: 'Configurações', icon: 'settings' });
   return `<aside class="iptv-smart-sidebar" aria-label="Menu Principal IPTV">
     <div style="padding:0 0.5rem 1.25rem; display:flex; align-items:center; gap:0.75rem;">
       <div class="iptv-play-icon" style="width:36px; height:36px; border-radius:8px;">
@@ -1239,9 +1257,59 @@ function settings(activeSection='legendas'){
 }
 
 function savedPage(kind){const items=state[kind],isFav=kind==='favorites';return `${heading(isFav?'Seus favoritos':'Seu histórico',isFav?'Os canais que você gosta, a um clique de distância.':'Retome os canais que você abriu recentemente.',!isFav&&items.length?'<button class="btn ghost small" data-action="clear-history">Limpar histórico</button>':'')}<div class="playlist-grid history-list">${items.length?items.map((h,i)=>`<article class="card playlist-row">${channelLogo(h.channel,i)}<div class="playlist-info"><h3>${esc(h.channel.name)}</h3><p>${esc(state.playlists.find(p=>p.id===h.playlistId)?.name||'Playlist')} · ${esc(h.channel.group)}${h.unavailable?' · Indisponível na versão atual':''}</p></div><span class="timestamp">${dateTime(h.at)}</span><button class="icon-btn play-circle" data-action="open-saved" data-kind="${kind}" data-index="${i}" aria-label="${h.unavailable?'Indisponível':'Reproduzir'} ${esc(h.channel.name)}" ${h.unavailable?'disabled':''}>${icon('play')}</button>${isFav?`<button class="favorite-button is-favorite" data-action="saved-favorite" data-index="${i}" aria-label="Remover favorito ${esc(h.channel.name)}">${icon('heart')}</button>`:''}</article>`).join(''):`<div class="card">${empty(isFav?'Seus favoritos moram aqui':'Ainda não há reproduções',isFav?'Toque no coração ao lado de um canal no player para salvá-lo aqui.':'Abra uma playlist e escolha um canal para começar.',`<a class="btn small" href="#/player">${icon('play')}Abrir player</a>`,isFav?'heart':'clock')}</div>`}</div>`;}
-function usersPage(){return `${heading('Usuários',state.user.role==='manager'?'Gerencie até 10 usuários criados por você.':'Gerencie os acessos da plataforma JstudioPlay.')}<div class="toolbar"><div class="field search">${icon('search')}<input id="user-search" type="search" placeholder="Buscar usuário…" aria-label="Buscar usuário"></div><button class="btn small" data-action="new-user" ${state.user.role==='manager'&&state.users.length>=10?'disabled title="Limite de 10 usuários atingido"':''}>${icon('plus')}Novo usuário</button></div><section class="card table-wrap"><table class="data-table"><thead><tr><th>Usuário</th><th>Status</th><th>Playlists</th><th>Último acesso</th><th>Ações</th></tr></thead><tbody id="user-rows">${userRows('')}</tbody></table><div class="table-foot">${state.user.role==='manager'?`${number(state.users.length)} de 10 usuários criados`:`${number(state.users.length)} usuários cadastrados`}</div></section>`;}
-function userRows(query){return state.users.filter(({user:u})=>(u.name+' '+u.username).toLowerCase().includes(query.toLowerCase())).map(({user:u,playlists})=>`<tr><td><div class="row"><span class="avatar">${esc(initials(u.name))}</span><span>${esc(u.username)}${u.role==='admin'?'<br><small>Administrador</small>':u.role==='manager'?'<br><small>Gestor</small>':''}</span></div></td><td><span class="badge ${u.blocked?'blocked':''}">${u.blocked?'Bloqueado':'Ativo'}</span></td><td>${playlists}</td><td><small>${dateTime(u.lastLogin)}</small></td><td>${u.role==='admin'?'<a href="#/settings" class="icon-btn" aria-label="Configurações do administrador">'+icon('settings')+'</a>':`<button class="icon-btn" data-action="user-options" data-id="${u.id}" aria-label="Gerenciar ${esc(u.username)}">${icon('more')}</button>`}</td></tr>`).join('')||'<tr><td colspan="5">Nenhum usuário encontrado.</td></tr>';}
-function logsPage(){return `${heading('Logs da plataforma','Acompanhe os últimos acessos e alterações administrativas no JstudioPlay.')}<section class="card table-wrap"><table class="data-table"><thead><tr><th>Data e hora</th><th>Usuário</th><th>Atividade</th></tr></thead><tbody>${state.logs.map(l=>`<tr><td><small>${dateTime(l.at)}</small></td><td>${esc(l.user)}</td><td>${esc(l.action)}</td></tr>`).join('')||'<tr><td colspan="3">Nenhuma atividade registrada.</td></tr>'}</tbody></table><div class="table-foot">Até 500 atividades mais recentes. Endereços das playlists e senhas não são registrados.</div></section>`;}
+function roleBadge(role){
+  if(role==='master') return `<span class="badge" style="background:rgba(229,9,20,0.2); color:#ff4d4f; border:1px solid rgba(229,9,20,0.5); font-weight:700;">👑 Master</span>`;
+  if(role==='admin') return `<span class="badge" style="background:rgba(59,130,246,0.2); color:#60a5fa; border:1px solid rgba(59,130,246,0.5); font-weight:600;">🛡️ Adm</span>`;
+  if(role==='pro') return `<span class="badge" style="background:rgba(234,179,8,0.2); color:#facc15; border:1px solid rgba(234,179,8,0.5); font-weight:600;">⭐ Pro</span>`;
+  return `<span class="badge" style="background:rgba(34,197,94,0.15); color:#4ade80; border:1px solid rgba(34,197,94,0.4);">👤 Usuário</span>`;
+}
+
+function usersPage(){
+  const isMaster = state.user?.role === 'master';
+  return `${heading('Gestão de Usuários', isMaster?'Administre todos os perfis e acessos globais da plataforma.':'Gerencie os usuários e assinantes sob sua supervisão.')}
+  <div class="toolbar">
+    <div class="field search">${icon('search')}<input id="user-search" type="search" placeholder="Buscar usuário…" aria-label="Buscar usuário"></div>
+    <button class="btn small" data-action="new-user">${icon('plus')}Novo usuário</button>
+  </div>
+  <section class="card table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Usuário</th>
+          <th>Perfil</th>
+          <th>Status</th>
+          <th>Playlists</th>
+          <th>Último acesso</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="user-rows">${userRows('')}</tbody>
+    </table>
+    <div class="table-foot">${number(state.users.length)} usuários cadastrados.</div>
+  </section>`;
+}
+
+function userRows(query){
+  return state.users.filter(({user:u})=>(u.name+' '+u.username).toLowerCase().includes(query.toLowerCase())).map(({user:u,playlists})=>`
+    <tr>
+      <td>
+        <div class="row">
+          <span class="avatar">${esc(initials(u.name))}</span>
+          <span><strong>${esc(u.name)}</strong><br><small style="color:var(--iptv-text-sec);">@${esc(u.username)}</small></span>
+        </div>
+      </td>
+      <td>${roleBadge(u.role)}</td>
+      <td><span class="badge ${u.blocked?'blocked':''}">${u.blocked?'Bloqueado':'Ativo'}</span></td>
+      <td>${playlists}</td>
+      <td><small>${dateTime(u.lastLogin)}</small></td>
+      <td>
+        <button class="icon-btn" data-action="user-options" data-id="${u.id}" aria-label="Gerenciar ${esc(u.username)}">${icon('more')}</button>
+      </td>
+    </tr>
+  `).join('') || '<tr><td colspan="6">Nenhum usuário encontrado.</td></tr>';
+}
+
+function logsPage(){return `${heading('Logs de Auditoria do Sistema','Acompanhe em tempo real todos os acessos, erros e atividades administrativas do servidor.')}<section class="card table-wrap"><table class="data-table"><thead><tr><th>Data e hora</th><th>Usuário</th><th>Atividade</th></tr></thead><tbody>${state.logs.map(l=>`<tr><td><small>${dateTime(l.at)}</small></td><td>${esc(l.user)}</td><td>${esc(l.action)}</td></tr>`).join('')||'<tr><td colspan="3">Nenhuma atividade registrada.</td></tr>'}</tbody></table><div class="table-foot">Até 500 atividades mais recentes. Endereços das playlists e senhas não são registrados.</div></section>`;}
 
 async function renderRoute(){
   const defaultPage = state.user ? '/dashboard' : '/landing';
@@ -1253,7 +1321,12 @@ async function renderRoute(){
   if(!['login','landing',...Object.keys(pageNames)].includes(page))page = state.user ? 'dashboard' : 'landing';
   if(!state.user && !['login','landing'].includes(page)){navigate('landing');return;}
   if(state.user && (page==='login'||page==='landing')){navigate('dashboard');return;}
-  if((page==='users'&&!['admin','manager'].includes(state.user?.role))||(page==='logs'&&state.user?.role!=='admin')){navigate('dashboard');return;}
+  const userRole = state.user?.role || 'user';
+  if(page==='logs' && userRole !== 'master'){navigate('dashboard');return;}
+  if(page==='users' && !['admin','master'].includes(userRole)){navigate('dashboard');return;}
+  if(page==='automation' && !['admin','master'].includes(userRole)){navigate('dashboard');return;}
+  if(page==='recordings' && userRole === 'user'){navigate('dashboard');return;}
+  if(page==='playlists' && userRole === 'user' && !state.playlists.length){navigate('live');return;}
   stopPlayback();state.page=page;$('#modal').close();
   document.title=`${pageNames[page]|| (page==='login'?'Entrar':page==='landing'?'IPTV, Filmes & Séries':'Do seu jeito.')} — JstudioPlay`;
   if(page==='landing'){$('#app').innerHTML=landing();return;}
@@ -1761,8 +1834,79 @@ function playlistModal(){openModal('Adicionar playlist',`
     </form>
   </div>
 `);}
-function userModal(){openModal('Novo usuário',`<form id="user-form" class="stack"><div><label for="new-user-name">Nome</label><input name="name" id="new-user-name" required maxlength="80" autofocus autocomplete="off"></div><div><label for="new-user-username">Usuário</label><input name="username" id="new-user-username" required minlength="3" maxlength="40" pattern="[a-zA-Z0-9_.\\x2d]+" autocomplete="off"><p class="help-text">Letras, números, ponto, hífen ou sublinhado.</p></div><div><label for="new-user-password">Senha inicial</label><input id="new-user-password" name="password" type="password" minlength="10" maxlength="256" required autocomplete="new-password"><p class="help-text">Mínimo de 10 caracteres. O cliente poderá alterá-la em Configurações.</p></div>${state.user.role==='admin'?'<div><label for="new-user-role">Perfil</label><select name="role" id="new-user-role"><option value="client">Usuário do player</option><option value="manager">Gestor (até 10 usuários)</option></select></div>':''}<div class="form-error" role="alert"></div><div class="dialog-actions"><button type="button" class="btn secondary" data-action="close-modal">Cancelar</button><button type="submit" class="btn">Criar usuário</button></div></form>`);}
-function userOptions(id){const u=state.users.find(v=>v.user.id===id)?.user;if(!u)return;openModal(`Gerenciar ${esc(u.username)}`,`<div class="stack"><p>${u.blocked?'A conta está bloqueada. Reative para permitir novos acessos.':'Ao bloquear a conta, as sessões do cliente serão encerradas.'}</p><button class="btn ${u.blocked?'':'danger'}" data-action="block-user" data-id="${id}">${u.blocked?'Reativar conta':'Bloquear conta'}</button><div class="divider"></div><form id="reset-form" class="stack" data-id="${id}"><div><label for="reset-password">Redefinir senha</label><input id="reset-password" name="password" type="password" minlength="10" maxlength="256" placeholder="Nova senha (mínimo de 10 caracteres)" autocomplete="new-password" required></div><div class="form-error" role="alert"></div><button class="btn secondary" type="submit">Salvar nova senha</button></form></div>`);}
+function userModal(){
+  const isMaster = state.user?.role === 'master';
+  openModal('Novo Usuário',`<form id="user-form" class="stack">
+    <div>
+      <label for="new-user-name">Nome Completo</label>
+      <input name="name" id="new-user-name" required maxlength="80" autofocus autocomplete="off" placeholder="Ex: Maria Silva">
+    </div>
+    <div>
+      <label for="new-user-username">Usuário</label>
+      <input name="username" id="new-user-username" required minlength="3" maxlength="40" pattern="[a-zA-Z0-9_.\\x2d]+" autocomplete="off" placeholder="Ex: maria.silva">
+      <p class="help-text">Letras, números, ponto, hífen ou sublinhado.</p>
+    </div>
+    <div>
+      <label for="new-user-password">Senha Inicial</label>
+      <input id="new-user-password" name="password" type="password" minlength="6" maxlength="256" required autocomplete="new-password" placeholder="Senha do usuário">
+      <p class="help-text">Mínimo de 6 caracteres.</p>
+    </div>
+    <div>
+      <label for="new-user-role">Perfil de Acesso</label>
+      <select name="role" id="new-user-role">
+        <option value="user">👤 Usuário (Acesso Básico ao Player)</option>
+        <option value="pro">⭐ Pro (Playlists Privadas + DVR Gravações)</option>
+        ${['admin','master'].includes(state.user?.role)?`<option value="admin">🛡️ Adm (Gestão de Usuários & M3U Hub)</option>`:''}
+        ${isMaster?`<option value="master">👑 Master (Acesso Total & Logs do Sistema)</option>`:''}
+      </select>
+    </div>
+    <div class="form-error" role="alert"></div>
+    <div class="dialog-actions">
+      <button type="button" class="btn secondary" data-action="close-modal">Cancelar</button>
+      <button type="submit" class="btn">Criar usuário</button>
+    </div>
+  </form>`);
+}
+
+function userOptions(id){
+  const u = state.users.find(v=>v.user.id===id)?.user;
+  if(!u) return;
+  const isMaster = state.user?.role === 'master';
+  const canEditRole = isMaster || (state.user?.role === 'admin' && !['admin','master'].includes(u.role));
+  openModal(`Gerenciar ${esc(u.username)}`,`<div class="stack">
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:0.5rem 0; border-bottom:1px solid var(--iptv-border);">
+      <span>Perfil Atual:</span>
+      ${roleBadge(u.role)}
+    </div>
+    ${canEditRole?`
+    <form id="edit-role-form" class="stack" data-id="${id}" style="margin:0.75rem 0;">
+      <label for="edit-role-select">Alterar Perfil de Acesso</label>
+      <div style="display:flex; gap:0.5rem;">
+        <select id="edit-role-select" name="role" style="flex:1;">
+          <option value="user" ${u.role==='user'?'selected':''}>👤 Usuário</option>
+          <option value="pro" ${u.role==='pro'?'selected':''}>⭐ Pro</option>
+          ${isMaster?`<option value="admin" ${u.role==='admin'?'selected':''}>🛡️ Adm</option>`:''}
+          ${isMaster?`<option value="master" ${u.role==='master'?'selected':''}>👑 Master</option>`:''}
+        </select>
+        <button class="btn small" type="submit">Salvar Perfil</button>
+      </div>
+    </form>`:''}
+    <p style="font-size:0.9rem; color:var(--iptv-text-sec);">${u.blocked?'A conta está bloqueada. Reative para permitir novos acessos.':'Ao bloquear a conta, as sessões do cliente serão encerradas.'}</p>
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+      <button class="btn ${u.blocked?'':'danger'}" data-action="block-user" data-id="${id}" style="flex:1;">${u.blocked?'Reativar conta':'Bloquear conta'}</button>
+      ${u.role!=='master'?`<button class="btn danger ghost" data-action="delete-user" data-id="${id}">Excluir</button>`:''}
+    </div>
+    <div class="divider"></div>
+    <form id="reset-form" class="stack" data-id="${id}">
+      <div>
+        <label for="reset-password">Redefinir senha</label>
+        <input id="reset-password" name="password" type="password" minlength="6" maxlength="256" placeholder="Nova senha" autocomplete="new-password" required>
+      </div>
+      <div class="form-error" role="alert"></div>
+      <button class="btn secondary" type="submit">Salvar nova senha</button>
+    </form>
+  </div>`);
+}
 
 async function initGoogleAuth(){
   try{
@@ -2060,6 +2204,15 @@ document.addEventListener('click',async event=>{
       return;
     }
     if(action==='block-user'){b.disabled=true;const u=state.users.find(x=>x.user.id===b.dataset.id).user;await api(`/admin/users/${u.id}`,'PATCH',{blocked:!u.blocked});$('#modal').close();await renderRoute();toast('Acesso atualizado.');return;}
+    if(action==='delete-user'){
+      if(!confirm('Tem certeza que deseja excluir permanentemente este usuário?')) return;
+      b.disabled=true;
+      await api(`/admin/users/${b.dataset.id}`,'DELETE');
+      $('#modal').close();
+      await renderRoute();
+      toast('Usuário excluído.');
+      return;
+    }
   }catch(error){b.disabled=false;toast(error.message,true);}
 });
 document.addEventListener('input',event=>{
@@ -2105,7 +2258,7 @@ document.addEventListener('keydown',event=>{
 });
 document.addEventListener('error',event=>{if(event.target.matches?.('.channel-logo img')){const parent=event.target.parentElement;parent.textContent='▶';}},true);
 document.addEventListener('submit',async event=>{
-  const form=event.target;if(!['login-form','playlist-form','xtream-playlist-form','refresh-form','settings-form','user-form','reset-form'].includes(form.id))return;
+  const form=event.target;if(!['login-form','playlist-form','xtream-playlist-form','refresh-form','settings-form','user-form','reset-form','edit-role-form'].includes(form.id))return;
   event.preventDefault();const button=$('[type="submit"]',form),errorEl=$('.form-error',form),original=button.textContent;
   if(button.disabled)return;button.disabled=true;button.textContent=form.id==='playlist-form'?'Importando…':form.id==='xtream-playlist-form'?'Conectando e Importando…':form.id==='refresh-form'?'Atualizando…':'Salvando…';errorEl.textContent='';
   const fields=new FormData(form),value=Object.fromEntries(fields.entries());
@@ -2135,6 +2288,7 @@ document.addEventListener('submit',async event=>{
     if(form.id==='refresh-form'){await api(`/playlists/${form.dataset.id}/refresh`,'POST',{url:value.url});$('#modal').close();await renderRoute();toast('Playlist atualizada.');}
     if(form.id==='settings-form'){state.user=await api('/account','PATCH',value);applyTheme(state.user.theme);await renderRoute();toast('Configurações salvas.');}
     if(form.id==='user-form'){await api('/admin/users','POST',value);$('#modal').close();await renderRoute();toast('Usuário criado.');}
+    if(form.id==='edit-role-form'){await api(`/admin/users/${form.dataset.id}`,'PATCH',{role:value.role});$('#modal').close();await renderRoute();toast('Perfil de acesso atualizado.');}
     if(form.id==='reset-form'){await api(`/admin/users/${form.dataset.id}`,'PATCH',{password:value.password});$('#modal').close();toast('Senha redefinida. As sessões anteriores foram encerradas.');}
   }catch(error){errorEl.textContent=error.message;}
   finally{button.disabled=false;button.textContent=original;}

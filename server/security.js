@@ -179,15 +179,37 @@ class SecurityManager {
     }
 
     /**
-     * Middleware requiring Admin Role
+     * Middleware requiring specific roles
      */
-    requireAdmin() {
+    requireRole(allowedRoles = ['admin', 'master']) {
         return (req, res, next) => {
-            if (req.user && req.user.role === 'admin') {
+            const role = req.user?.role || 'user';
+            if (allowedRoles.includes(role)) {
                 return next();
             }
-            return res.status(403).json({ error: 'Ação restrita a administradores do sistema.' });
+            return res.status(403).json({ error: 'Acesso negado: seu perfil não possui permissão para esta ação.' });
         };
+    }
+
+    /**
+     * Middleware requiring Admin or Master Role
+     */
+    requireAdmin() {
+        return this.requireRole(['admin', 'master']);
+    }
+
+    /**
+     * Middleware requiring Master Role exclusively
+     */
+    requireMaster() {
+        return this.requireRole(['master']);
+    }
+
+    /**
+     * Middleware requiring Pro, Admin or Master Role
+     */
+    requirePro() {
+        return this.requireRole(['pro', 'admin', 'master']);
     }
 
     /**

@@ -390,17 +390,20 @@ class Database {
         const id  = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
         const now = new Date().toISOString();
 
+        const validRoles = ['user', 'pro', 'admin', 'master'];
+        const normalizedRole = validRoles.includes(role) ? role : 'user';
+
         const tx = sql.transaction(() => {
             stmts.insertUser.run(
                 id,
-                name || username || 'Usuário Google',
-                username || email || `google_${Date.now()}`,
+                name || username || 'Usuário',
+                username || email || `user_${Date.now()}`,
                 email    || null,
                 googleId || null,
                 avatar   || null,
                 bcrypt.hashSync(pwd, BCRYPT_COST),
                 'bcrypt',
-                role || 'user',
+                normalizedRole,
                 'dark',
                 0,
                 expiresAt || null,
@@ -413,7 +416,7 @@ class Database {
         tx();
 
         this.addLog('user',
-            `Novo usuário cadastrado: ${username || email} ` +
+            `Novo usuário cadastrado (${normalizedRole}): ${username || email} ` +
             `${googleId ? '(via Google OAuth)' : ''} ` +
             `(Expira: ${expiresAt || 'Nunca'})`
         );
@@ -433,10 +436,13 @@ class Database {
             ? updates.lastLoginAt
             : user.lastLoginAt;
 
+        const validRoles = ['user', 'pro', 'admin', 'master'];
+        const targetRole = updates.role && validRoles.includes(updates.role) ? updates.role : user.role;
+
         stmts.updateUser.run(
             updates.name       ?? user.name,
             updates.theme      ?? user.theme,
-            updates.role       ?? user.role,
+            targetRole,
             updates.expiresAt  !== undefined ? (updates.expiresAt || null) : user.expiresAt,
             updates.blocked    !== undefined ? (updates.blocked ? 1 : 0) : (user.blocked ? 1 : 0),
             newHash,
@@ -461,9 +467,9 @@ class Database {
         return this.findUserById(id);
     }
 
-    /** Retorna o primeiro usuário admin ou qualquer usuário como fallback */
+    /** Retorna o primeiro usuário master/admin ou qualquer usuário como fallback */
     findAdminUser() {
-        const row = sql.prepare("SELECT * FROM users WHERE role='admin' ORDER BY created_at ASC LIMIT 1").get();
+        const row = sql.prepare("SELECT * FROM users WHERE role IN ('master', 'admin') ORDER BY created_at ASC LIMIT 1").get();
         if (row) return rowToUser(row);
         const any = sql.prepare("SELECT * FROM users ORDER BY created_at ASC LIMIT 1").get();
         return any ? rowToUser(any) : null;
@@ -479,10 +485,11 @@ class Database {
         return sql.prepare('SELECT COUNT(*) as n FROM playlists').get().n;
     }
 
-    deleteUser(id) {        const user = this.findUserById(id);
-        if (!user || user.role === 'admin') return false;
+    deleteUser(id) {
+        const user = this.findUserById(id);
+        if (!user || user.role === 'master') return false;
         this.addLog('user', `Usuário "${user.username}" removido.`);
-        stmts.deleteUser.run(id, 'admin');
+        stmts.deleteUser.run(id, 'master');
         return true;
     }
 
@@ -495,7 +502,7 @@ class Database {
         if (!userId) return stmts.allPlaylists.all().map(rowToPlaylist);
         const user = this.findUserById(userId);
         if (!user) return [];
-        if (user.role === 'admin') return stmts.allPlaylists.all().map(rowToPlaylist);
+        if (user.role === 'admin' || user.role === 'master') return stmts.allPlaylists.all().map(rowToPlaylist);
         return stmts.playlistsByUser.all(userId, userId).map(rowToPlaylist);
     }
 
@@ -917,12 +924,17 @@ const instance = new Database();
 // Garante que o usuário admin padrão existe em instalações limpas
 if (sql.prepare('SELECT COUNT(*) as n FROM users').get().n === 0) {
     instance.createUser({
-        name: 'Administrador',
+        name: 'Administrador Master',
         username: 'admin',
         password: 'admin123',
-        role: 'admin',
+        role: 'master',
     });
-    console.log('[DB] Usuário admin padrão criado. Altere a senha!');
+    console.log('[DB] Usuário admin padrão criado com perfil Master. Altere a senha!');
+} else {
+    // Migração automática de compatibilidade: promove o root 'admin' para 'master'
+    try {
+        sql.prepare("UPDATE users SET role = 'master' WHERE username = 'admin' AND role = 'admin'").run();
+    } catch {}
 }
 
 module.exports = instance;

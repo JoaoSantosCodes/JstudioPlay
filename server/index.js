@@ -799,10 +799,15 @@ app.get('/proxy/stream', (req, res) => {
 
 // -----------------------------------------------------------------------------
 // 5. Admin & Users
-// ST-02: RBAC — todas as rotas admin restritas a administradores
+// ST-02: RBAC — rotas admin restritas a Administradores e Master
 // -----------------------------------------------------------------------------
 apiRouter.get('/admin/users', requireAuth, security.requireAdmin(), (req, res) => {
-    const usersWithStats = db.data.users.map(u => ({
+    // Master vê todos os usuários; Adm vê todos exceto perfis Master
+    const filteredUsers = db.data.users.filter(u => {
+        if (req.user.role === 'master') return true;
+        return u.role !== 'master';
+    });
+    const usersWithStats = filteredUsers.map(u => ({
         user: {
             id: u.id,
             name: u.name,
@@ -820,7 +825,11 @@ apiRouter.get('/admin/users', requireAuth, security.requireAdmin(), (req, res) =
 
 apiRouter.post('/admin/users', requireAuth, security.requireAdmin(), (req, res) => {
     try {
-        const { name, username, password, role, expiresAt, playlists } = req.body;
+        const { name, username, password, role = 'user', expiresAt, playlists } = req.body;
+        // Adm só pode criar papéis 'user' ou 'pro'
+        if (req.user.role === 'admin' && ['admin', 'master'].includes(role)) {
+            return res.status(403).json({ error: 'Apenas usuários com perfil Master podem criar Administradores ou Masters.' });
+        }
         const user = db.createUser({ name, username, password, role, expiresAt, playlists });
         res.json({
             id: user.id,
@@ -837,6 +846,14 @@ apiRouter.post('/admin/users', requireAuth, security.requireAdmin(), (req, res) 
 
 apiRouter.patch('/admin/users/:id', requireAuth, security.requireAdmin(), (req, res) => {
     try {
+        const target = db.findUserById(req.params.id);
+        if (!target) return res.status(404).json({ error: 'Usuário não encontrado.' });
+        if (target.role === 'master' && req.user.role !== 'master') {
+            return res.status(403).json({ error: 'Apenas Master pode editar outro usuário Master.' });
+        }
+        if (req.user.role === 'admin' && req.body.role && ['admin', 'master'].includes(req.body.role)) {
+            return res.status(403).json({ error: 'Apenas Master pode promover usuários a Adm ou Master.' });
+        }
         const updated = db.updateUser(req.params.id, req.body);
         res.json({
             id: updated.id,
@@ -851,7 +868,19 @@ apiRouter.patch('/admin/users/:id', requireAuth, security.requireAdmin(), (req, 
     }
 });
 
-apiRouter.get('/admin/logs', requireAuth, security.requireAdmin(), (req, res) => {
+apiRouter.delete('/admin/users/:id', requireAuth, security.requireAdmin(), (req, res) => {
+    const target = db.findUserById(req.params.id);
+    if (!target) return res.status(404).json({ error: 'Usuário não encontrado.' });
+    if (target.role === 'master') return res.status(403).json({ error: 'Usuários Master não podem ser excluídos.' });
+    if (target.role === 'admin' && req.user.role !== 'master') {
+        return res.status(403).json({ error: 'Apenas Master pode excluir Administradores.' });
+    }
+    const success = db.deleteUser(req.params.id);
+    if (success) res.json({ success: true });
+    else res.status(400).json({ error: 'Não foi possível excluir o usuário.' });
+});
+
+apiRouter.get('/admin/logs', requireAuth, security.requireMaster(), (req, res) => {
     const formattedLogs = db.data.logs.map(l => ({
         id: l.id,
         at: l.at || l.timestamp,

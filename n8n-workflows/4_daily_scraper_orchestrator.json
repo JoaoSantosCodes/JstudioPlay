@@ -1,0 +1,147 @@
+{
+  "name": "JstudioPlay - Orquestrador de Raspagem Diária M3U",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 3 * * *" }]
+        }
+      },
+      "id": "node-cron-scraper",
+      "name": "Cron: Raspagem Diária (03:00)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scraper-trigger",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-webhook-manual",
+      "name": "Webhook: Trigger Manual",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 480],
+      "webhookId": "scraper-manual-trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.JSTUDIOPLAY_INTERNAL_URL }}/api/scraper/run",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "X-API-Key", "value": "={{ $env.JSTUDIOPLAY_API_KEY }}" }]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"validateSample\": true }",
+        "options": { "timeout": 10000 }
+      },
+      "id": "node-trigger-scraper",
+      "name": "Disparar Scraper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 380]
+    },
+    {
+      "parameters": { "amount": 120, "unit": "seconds" },
+      "id": "node-wait-scrape",
+      "name": "Aguardar Scraping (2min)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [720, 380],
+      "webhookId": "scraper-wait"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.JSTUDIOPLAY_INTERNAL_URL }}/api/scraper/status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "X-API-Key", "value": "={{ $env.JSTUDIOPLAY_API_KEY }}" }]
+        },
+        "options": {}
+      },
+      "id": "node-get-scraper-status",
+      "name": "Obter Relatório do Scraper",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 380]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [{
+            "id": "cond-still-running",
+            "leftValue": "={{ $json.isRunning }}",
+            "rightValue": false,
+            "operator": { "type": "boolean", "operation": "equal" }
+          }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-done",
+      "name": "Scraping Concluído?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 380]
+    },
+    {
+      "parameters": { "amount": 60, "unit": "seconds" },
+      "id": "node-wait-retry",
+      "name": "Aguardar Mais 1min",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1200, 560],
+      "webhookId": "scraper-wait-retry"
+    },
+    {
+      "parameters": {
+        "jsCode": "const status = $input.first().json;\nconst report = status.lastReport;\n\nif (!report) {\n  return [{ json: { summary: '⚠️ Relatório ainda não disponível.', report: null } }];\n}\n\nconst lines = [\n  `📡 *Raspagem Diária M3U — JstudioPlay*`,\n  `━━━━━━━━━━━━━━━━━━━━━━━━`,\n  `✅ Importadas: ${report.imported}/${report.sourcesTotal} fontes`,\n  `📺 Canais coletados: ${report.channelsTotal.toLocaleString('pt-BR')}`,\n  `🟢 Canais válidos (amostra): ${report.onlineSampled}`,\n  `⚠️  Ignoradas: ${report.skipped}   ❌ Erros: ${report.errors}`,\n  `⏱️  Duração: ${report.durationSeconds}s`,\n  `━━━━━━━━━━━━━━━━━━━━━━━━`,\n];\n\nif (report.sources) {\n  const failed = report.sources.filter(s => s.status === 'error');\n  if (failed.length > 0) {\n    lines.push(`\\n🔴 Fontes com erro:`);\n    failed.forEach(s => lines.push(`  • ${s.name}: ${s.error}`));\n  }\n}\n\nlines.push(`⏰ ${new Date(report.finishedAt).toLocaleString('pt-BR')}`);\n\nreturn [{ json: {\n  summary: lines.join('\\n'),\n  imported: report.imported,\n  channelsTotal: report.channelsTotal,\n  errors: report.errors,\n  report\n}}];"
+      },
+      "id": "node-format-scraper-report",
+      "name": "Formatar Relatório do Scraper",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1480, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [{
+            "id": "cond-has-errors",
+            "leftValue": "={{ $json.errors }}",
+            "rightValue": 0,
+            "operator": { "type": "number", "operation": "gt" }
+          }],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-errors",
+      "name": "Teve Erros?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1720, 300]
+    }
+  ],
+  "connections": {
+    "Cron: Raspagem Diária (03:00)": { "main": [[{ "node": "Disparar Scraper", "type": "main", "index": 0 }]] },
+    "Webhook: Trigger Manual": { "main": [[{ "node": "Disparar Scraper", "type": "main", "index": 0 }]] },
+    "Disparar Scraper": { "main": [[{ "node": "Aguardar Scraping (2min)", "type": "main", "index": 0 }]] },
+    "Aguardar Scraping (2min)": { "main": [[{ "node": "Obter Relatório do Scraper", "type": "main", "index": 0 }]] },
+    "Obter Relatório do Scraper": { "main": [[{ "node": "Scraping Concluído?", "type": "main", "index": 0 }]] },
+    "Scraping Concluído?": {
+      "main": [
+        [{ "node": "Formatar Relatório do Scraper", "type": "main", "index": 0 }],
+        [{ "node": "Aguardar Mais 1min", "type": "main", "index": 0 }]
+      ]
+    },
+    "Aguardar Mais 1min": { "main": [[{ "node": "Obter Relatório do Scraper", "type": "main", "index": 0 }]] },
+    "Formatar Relatório do Scraper": { "main": [[{ "node": "Teve Erros?", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

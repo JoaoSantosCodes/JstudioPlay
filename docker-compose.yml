@@ -16,6 +16,42 @@ services:
       - ./data:/app/data
     networks:
       - mcp-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3030/api/webhooks/stats"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: mcp_n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678
+      # Chave para autenticar chamadas n8n → JstudioPlay
+      # Deve ser idêntica ao API_SECRET_KEY do CREDENCIAIS/.env
+      - JSTUDIOPLAY_API_KEY=${JSTUDIOPLAY_API_KEY:-change_this_key}
+      # URL interna Docker: nome do serviço + porta interna
+      - JSTUDIOPLAY_INTERNAL_URL=http://mcp_jstudioplay:3030
+    volumes:
+      - n8n_data:/home/node/.n8n
+      # Importa os workflows automaticamente na primeira inicialização
+      - ./n8n-workflows:/home/node/.n8n/workflows-import:ro
+    networks:
+      - mcp-network
+    depends_on:
+      jstudioplay:
+        condition: service_healthy
+
+volumes:
+  n8n_data:
+    name: mcp_n8n_data
 
 networks:
   mcp-network:

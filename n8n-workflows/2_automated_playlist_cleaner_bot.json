@@ -1,5 +1,5 @@
 {
-  "name": "M3U PLAY - Limpador & Sanitizador Automático de Playlists M3U",
+  "name": "JstudioPlay - Sanitizador Automático de Playlists M3U",
   "nodes": [
     {
       "parameters": {
@@ -18,15 +18,10 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://localhost:3000/api/webhooks/validate",
+        "url": "={{ $env.JSTUDIOPLAY_INTERNAL_URL }}/api/webhooks/validate",
         "sendHeaders": true,
         "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-API-Key",
-              "value": "m3u_secret_key_889922aabbcc"
-            }
-          ]
+          "parameters": [{ "name": "X-API-Key", "value": "={{ $env.JSTUDIOPLAY_API_KEY }}" }]
         },
         "sendBody": true,
         "specifyBody": "json",
@@ -40,10 +35,7 @@
       "position": [440, 300]
     },
     {
-      "parameters": {
-        "amount": 6,
-        "unit": "seconds"
-      },
+      "parameters": { "amount": 8, "unit": "seconds" },
       "id": "node-wait-clean",
       "name": "Aguardar Teste dos Canais",
       "type": "n8n-nodes-base.wait",
@@ -53,15 +45,10 @@
     },
     {
       "parameters": {
-        "url": "=http://localhost:3000/api/automation/check/{{ $json.playlistId }}/status",
+        "url": "={{ $env.JSTUDIOPLAY_INTERNAL_URL }}/api/automation/check/{{ $('Importar & Iniciar Validação').item.json.playlistId }}/status",
         "sendHeaders": true,
         "headerParameters": {
-          "parameters": [
-            {
-              "name": "X-API-Key",
-              "value": "m3u_secret_key_889922aabbcc"
-            }
-          ]
+          "parameters": [{ "name": "X-API-Key", "value": "={{ $env.JSTUDIOPLAY_API_KEY }}" }]
         },
         "options": {}
       },
@@ -73,62 +60,20 @@
     },
     {
       "parameters": {
-        "jsCode": "const status = $input.first().json;\nconst playlistId = status.playlistId;\n\nconst cleanDownloadUrl = `http://localhost:3000/api/playlists/${playlistId}/export?filter=online`;\nconst playerWebUrl = `http://localhost:3000/#/player`;\n\nreturn {\n  json: {\n    success: true,\n    playlistId,\n    onlineChannels: status.onlineCount || 0,\n    lastChecked: status.lastChecked,\n    downloadM3uUrl: cleanDownloadUrl,\n    webPlayerUrl: playerWebUrl,\n    message: `🎉 Sua lista foi limpa com sucesso! ${status.onlineCount} canais online disponíveis para reprodução imediata.`\n  }\n};"
+        "jsCode": "const status = $input.first().json;\nconst playlistId = status.playlistId;\nconst baseUrl = $env.JSTUDIOPLAY_INTERNAL_URL || 'http://mcp_jstudioplay:3030';\n\nreturn [{ json: {\n  success: true,\n  playlistId,\n  onlineChannels: status.onlineCount || 0,\n  lastChecked: status.lastChecked,\n  downloadM3uUrl: `${baseUrl}/api/playlists/${playlistId}/export?filter=online`,\n  webPlayerUrl: `${baseUrl}/#/player`,\n  message: `🎉 Lista limpa! ${status.onlineCount || 0} canais online disponíveis.`\n}}];"
       },
       "id": "node-response-clean",
-      "name": "Gerar Links de Download & Player",
+      "name": "Gerar Links de Download",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1160, 300]
     }
   ],
   "connections": {
-    "Webhook: Receber Link M3U": {
-      "main": [
-        [
-          {
-            "node": "Importar & Iniciar Validação",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Importar & Iniciar Validação": {
-      "main": [
-        [
-          {
-            "node": "Aguardar Teste dos Canais",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Aguardar Teste dos Canais": {
-      "main": [
-        [
-          {
-            "node": "Verificar Canais Online",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Verificar Canais Online": {
-      "main": [
-        [
-          {
-            "node": "Gerar Links de Download & Player",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
+    "Webhook: Receber Link M3U": { "main": [[{ "node": "Importar & Iniciar Validação", "type": "main", "index": 0 }]] },
+    "Importar & Iniciar Validação": { "main": [[{ "node": "Aguardar Teste dos Canais", "type": "main", "index": 0 }]] },
+    "Aguardar Teste dos Canais": { "main": [[{ "node": "Verificar Canais Online", "type": "main", "index": 0 }]] },
+    "Verificar Canais Online": { "main": [[{ "node": "Gerar Links de Download", "type": "main", "index": 0 }]] }
   },
-  "settings": {
-    "executionOrder": "v1"
-  }
+  "settings": { "executionOrder": "v1" }
 }

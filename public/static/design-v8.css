@@ -2631,3 +2631,1222 @@ dialog::backdrop {
   background: var(--nf-black) !important;
   color: var(--nf-text) !important;
 }
+
+/* ==========================================================================
+   15. IPTV PRO SUITE — FIDELIDADE AO LAYOUT DE REFERÊNCIA SMART TV
+   15.1 Tokens & Variáveis Globais IPTV
+   15.2 Tela de Login Cinemática (Split Xtream Codes API / M3U)
+   15.3 Dashboard Principal (Hero Live Banner + Trilhos Widescreen & Pôsteres)
+   15.4 Guia de Programação EPG (Sidebar de Categorias + Timeline Horizontal)
+   15.5 Central de Configurações Smart TV (Menu Lateral + Toggles Vermelhos)
+   ========================================================================== */
+
+:root {
+  --iptv-black: #07080a;
+  --iptv-bg: #0b0c10;
+  --iptv-surface: #12141a;
+  --iptv-surface-card: #151821;
+  --iptv-surface-hover: #1c202c;
+  --iptv-red: #e50914;
+  --iptv-red-hover: #ff1a2b;
+  --iptv-red-glow: rgba(229, 9, 20, 0.35);
+  --iptv-border: rgba(255, 255, 255, 0.08);
+  --iptv-border-active: rgba(229, 9, 20, 0.6);
+  --iptv-text: #ffffff;
+  --iptv-text-muted: #9ca3af;
+  --iptv-text-dim: #6b7280;
+  --iptv-radius-sm: 8px;
+  --iptv-radius-md: 12px;
+  --iptv-radius-lg: 18px;
+  --iptv-radius-full: 9999px;
+  --iptv-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* --------------------------------------------------------------------------
+   15.2 TELA DE LOGIN CINEMÁTICA (SPLIT SCREEN)
+   -------------------------------------------------------------------------- */
+
+.iptv-login-wrapper {
+  min-height: 100vh;
+  width: 100%;
+  background: 
+    radial-gradient(circle at 12% 18%, rgba(229, 9, 20, 0.18) 0%, transparent 45%),
+    radial-gradient(circle at 88% 82%, rgba(229, 9, 20, 0.09) 0%, transparent 40%),
+    linear-gradient(135deg, #060709 0%, #0c0d12 50%, #060709 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 2rem;
+  font-family: var(--iptv-font);
+  color: var(--iptv-text);
+  box-sizing: border-box;
+}
+
+.iptv-login-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  max-width: 1180px;
+  width: 100%;
+  gap: 3.5rem;
+  align-items: center;
+}
+
+/* Lado Esquerdo: Branding e Recursos */
+.iptv-brand-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.iptv-main-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.iptv-play-icon {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #ff2a38 0%, #e50914 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px var(--iptv-red-glow);
+}
+
+.iptv-play-icon svg {
+  width: 24px;
+  height: 24px;
+  fill: #fff;
+  margin-left: 3px;
+}
+
+.iptv-logo-title {
+  font-size: 2.25rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #fff;
+}
+
+.iptv-tagline-caps {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--iptv-text-muted);
+  text-transform: uppercase;
+  margin-top: -0.75rem;
+  line-height: 1.4;
+}
+
+.iptv-tagline-caps span {
+  color: #fff;
+  display: block;
+  letter-spacing: 3px;
+}
+
+.iptv-features-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  margin-top: 0.5rem;
+}
+
+.iptv-feature-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.1rem;
+}
+
+.iptv-feature-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(229, 9, 20, 0.12);
+  border: 1px solid rgba(229, 9, 20, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ff3342;
+  flex-shrink: 0;
+}
+
+.iptv-feature-badge svg {
+  width: 18px;
+  height: 18px;
+}
+
+.iptv-feature-text strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+
+.iptv-feature-text p {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  color: var(--iptv-text-muted);
+}
+
+.iptv-brand-footer {
+  margin-top: 1rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.35;
+}
+
+.iptv-brand-footer .accent {
+  color: var(--iptv-red);
+  font-weight: 700;
+}
+
+/* Lado Direito: Card de Login */
+.iptv-login-card {
+  background: rgba(18, 20, 26, 0.88);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid var(--iptv-border);
+  border-radius: 20px;
+  padding: 2.5rem 2.25rem;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  position: relative;
+}
+
+.iptv-card-header {
+  text-align: left;
+}
+
+.iptv-card-header h2 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 0.35rem;
+}
+
+.iptv-card-header p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--iptv-text-muted);
+}
+
+.iptv-auth-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--iptv-border);
+  gap: 1.5rem;
+}
+
+.iptv-auth-tab {
+  background: none;
+  border: none;
+  color: var(--iptv-text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.6rem 0.2rem 0.8rem;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.iptv-auth-tab.active {
+  color: #fff;
+}
+
+.iptv-auth-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--iptv-red);
+  border-radius: 2px;
+  box-shadow: 0 0 10px var(--iptv-red);
+}
+
+.iptv-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.iptv-input-wrap {
+  display: flex;
+  align-items: center;
+  background: rgba(22, 25, 34, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  gap: 0.85rem;
+  transition: all 0.2s;
+}
+
+.iptv-input-wrap:focus-within {
+  border-color: var(--iptv-red);
+  box-shadow: 0 0 0 2px rgba(229, 9, 20, 0.2);
+  background: rgba(26, 30, 42, 0.95);
+}
+
+.iptv-input-icon {
+  color: var(--iptv-text-muted);
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iptv-input-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.iptv-input-inner {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.iptv-input-inner label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--iptv-text-muted);
+  margin-bottom: 2px;
+}
+
+.iptv-input-inner input {
+  background: none;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-size: 0.92rem;
+  padding: 0;
+  width: 100%;
+  font-family: inherit;
+}
+
+.iptv-input-inner input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.iptv-toggle-pw {
+  background: none;
+  border: none;
+  color: var(--iptv-text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.iptv-toggle-pw:hover {
+  color: #fff;
+}
+
+.iptv-btn-submit {
+  width: 100%;
+  background: linear-gradient(135deg, #ff1a2b 0%, #e50914 100%);
+  color: #fff;
+  border: none;
+  border-radius: var(--iptv-radius-full);
+  padding: 0.95rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: 0 10px 24px var(--iptv-red-glow);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  margin-top: 0.5rem;
+}
+
+.iptv-btn-submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(229, 9, 20, 0.5);
+  background: linear-gradient(135deg, #ff2e3e 0%, #f40612 100%);
+}
+
+.iptv-forgot-link {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--iptv-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.iptv-forgot-link:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+/* --------------------------------------------------------------------------
+   15.3 DASHBOARD PRINCIPAL (HOME & TRILHOS SMART TV)
+   -------------------------------------------------------------------------- */
+
+.iptv-dashboard-page {
+  background: var(--iptv-bg);
+  min-height: 100vh;
+  color: var(--iptv-text);
+  font-family: var(--iptv-font);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Topbar IPTV */
+.iptv-dash-topbar {
+  height: 68px;
+  background: rgba(11, 12, 16, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--iptv-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 3.5%;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.iptv-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 2.5rem;
+}
+
+.iptv-nav-pills {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.iptv-nav-pill {
+  background: none;
+  border: none;
+  color: var(--iptv-text-muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: var(--iptv-radius-full);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.iptv-nav-pill:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.iptv-nav-pill.active {
+  color: #fff;
+  background: rgba(229, 9, 20, 0.18);
+  border: 1px solid rgba(229, 9, 20, 0.4);
+}
+
+.iptv-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.iptv-clock {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+
+.iptv-icon-action {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--iptv-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.iptv-icon-action:hover {
+  background: rgba(229, 9, 20, 0.2);
+  border-color: var(--iptv-red);
+}
+
+.iptv-icon-action svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Hero Banner Live */
+.iptv-hero-wrap {
+  position: relative;
+  width: 100%;
+  height: 420px;
+  overflow: hidden;
+  background: #000;
+}
+
+.iptv-hero-bg {
+  position: absolute;
+  inset: 0;
+  background: 
+    linear-gradient(to right, rgba(11,12,16,0.95) 0%, rgba(11,12,16,0.7) 45%, rgba(11,12,16,0.2) 100%),
+    linear-gradient(to top, var(--iptv-bg) 0%, transparent 60%),
+    radial-gradient(circle at 75% 35%, rgba(229, 9, 20, 0.25) 0%, transparent 50%),
+    url('https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1600&q=80') center center / cover no-repeat;
+}
+
+.iptv-hero-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 4.5%;
+  max-width: 650px;
+  z-index: 2;
+}
+
+.iptv-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: var(--iptv-red);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  padding: 0.3rem 0.65rem;
+  border-radius: 4px;
+  width: fit-content;
+  box-shadow: 0 0 12px var(--iptv-red-glow);
+  margin-bottom: 0.85rem;
+}
+
+.iptv-live-dot {
+  width: 7px;
+  height: 7px;
+  background: #fff;
+  border-radius: 50%;
+  animation: iptvPulse 1.4s infinite;
+}
+
+@keyframes iptvPulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.4; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.iptv-hero-title {
+  font-size: clamp(2rem, 3.5vw, 2.75rem);
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.15;
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.5px;
+}
+
+.iptv-hero-subtitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #e5e7eb;
+  margin: 0 0 0.4rem;
+}
+
+.iptv-hero-schedule {
+  font-size: 0.88rem;
+  color: var(--iptv-text-muted);
+  margin: 0 0 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.iptv-hero-btn-play {
+  background: var(--iptv-red);
+  color: #fff;
+  border: none;
+  border-radius: var(--iptv-radius-full);
+  padding: 0.85rem 2rem;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  box-shadow: 0 8px 24px var(--iptv-red-glow);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  width: fit-content;
+}
+
+.iptv-hero-btn-play:hover {
+  transform: scale(1.05);
+  background: var(--iptv-red-hover);
+  box-shadow: 0 12px 30px rgba(229, 9, 20, 0.55);
+}
+
+.iptv-hero-crest {
+  position: absolute;
+  right: 6%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 140px;
+  height: 140px;
+  opacity: 0.85;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.iptv-hero-crest img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 20px rgba(0,0,0,0.7));
+}
+
+/* Trilhos de Conteúdo */
+.iptv-sections-wrap {
+  padding: 1.5rem 0 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2.25rem;
+}
+
+.iptv-rail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.iptv-rail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4.5%;
+}
+
+.iptv-rail-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.iptv-rail-arrow {
+  color: var(--iptv-text-muted);
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+}
+
+.iptv-rail-arrow:hover {
+  color: #fff;
+}
+
+.iptv-rail-track {
+  display: flex;
+  gap: 1.1rem;
+  padding: 0.5rem 4.5% 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.iptv-rail-track::-webkit-scrollbar {
+  display: none;
+}
+
+/* Cards TV Ao Vivo (Widescreen com Progress Bar) */
+.iptv-channel-card {
+  flex: 0 0 200px;
+  height: 110px;
+  background: var(--iptv-surface-card);
+  border: 1px solid var(--iptv-border);
+  border-radius: var(--iptv-radius-md);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: start;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 0.75rem;
+}
+
+.iptv-channel-card:hover,
+.iptv-channel-card:focus-visible {
+  transform: translateY(-4px) scale(1.04);
+  border-color: var(--iptv-border-active);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6), 0 0 16px var(--iptv-red-glow);
+  background: var(--iptv-surface-hover);
+  outline: none;
+}
+
+.iptv-channel-logo-wrap {
+  width: 72px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iptv-channel-logo-wrap img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.iptv-channel-fallback {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+
+.iptv-channel-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--iptv-text-muted);
+  margin-top: 6px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.iptv-card-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.iptv-card-progress-bar {
+  height: 100%;
+  background: var(--iptv-red);
+  box-shadow: 0 0 6px var(--iptv-red);
+}
+
+/* Cards de Filmes & Séries (Pôsteres Verticais 2:3) */
+.iptv-poster-card {
+  flex: 0 0 150px;
+  height: 225px;
+  border-radius: var(--iptv-radius-md);
+  overflow: hidden;
+  position: relative;
+  background: var(--iptv-surface-card);
+  border: 1px solid var(--iptv-border);
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.iptv-poster-card:hover,
+.iptv-poster-card:focus-visible {
+  transform: translateY(-5px) scale(1.05);
+  border-color: var(--iptv-red);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.7), 0 0 18px var(--iptv-red-glow);
+  outline: none;
+}
+
+.iptv-poster-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.iptv-poster-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 60%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0.75rem;
+  opacity: 0.9;
+  transition: opacity 0.2s;
+}
+
+.iptv-poster-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.iptv-poster-meta {
+  font-size: 0.72rem;
+  color: var(--iptv-text-muted);
+  margin-top: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   15.4 GUIA DE PROGRAMAÇÃO EPG (TIMELINE HORIZONTAL)
+   -------------------------------------------------------------------------- */
+
+.iptv-epg-page {
+  background: var(--iptv-bg);
+  min-height: 100vh;
+  color: var(--iptv-text);
+  font-family: var(--iptv-font);
+  display: flex;
+  flex-direction: column;
+}
+
+.iptv-epg-topbar {
+  height: 64px;
+  background: rgba(11, 12, 16, 0.95);
+  border-bottom: 1px solid var(--iptv-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.iptv-epg-title-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.iptv-epg-title-tag small {
+  font-weight: 500;
+  color: var(--iptv-text-muted);
+}
+
+.iptv-epg-container {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  flex: 1;
+  overflow: hidden;
+  height: calc(100vh - 64px);
+}
+
+/* Sidebar de Categorias EPG */
+.iptv-epg-sidebar {
+  background: var(--iptv-surface);
+  border-right: 1px solid var(--iptv-border);
+  padding: 1.25rem 0.85rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.iptv-epg-cat-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-radius: var(--iptv-radius-sm);
+  background: none;
+  border: none;
+  color: var(--iptv-text-muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s;
+  text-align: left;
+}
+
+.iptv-epg-cat-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.iptv-epg-cat-item.active {
+  background: var(--iptv-red);
+  color: #fff;
+  box-shadow: 0 4px 14px var(--iptv-red-glow);
+}
+
+.iptv-epg-cat-count {
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+/* Timeline EPG Principal */
+.iptv-epg-main {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  background: var(--iptv-bg);
+}
+
+.iptv-epg-time-ruler {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  background: var(--iptv-surface);
+  border-bottom: 1px solid var(--iptv-border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.iptv-epg-ruler-date {
+  width: 220px;
+  flex-shrink: 0;
+  padding-left: 1.5rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.iptv-epg-ruler-slots {
+  display: flex;
+  flex: 1;
+}
+
+.iptv-epg-slot {
+  width: 200px;
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--iptv-text-muted);
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--iptv-border);
+}
+
+/* Linhas da Grade de Canais */
+.iptv-epg-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--iptv-border);
+  min-height: 72px;
+}
+
+.iptv-epg-channel-col {
+  width: 220px;
+  flex-shrink: 0;
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  background: var(--iptv-surface);
+  border-right: 1px solid var(--iptv-border);
+}
+
+.iptv-epg-ch-logo {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.iptv-epg-ch-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.iptv-epg-ch-info strong {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+}
+
+.iptv-epg-live-chip {
+  display: inline-block;
+  background: rgba(229, 9, 20, 0.2);
+  color: var(--iptv-red);
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-top: 2px;
+}
+
+.iptv-epg-programs-row {
+  display: flex;
+  flex: 1;
+  background: rgba(18, 20, 26, 0.4);
+}
+
+.iptv-epg-prog-block {
+  width: 200px;
+  flex-shrink: 0;
+  padding: 0.75rem 0.85rem;
+  border-right: 1px solid var(--iptv-border);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.iptv-epg-prog-block:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.iptv-epg-prog-block.current {
+  background: rgba(229, 9, 20, 0.08);
+  border-left: 2px solid var(--iptv-red);
+}
+
+.iptv-epg-prog-title {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.iptv-epg-prog-time {
+  font-size: 0.72rem;
+  color: var(--iptv-text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   15.5 CENTRAL DE CONFIGURAÇÕES SMART TV
+   -------------------------------------------------------------------------- */
+
+.iptv-settings-page {
+  background: var(--iptv-bg);
+  min-height: 100vh;
+  color: var(--iptv-text);
+  font-family: var(--iptv-font);
+  display: flex;
+  flex-direction: column;
+}
+
+.iptv-settings-topbar {
+  height: 64px;
+  background: rgba(11, 12, 16, 0.95);
+  border-bottom: 1px solid var(--iptv-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 3.5rem;
+}
+
+.iptv-settings-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  max-width: 1200px;
+  width: 100%;
+  margin: 2.5rem auto;
+  gap: 3.5rem;
+  padding: 0 2rem;
+}
+
+/* Menu Lateral Esquerdo */
+.iptv-settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.iptv-settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.95rem 1.25rem;
+  border-radius: var(--iptv-radius-md);
+  background: none;
+  border: none;
+  color: var(--iptv-text-muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.iptv-settings-nav-item svg {
+  width: 20px;
+  height: 20px;
+}
+
+.iptv-settings-nav-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.iptv-settings-nav-item.active {
+  background: var(--iptv-red);
+  color: #fff;
+  box-shadow: 0 6px 18px var(--iptv-red-glow);
+}
+
+/* Painel de Conteúdo Direito */
+.iptv-settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.iptv-settings-panel-head h2 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 0.35rem;
+}
+
+.iptv-settings-panel-head p {
+  font-size: 0.92rem;
+  color: var(--iptv-text-muted);
+  margin: 0;
+}
+
+.iptv-settings-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.iptv-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.1rem 1.35rem;
+  background: var(--iptv-surface-card);
+  border: 1px solid var(--iptv-border);
+  border-radius: var(--iptv-radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.iptv-setting-row:hover,
+.iptv-setting-row:focus-visible {
+  border-color: rgba(229, 9, 20, 0.4);
+  background: var(--iptv-surface-hover);
+  outline: none;
+}
+
+.iptv-setting-row-info strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.iptv-setting-row-info small {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--iptv-text-muted);
+  margin-top: 2px;
+}
+
+.iptv-setting-control {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  color: var(--iptv-text-muted);
+  font-weight: 600;
+}
+
+/* Switch Toggle Vermelho IPTV */
+.iptv-toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 28px;
+}
+
+.iptv-toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.iptv-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.2);
+  transition: .3s;
+  border-radius: 34px;
+}
+
+.iptv-toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .3s;
+  border-radius: 50%;
+}
+
+.iptv-toggle-switch input:checked + .iptv-toggle-slider {
+  background-color: var(--iptv-red);
+  box-shadow: 0 0 10px var(--iptv-red-glow);
+}
+
+.iptv-toggle-switch input:checked + .iptv-toggle-slider:before {
+  transform: translateX(22px);
+}
+
+/* Responsividade Mobile */
+@media (max-width: 900px) {
+  .iptv-login-grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+  .iptv-epg-container {
+    grid-template-columns: 180px 1fr;
+  }
+  .iptv-settings-grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+}
+

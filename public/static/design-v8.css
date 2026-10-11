@@ -2642,24 +2642,29 @@ dialog::backdrop {
    ========================================================================== */
 
 :root {
-  --iptv-black: #07080a;
-  --iptv-bg: #0b0c10;
-  --iptv-surface: #12141a;
-  --iptv-surface-card: #151821;
-  --iptv-surface-hover: #1c202c;
-  --iptv-red: #e50914;
-  --iptv-red-hover: #ff1a2b;
-  --iptv-red-glow: rgba(229, 9, 20, 0.35);
-  --iptv-border: rgba(255, 255, 255, 0.08);
-  --iptv-border-active: rgba(229, 9, 20, 0.6);
-  --iptv-text: #ffffff;
-  --iptv-text-muted: #9ca3af;
-  --iptv-text-dim: #6b7280;
+  --iptv-bg: #141414;
+  --iptv-bg-sec: #0B0F14;
+  --iptv-surface: #1E1E1E;
+  --iptv-surface-card: #1E1E1E;
+  --iptv-surface-hover: #252B33;
+  --iptv-elevated: #252B33;
+  --iptv-border: #2E2E2E;
+  --iptv-border-active: #FF1726;
+  --iptv-red: #E50914;
+  --iptv-red-hover: #FF1726;
+  --iptv-red-glow: rgba(229, 9, 20, 0.4);
+  --iptv-text: #FFFFFF;
+  --iptv-text-muted: #A0A0A0;
+  --iptv-text-sec: #A0A0A0;
+  --iptv-text-dim: #666666;
+  --iptv-success: #22C55E;
   --iptv-radius-sm: 8px;
   --iptv-radius-md: 12px;
-  --iptv-radius-lg: 18px;
+  --iptv-radius-lg: 16px;
   --iptv-radius-full: 9999px;
-  --iptv-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --iptv-font: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --iptv-safe-x: 5%;
+  --iptv-safe-y: 4%;
 }
 
 /* --------------------------------------------------------------------------
@@ -3849,4 +3854,409 @@ dialog::backdrop {
     gap: 2rem;
   }
 }
+
+/* ==========================================================================
+   16. IPTV SMART TV FULL SUITE (ESPECIFICAÇÃO UI/UX COMPLETA)
+   16.1 Sidebar Smart TV Oficial (9 Itens)
+   16.2 Foco D-Pad e Acessibilidade por Controle Remoto
+   16.3 Tri-Painel TV Ao Vivo (Categorias + Lista + Prévia)
+   16.4 Catálogo de Filmes & Séries com Modal de Detalhes Cinematográfico
+   16.5 Tela de Pesquisa Dedicada com Teclado Virtual na Tela
+   16.6 Tela de Favoritos com Abas e Estado Vazio
+   16.7 Teclado PIN Numérico para Controle Parental
+   16.8 Player OSD Imersivo com Auto-Hide
+   ========================================================================== */
+
+/* 16.1 Sidebar Smart TV Oficial (9 Itens) */
+.iptv-smart-sidebar {
+  width: 250px;
+  background: var(--iptv-bg-sec);
+  border-right: 1px solid var(--iptv-border);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 1rem;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  box-sizing: border-box;
+}
+
+.iptv-smart-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: 10px;
+  background: none;
+  border: none;
+  color: var(--iptv-text-sec);
+  font-family: var(--iptv-font);
+  font-size: 0.95rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: left;
+}
+
+.iptv-smart-nav-item svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.iptv-smart-nav-item:hover,
+.iptv-smart-nav-item:focus-visible {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  outline: none;
+}
+
+.iptv-smart-nav-item.active {
+  background: var(--iptv-red) !important;
+  color: #fff !important;
+  font-weight: 600;
+  box-shadow: 0 4px 16px var(--iptv-red-glow);
+}
+
+/* 16.2 Foco D-Pad Smart TV */
+[tabindex="0"]:focus-visible,
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--iptv-red-hover) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 16px var(--iptv-red-glow) !important;
+  transform: scale(1.03);
+  transition: transform 0.15s ease, outline-color 0.15s ease;
+}
+
+/* 16.3 Tri-Painel TV Ao Vivo */
+.iptv-tri-layout {
+  display: grid;
+  grid-template-columns: 240px 1.4fr 1.6fr;
+  height: calc(100vh - 68px);
+  background: var(--iptv-bg);
+  overflow: hidden;
+}
+
+.iptv-tri-col-cats {
+  background: var(--iptv-bg-sec);
+  border-right: 1px solid var(--iptv-border);
+  padding: 1.25rem 0.85rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.iptv-tri-col-channels {
+  background: var(--iptv-surface);
+  border-right: 1px solid var(--iptv-border);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.iptv-tri-channel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--iptv-border);
+  cursor: pointer;
+  background: none;
+  border-left: 3px solid transparent;
+  transition: all 0.15s;
+  color: #fff;
+  text-align: left;
+  width: 100%;
+}
+
+.iptv-tri-channel-row:hover,
+.iptv-tri-channel-row:focus-visible {
+  background: var(--iptv-elevated);
+  border-left-color: var(--iptv-red);
+}
+
+.iptv-tri-channel-row.active {
+  background: rgba(229, 9, 20, 0.15);
+  border-left-color: var(--iptv-red);
+}
+
+.iptv-tri-col-preview {
+  background: var(--iptv-bg);
+  padding: 2rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  overflow-y: auto;
+}
+
+.iptv-preview-screen {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: var(--iptv-radius-md);
+  overflow: hidden;
+  position: relative;
+  border: 1px solid var(--iptv-border);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.8);
+}
+
+.iptv-preview-screen video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 16.4 Catálogo de Filmes & Séries com Grid e Modal */
+.iptv-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1.5rem;
+  padding: 1.5rem var(--iptv-safe-x);
+}
+
+.iptv-genre-pills {
+  display: flex;
+  gap: 0.6rem;
+  padding: 1rem var(--iptv-safe-x);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.iptv-genre-pill {
+  padding: 0.45rem 1.1rem;
+  background: var(--iptv-surface);
+  border: 1px solid var(--iptv-border);
+  border-radius: 999px;
+  color: var(--iptv-text-sec);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.iptv-genre-pill.active,
+.iptv-genre-pill:hover {
+  background: var(--iptv-red);
+  color: #fff;
+  border-color: var(--iptv-red);
+}
+
+/* Modal de Detalhes do Filme / Série */
+.iptv-detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(20px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.iptv-detail-card {
+  width: 100%;
+  max-width: 960px;
+  background: var(--iptv-surface);
+  border-radius: var(--iptv-radius-lg);
+  border: 1px solid var(--iptv-border);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.9);
+}
+
+.iptv-detail-hero {
+  height: 340px;
+  position: relative;
+  background-size: cover;
+  background-position: center;
+}
+
+.iptv-detail-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, var(--iptv-surface) 0%, rgba(20,20,20,0.4) 60%, transparent 100%);
+}
+
+.iptv-detail-content {
+  padding: 1.5rem 2.5rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: -3.5rem;
+  position: relative;
+  z-index: 2;
+}
+
+.iptv-detail-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+/* 16.5 Pesquisa com Teclado Virtual D-Pad */
+.iptv-search-wrap {
+  padding: 2rem var(--iptv-safe-x);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+.iptv-search-bar-tv {
+  width: 100%;
+  max-width: 720px;
+  background: var(--iptv-surface);
+  border: 2px solid var(--iptv-border);
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  font-size: 1.25rem;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.iptv-search-bar-tv input {
+  background: none;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-size: 1.25rem;
+  width: 100%;
+  font-family: var(--iptv-font);
+}
+
+.iptv-vkeyboard {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.6rem;
+  max-width: 600px;
+  width: 100%;
+}
+
+.iptv-vkey {
+  height: 52px;
+  background: var(--iptv-elevated);
+  border: 1px solid var(--iptv-border);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.iptv-vkey:hover,
+.iptv-vkey:focus-visible {
+  background: var(--iptv-red);
+  border-color: var(--iptv-red);
+  transform: scale(1.08);
+}
+
+.iptv-vkey.wide {
+  grid-column: span 2;
+}
+
+.iptv-vkey.super-wide {
+  grid-column: span 3;
+}
+
+/* 16.6 Favoritos com Abas e Estado Vazio */
+.iptv-fav-tabs {
+  display: flex;
+  gap: 1.25rem;
+  padding: 1.5rem var(--iptv-safe-x);
+  border-bottom: 1px solid var(--iptv-border);
+}
+
+.iptv-empty-fav {
+  padding: 5rem 2rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  color: var(--iptv-text-sec);
+}
+
+.iptv-empty-fav svg {
+  width: 56px;
+  height: 56px;
+  color: var(--iptv-red);
+}
+
+/* 16.7 Teclado PIN Numérico para Controle Parental */
+.iptv-pin-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  max-width: 380px;
+  margin: 2rem auto;
+  background: var(--iptv-surface);
+  padding: 2.5rem 2rem;
+  border-radius: var(--iptv-radius-lg);
+  border: 1px solid var(--iptv-border);
+}
+
+.iptv-pin-display {
+  display: flex;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.iptv-pin-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--iptv-red);
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.iptv-pin-dot.filled {
+  background: var(--iptv-red);
+  box-shadow: 0 0 10px var(--iptv-red-glow);
+}
+
+.iptv-pin-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.85rem;
+  width: 100%;
+}
+
+.iptv-pin-btn {
+  height: 60px;
+  background: var(--iptv-elevated);
+  border: 1px solid var(--iptv-border);
+  border-radius: 12px;
+  color: #fff;
+  font-size: 1.4rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.iptv-pin-btn:hover,
+.iptv-pin-btn:focus-visible {
+  background: var(--iptv-red);
+  border-color: var(--iptv-red);
+  transform: scale(1.08);
+}
+
 

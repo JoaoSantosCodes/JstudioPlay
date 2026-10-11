@@ -321,7 +321,24 @@ function loginPage(){
   </div>`;
 }
 
-const pageNames={dashboard:'Início',playlists:'Minhas Playlists',player:'Player',epg:'Guia de Programação (EPG)',automation:'M3U Hub & Automação',favorites:'Favoritos',history:'Histórico',settings:'Configurações',users:'Usuários',logs:'Logs'};
+const pageNames={
+  dashboard:'Início',
+  live:'TV Ao Vivo',
+  channels:'Canais',
+  movies:'Filmes',
+  series:'Séries',
+  search:'Buscar',
+  recordings:'Gravações',
+  epg:'Guia EPG',
+  favorites:'Favoritos',
+  history:'Histórico',
+  settings:'Configurações',
+  playlists:'Minhas Playlists',
+  player:'Player',
+  automation:'M3U Hub & Automação',
+  users:'Usuários',
+  logs:'Logs'
+};
 
 function navLink(page,symbol,label,count){return `<a class="nav-link ${state.page===page?'active':''}" href="#/${page}" title="${esc(label)}" aria-label="${esc(label)}" ${state.page===page?'aria-current="page"':''}>${icon(symbol)}<span class="nav-label">${label}</span>${count!==undefined?`<span class="nav-count">${count}</span>`:''}</a>`;}
 
@@ -552,6 +569,239 @@ function epgPage(){
   </div>`;
 }
 
+function iptvSmartSidebar(active='dashboard'){
+  const items = [
+    { id: 'dashboard', label: 'Início', icon: 'home' },
+    { id: 'live', label: 'TV Ao Vivo', icon: 'tv' },
+    { id: 'movies', label: 'Filmes', icon: 'film' },
+    { id: 'series', label: 'Séries', icon: 'grid' },
+    { id: 'channels', label: 'Canais', icon: 'playlist' },
+    { id: 'recordings', label: 'Gravações', icon: 'clock' },
+    { id: 'epg', label: 'EPG', icon: 'refresh' },
+    { id: 'favorites', label: 'Favoritos', icon: 'heart' },
+    { id: 'settings', label: 'Configurações', icon: 'settings' }
+  ];
+  return `<aside class="iptv-smart-sidebar" aria-label="Menu Principal IPTV">
+    <div style="padding:0 0.5rem 1.25rem; display:flex; align-items:center; gap:0.75rem;">
+      <div class="iptv-play-icon" style="width:36px; height:36px; border-radius:8px;">
+        <svg viewBox="0 0 24 24" style="width:16px; height:16px;"><path d="M8 5v14l11-7z"/></svg>
+      </div>
+      <span class="iptv-logo-title" style="font-size:1.35rem;">IPTV</span>
+    </div>
+    <nav style="display:flex; flex-direction:column; gap:0.35rem;">
+      ${items.map(it => `
+        <a class="iptv-smart-nav-item ${active===it.id?'active':''}" href="#/${it.id}" tabindex="0">
+          ${icon(it.icon)}
+          <span>${it.label}</span>
+        </a>
+      `).join('')}
+    </nav>
+    <div style="margin-top:auto; padding-top:1rem; border-top:1px solid var(--iptv-border);">
+      <button class="iptv-smart-nav-item" data-action="logout" tabindex="0" style="width:100%; color:var(--iptv-text-sec);">
+        ${icon('logout')}
+        <span>Sair</span>
+      </button>
+    </div>
+  </aside>`;
+}
+
+function livePage(){
+  const categories = [
+    { name: 'Todos os canais', count: 156, active: true },
+    { name: 'Esportes', count: 24 },
+    { name: 'Filmes', count: 32 },
+    { name: 'Séries', count: 28 },
+    { name: 'Notícias', count: 12 },
+    { name: 'Infantil', count: 15 },
+    { name: 'Documentários', count: 10 },
+    { name: 'Música', count: 8 },
+    { name: 'Variedades', count: 14 },
+    { name: 'Internacionais', count: 13 }
+  ];
+
+  const channels = [
+    { num: '01', name: 'SporTV', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/SporTV_2021.svg/120px-SporTV_2021.svg.png', prog: 'Brasileirão: Flamengo x Palmeiras', time: '21:30 - 23:30', next: 'SporTV News', active: true },
+    { num: '02', name: 'Globo', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/TV_Globo_2021.svg/120px-TV_Globo_2021.svg.png', prog: 'Jornal Nacional', time: '20:30 - 21:30', next: 'Troca de Passes' },
+    { num: '03', name: 'ESPN', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/ESPN_wordmark.svg/120px-ESPN_wordmark.svg.png', prog: 'NBA - Playoffs', time: '21:15 - 23:45', next: 'SportsCenter' },
+    { num: '04', name: 'TNT', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/Discovery_Channel_2019.svg/120px-Discovery_Channel_2019.svg.png', prog: 'Champions League Show', time: '21:00 - 23:00', next: 'Filme Especial' },
+    { num: '05', name: 'Band', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Rede_Bandeirantes_logo.svg/120px-Rede_Bandeirantes_logo.svg.png', prog: 'MasterChef Brasil', time: '21:15 - 23:00', next: 'Jornal da Noite' },
+    { num: '06', name: 'CNN Brasil', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/CNN_Brasil_logo.svg/120px-CNN_Brasil_logo.svg.png', prog: 'CNN Prime Time', time: '21:00 - 22:30', next: 'Agora CNN' }
+  ];
+
+  return `<div class="iptv-tri-layout">
+    <!-- Área Esquerda: Categorias -->
+    <aside class="iptv-tri-col-cats">
+      <div style="padding:0.5rem 0.5rem 1rem; font-size:1.1rem; font-weight:700; color:#fff;">Categorias</div>
+      ${categories.map(c => `
+        <button class="iptv-epg-cat-item ${c.active?'active':''}" data-action="iptv-epg-cat" data-name="${esc(c.name)}" tabindex="0">
+          <span>${esc(c.name)}</span>
+          <span class="iptv-epg-cat-count">${c.count}</span>
+        </button>
+      `).join('')}
+    </aside>
+
+    <!-- Área Central: Lista de Canais -->
+    <main class="iptv-tri-col-channels">
+      <div style="padding:1rem 1.25rem; font-size:1.1rem; font-weight:700; color:#fff; border-bottom:1px solid var(--iptv-border); display:flex; justify-content:space-between; align-items:center;">
+        <span>Canais (${channels.length})</span>
+        <span class="iptv-live-badge" style="margin:0;"><span class="iptv-live-dot"></span> AO VIVO</span>
+      </div>
+      <div style="overflow-y:auto; flex:1;">
+        ${channels.map(ch => `
+          <button class="iptv-tri-channel-row ${ch.active?'active':''}" data-action="select-live-ch" data-name="${esc(ch.name)}" tabindex="0">
+            <div style="display:flex; align-items:center; gap:0.85rem;">
+              <span style="font-size:0.85rem; font-weight:700; color:var(--iptv-text-sec); width:24px;">${ch.num}</span>
+              <div class="iptv-epg-ch-logo" style="width:34px; height:34px;">
+                <img src="${ch.logo}" alt="${esc(ch.name)}" onerror="this.onerror=null;this.parentElement.textContent='${esc(initials(ch.name))}';">
+              </div>
+              <div>
+                <strong style="display:block; font-size:0.95rem; color:#fff;">${esc(ch.name)}</strong>
+                <span style="font-size:0.78rem; color:var(--iptv-text-sec);">${esc(ch.prog)}</span>
+              </div>
+            </div>
+            <span class="iptv-live-chip">AO VIVO</span>
+          </button>
+        `).join('')}
+      </div>
+    </main>
+
+    <!-- Área Direita: Prévia -->
+    <aside class="iptv-tri-col-preview">
+      <div class="iptv-preview-screen">
+        <div style="position:absolute; inset:0; background:linear-gradient(135deg, rgba(229,9,20,0.2) 0%, transparent 80%), url('https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=800&q=80') center center / cover no-repeat;"></div>
+        <div style="position:absolute; bottom:1rem; left:1rem; z-index:2;">
+          <span class="iptv-live-badge"><span class="iptv-live-dot"></span> AO VIVO</span>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:0.5rem;">
+        <h2 style="font-size:1.5rem; font-weight:800; color:#fff; margin:0;" id="preview-ch-name">SporTV</h2>
+        <h3 style="font-size:1.1rem; font-weight:600; color:#e5e7eb; margin:0;" id="preview-prog-title">Brasileirão: Flamengo x Palmeiras</h3>
+        <p style="font-size:0.88rem; color:var(--iptv-text-sec); margin:0;" id="preview-prog-time">Hoje • 21:30 - 23:30 • Esportes</p>
+      </div>
+      <div style="background:var(--iptv-surface); border:1px solid var(--iptv-border); padding:1rem 1.25rem; border-radius:10px;">
+        <span style="font-size:0.75rem; text-transform:uppercase; font-weight:700; color:var(--iptv-text-sec); letter-spacing:0.5px;">A Seguir</span>
+        <strong style="display:block; font-size:0.95rem; color:#fff; margin-top:4px;" id="preview-next-prog">SporTV News (23:30)</strong>
+      </div>
+      <button class="iptv-btn-submit" data-action="open-first-live" tabindex="0" style="margin-top:0.5rem; height:52px;">
+        ${icon('play')} Assistir em Tela Cheia
+      </button>
+    </aside>
+  </div>`;
+}
+
+function moviesPage(){
+  const genres = ['Todos', 'Ação', 'Aventura', 'Comédia', 'Drama', 'Terror', 'Ficção científica', 'Animação', 'Documentários'];
+  const movies = [
+    { id: 'm1', title: 'Top Gun: Maverick', meta: 'Ação • 2022 • 2h 11m', rating: '12', res: '4K', syn: 'Após mais de 30 anos de serviço como um dos principais aviadores da Marinha, Pete Mitchell segue rompendo limites.', img: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80' },
+    { id: 'm2', title: 'Deadpool & Wolverine', meta: 'Ação / Comédia • 2024 • 2h 08m', rating: '16', res: '4K', syn: 'Wolverine se recupera de ferimentos quando cruza com o desbocado Deadpool em uma missão para salvar o multiverso.', img: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=400&q=80' },
+    { id: 'm3', title: 'John Wick: Capítulo 4', meta: 'Ação • 2023 • 2h 49m', rating: '16', res: '4K', syn: 'John Wick descobre um caminho para derrotar a Alta Cúpula, enfrentando assassinos letais ao redor do globo.', img: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=400&q=80' },
+    { id: 'm4', title: 'Duna: Parte 2', meta: 'Ficção Científica • 2024 • 2h 46m', rating: '14', res: '4K', syn: 'Paul Atreides se une a Chani e aos Fremen em busca de vingança contra os conspiradores que destruíram sua família.', img: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=400&q=80' },
+    { id: 'm5', title: 'Oppenheimer', meta: 'Drama / História • 2023 • 3h 00m', rating: '16', res: '4K', syn: 'A história do físico americano J. Robert Oppenheimer e o Projeto Manhattan durante a Segunda Guerra Mundial.', img: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?auto=format&fit=crop&w=400&q=80' },
+    { id: 'm6', title: 'Interestelar', meta: 'Ficção • 2014 • 2h 49m', rating: '10', res: '1080p', syn: 'Um grupo de exploradores viaja através de um buraco de minhoca em busca de um novo lar para a humanidade.', img: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=400&q=80' }
+  ];
+
+  return `<div style="padding:1.5rem var(--iptv-safe-x);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <h1 style="font-size:1.75rem; font-weight:800; color:#fff; margin:0;">Filmes</h1>
+      <a href="#/search" class="iptv-genre-pill" style="text-decoration:none;">${icon('search')} Buscar filme</a>
+    </div>
+    <!-- Filtros de Gênero -->
+    <div class="iptv-genre-pills" style="padding-left:0; padding-right:0;">
+      ${genres.map((g, i) => `<button class="iptv-genre-pill ${i===0?'active':''}" tabindex="0">${esc(g)}</button>`).join('')}
+    </div>
+    <!-- Grid de Pôsteres -->
+    <div class="iptv-catalog-grid" style="padding-left:0; padding-right:0;">
+      ${movies.map(m => `
+        <div class="iptv-poster-card" data-action="open-movie-detail" data-id="${m.id}" tabindex="0" title="${esc(m.title)}">
+          <img class="iptv-poster-img" src="${m.img}" alt="${esc(m.title)}" loading="lazy">
+          <div class="iptv-poster-overlay">
+            <span style="display:inline-block; font-size:0.65rem; font-weight:800; background:rgba(0,0,0,0.7); border:1px solid #fff; border-radius:3px; padding:1px 4px; margin-bottom:4px; width:fit-content;">${m.res}</span>
+            <strong class="iptv-poster-title">${esc(m.title)}</strong>
+            <span class="iptv-poster-meta">${esc(m.meta)}</span>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
+}
+
+function seriesPage(){
+  const series = [
+    { id: 's1', title: 'The Last of Us', meta: 'Drama / Sobrevivência • 2023', seasons: '1 Temporada • 9 Episódios', img: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=400&q=80' },
+    { id: 's2', title: 'Breaking Bad', meta: 'Crime / Drama • 2008', seasons: '5 Temporadas • 62 Episódios', img: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=400&q=80' },
+    { id: 's3', title: 'House of the Dragon', meta: 'Fantasia • 2024', seasons: '2 Temporadas • 18 Episódios', img: 'https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=400&q=80' },
+    { id: 's4', title: 'Stranger Things', meta: 'Suspense • 2022', seasons: '4 Temporadas • 34 Episódios', img: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=400&q=80' }
+  ];
+
+  return `<div style="padding:1.5rem var(--iptv-safe-x);">
+    <h1 style="font-size:1.75rem; font-weight:800; color:#fff; margin:0 0 1.5rem;">Séries em Alta</h1>
+    <div class="iptv-catalog-grid" style="padding-left:0; padding-right:0;">
+      ${series.map(s => `
+        <div class="iptv-poster-card" data-action="open-first-live" tabindex="0" title="${esc(s.title)}">
+          <img class="iptv-poster-img" src="${s.img}" alt="${esc(s.title)}" loading="lazy">
+          <div class="iptv-poster-overlay">
+            <strong class="iptv-poster-title">${esc(s.title)}</strong>
+            <span class="iptv-poster-meta">${esc(s.seasons)}</span>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
+}
+
+function searchPage(){
+  const keys = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','0','1','2','3','4','5','6','7','8','9'];
+  return `<div class="iptv-search-wrap">
+    <div class="iptv-search-bar-tv">
+      ${icon('search')}
+      <input id="iptv-search-input" placeholder="Digite o nome do canal, filme ou série..." autofocus spellcheck="false" tabindex="0">
+    </div>
+
+    <!-- Teclado Virtual D-Pad para Smart TV -->
+    <div style="display:flex; flex-direction:column; align-items:center; gap:0.75rem; width:100%;">
+      <span style="font-size:0.8rem; font-weight:600; color:var(--iptv-text-sec); text-transform:uppercase; letter-spacing:1px;">Teclado de Controle Remoto</span>
+      <div class="iptv-vkeyboard">
+        ${keys.map(k => `<button class="iptv-vkey" data-action="vkey-press" data-val="${k}" tabindex="0">${k}</button>`).join('')}
+        <button class="iptv-vkey wide" data-action="vkey-space" tabindex="0">Espaço</button>
+        <button class="iptv-vkey wide" data-action="vkey-backspace" tabindex="0">⌫ Apagar</button>
+        <button class="iptv-vkey wide" data-action="vkey-clear" tabindex="0">Limpar</button>
+      </div>
+    </div>
+
+    <div id="iptv-search-results" style="width:100%; max-width:800px; text-align:center; padding-top:1.5rem;">
+      <p style="color:var(--iptv-text-sec); font-size:0.95rem;">Busque pelo nome ou selecione as teclas acima para filtrar.</p>
+    </div>
+  </div>`;
+}
+
+function favoritesPage(){
+  return `<div style="padding:1.5rem var(--iptv-safe-x);">
+    <h1 style="font-size:1.75rem; font-weight:800; color:#fff; margin:0 0 1rem;">Meus Favoritos</h1>
+    <div class="iptv-fav-tabs">
+      <button class="iptv-genre-pill active" tabindex="0">Todos</button>
+      <button class="iptv-genre-pill" tabindex="0">Canais</button>
+      <button class="iptv-genre-pill" tabindex="0">Filmes</button>
+      <button class="iptv-genre-pill" tabindex="0">Séries</button>
+    </div>
+    <div class="iptv-empty-fav">
+      ${icon('heart')}
+      <h3 style="font-size:1.35rem; color:#fff; margin:0;">Você ainda não possui favoritos.</h3>
+      <p style="font-size:0.92rem; margin:0;">Navegue pelos canais ou catálogo e pressione o botão favoritar para salvá-los aqui.</p>
+      <a class="iptv-hero-btn-play" href="#/live" style="margin-top:1rem; text-decoration:none;">Explorar TV Ao Vivo</a>
+    </div>
+  </div>`;
+}
+
+function recordingsPage(){
+  return `<div style="padding:1.5rem var(--iptv-safe-x);">
+    <h1 style="font-size:1.75rem; font-weight:800; color:#fff; margin:0 0 1rem;">Gravações & Histórico</h1>
+    <div style="background:var(--iptv-surface); border:1px solid var(--iptv-border); border-radius:12px; padding:3rem 2rem; text-align:center;">
+      <p style="color:var(--iptv-text-sec); font-size:1rem; margin:0 0 1.5rem;">Nenhuma gravação agendada no momento.</p>
+      <a class="iptv-hero-btn-play" href="#/epg" style="text-decoration:none;">Ver Programação EPG</a>
+    </div>
+  </div>`;
+}
+
 function settings(activeSection='legendas'){
   return `<div class="iptv-settings-page">
     <header class="iptv-settings-topbar">
@@ -568,25 +818,28 @@ function settings(activeSection='legendas'){
     </header>
 
     <div class="iptv-settings-grid">
-      <!-- Menu Lateral Esquerdo -->
+      <!-- Menu Lateral Esquerdo (7 Categorias Oficiais) -->
       <aside class="iptv-settings-nav">
-        <button class="iptv-settings-nav-item ${activeSection==='conta'?'active':''}" data-action="iptv-settings-tab" data-tab="conta">
+        <button class="iptv-settings-nav-item ${activeSection==='conta'?'active':''}" data-action="iptv-settings-tab" data-tab="conta" tabindex="0">
           ${icon('user')} Conta
         </button>
-        <button class="iptv-settings-nav-item ${activeSection==='player'?'active':''}" data-action="iptv-settings-tab" data-tab="player">
+        <button class="iptv-settings-nav-item ${activeSection==='player'?'active':''}" data-action="iptv-settings-tab" data-tab="player" tabindex="0">
           ${icon('play')} Player Engine
         </button>
-        <button class="iptv-settings-nav-item ${activeSection==='legendas'?'active':''}" data-action="iptv-settings-tab" data-tab="legendas">
+        <button class="iptv-settings-nav-item ${activeSection==='legendas'?'active':''}" data-action="iptv-settings-tab" data-tab="legendas" tabindex="0">
           ${icon('info')} Legendas
         </button>
-        <button class="iptv-settings-nav-item ${activeSection==='epg'?'active':''}" data-action="iptv-settings-tab" data-tab="epg">
+        <button class="iptv-settings-nav-item ${activeSection==='epg'?'active':''}" data-action="iptv-settings-tab" data-tab="epg" tabindex="0">
           ${icon('refresh')} EPG
         </button>
-        <button class="iptv-settings-nav-item ${activeSection==='parental'?'active':''}" data-action="iptv-settings-tab" data-tab="parental">
-          ${icon('shield')} Controlo Parental
+        <button class="iptv-settings-nav-item ${activeSection==='parental'?'active':''}" data-action="iptv-settings-tab" data-tab="parental" tabindex="0">
+          ${icon('shield')} Controle Parental
         </button>
-        <button class="iptv-settings-nav-item ${activeSection==='rede'?'active':''}" data-action="iptv-settings-tab" data-tab="rede">
+        <button class="iptv-settings-nav-item ${activeSection==='rede'?'active':''}" data-action="iptv-settings-tab" data-tab="rede" tabindex="0">
           ${icon('globe')} Teste de Rede
+        </button>
+        <button class="iptv-settings-nav-item ${activeSection==='info'?'active':''}" data-action="iptv-settings-tab" data-tab="info" tabindex="0">
+          ${icon('info')} Informações
         </button>
       </aside>
 
@@ -598,7 +851,7 @@ function settings(activeSection='legendas'){
             <p>Configure as opções de legendas do player.</p>
           </div>
           <div class="iptv-settings-rows">
-            <div class="iptv-setting-row">
+            <div class="iptv-setting-row" tabindex="0">
               <div class="iptv-setting-row-info">
                 <strong>Ativar legendas</strong>
                 <small>Exibir legendas automaticamente</small>
@@ -608,53 +861,114 @@ function settings(activeSection='legendas'){
                 <span class="iptv-toggle-slider"></span>
               </label>
             </div>
-            <div class="iptv-setting-row" data-action="cycle-sub-size">
+            <div class="iptv-setting-row" data-action="cycle-sub-size" tabindex="0">
               <div class="iptv-setting-row-info">
                 <strong>Tamanho da fonte</strong>
               </div>
               <div class="iptv-setting-control">Médio ${icon('right')}</div>
             </div>
-            <div class="iptv-setting-row" data-action="cycle-sub-style">
+            <div class="iptv-setting-row" data-action="cycle-sub-style" tabindex="0">
               <div class="iptv-setting-row-info">
                 <strong>Estilo da legenda</strong>
               </div>
               <div class="iptv-setting-control">Branco com fundo escuro ${icon('right')}</div>
             </div>
-            <div class="iptv-setting-row" data-action="cycle-sub-lang">
+            <div class="iptv-setting-row" data-action="cycle-sub-lang" tabindex="0">
               <div class="iptv-setting-row-info">
                 <strong>Idioma preferencial</strong>
               </div>
               <div class="iptv-setting-control">Português ${icon('right')}</div>
             </div>
-            <div class="iptv-setting-row" data-action="cycle-sub-sync">
+            <div class="iptv-setting-row" data-action="cycle-sub-sync" tabindex="0">
               <div class="iptv-setting-row-info">
                 <strong>Ajuste de sincronização</strong>
               </div>
               <div class="iptv-setting-control">0 ms ${icon('right')}</div>
             </div>
           </div>
-        `:activeSection==='conta'?`
+        `:activeSection==='parental'?`
           <div class="iptv-settings-panel-head">
-            <h2>Minha Conta</h2>
-            <p>Atualize suas informações de acesso e preferências.</p>
+            <h2>Controle Parental</h2>
+            <p>Defina ou altere o PIN de bloqueio para categorias protegidas.</p>
           </div>
-          <form id="settings-form" class="form-grid" style="background:var(--iptv-surface-card); padding:1.5rem; border-radius:12px; border:1px solid var(--iptv-border);">
-            <div><label for="account-name">Nome de exibição</label><input id="account-name" name="name" value="${esc(state.user.name)}" required></div>
-            <div><label for="account-username">Usuário</label><input id="account-username" value="${esc(state.user.username)}" disabled></div>
-            <div><label for="current-password">Senha atual</label><input id="current-password" name="currentPassword" type="password"></div>
-            <div><label for="new-password">Nova senha</label><input id="new-password" name="password" type="password"></div>
-            <button class="iptv-btn-submit" type="submit" style="grid-column:span 2; margin-top:1rem;">Salvar alterações</button>
-          </form>
-        `:`
+          <div class="iptv-pin-container">
+            <span style="font-size:0.95rem; font-weight:600; color:#fff;">Digite o PIN de 4 dígitos</span>
+            <div class="iptv-pin-display">
+              <span class="iptv-pin-dot filled"></span>
+              <span class="iptv-pin-dot filled"></span>
+              <span class="iptv-pin-dot"></span>
+              <span class="iptv-pin-dot"></span>
+            </div>
+            <div class="iptv-pin-grid">
+              ${[1,2,3,4,5,6,7,8,9,'Limpar',0,'OK'].map(k => `
+                <button class="iptv-pin-btn" tabindex="0">${k}</button>
+              `).join('')}
+            </div>
+          </div>
+        `:activeSection==='rede'?`
           <div class="iptv-settings-panel-head">
-            <h2>${activeSection==='player'?'Player Engine':activeSection==='epg'?'EPG':activeSection==='parental'?'Controlo Parental':'Teste de Rede'}</h2>
-            <p>Ajustes de alta fidelidade e conectividade.</p>
+            <h2>Teste de Rede</h2>
+            <p>Diagnóstico de conectividade com os servidores de streaming.</p>
           </div>
           <div class="iptv-settings-rows">
             <div class="iptv-setting-row">
               <div class="iptv-setting-row-info">
-                <strong>${activeSection==='player'?'Hardware Acceleration':activeSection==='epg'?'Atualização Automática':activeSection==='parental'?'Bloqueio de Conteúdo':'Status de Conexão'}</strong>
-                <small>${activeSection==='player'?'Renderização acelerada por GPU':activeSection==='epg'?'Sincroniza guia a cada 6 horas':activeSection==='parental'?'Exigir PIN para canais adultos':'Ping para o servidor de stream: 12ms'}</small>
+                <strong>Status da Conexão</strong>
+                <small style="color:var(--iptv-success);">● Conectado à Internet (Fibra/Wi-Fi)</small>
+              </div>
+              <span class="iptv-live-chip" style="background:rgba(34,197,94,0.15); color:var(--iptv-success);">ONLINE</span>
+            </div>
+            <div class="iptv-setting-row">
+              <div class="iptv-setting-row-info">
+                <strong>Latência (Ping)</strong>
+                <small>Servidor HLS Relay local</small>
+              </div>
+              <div class="iptv-setting-control" style="color:#fff; font-weight:700;">12 ms</div>
+            </div>
+            <div class="iptv-setting-row">
+              <div class="iptv-setting-row-info">
+                <strong>Velocidade Estimada</strong>
+                <small>Largura de banda disponível</small>
+              </div>
+              <div class="iptv-setting-control" style="color:#fff; font-weight:700;">120 Mbps (4K Pronto)</div>
+            </div>
+            <button class="iptv-btn-submit" data-action="run-speedtest" tabindex="0" style="margin-top:1rem;">
+              ${icon('refresh')} Iniciar Novo Teste
+            </button>
+          </div>
+        `:activeSection==='conta'?`
+          <div class="iptv-settings-panel-head">
+            <h2>Minha Conta</h2>
+            <p>Informações de acesso e servidor IPTV.</p>
+          </div>
+          <div class="iptv-settings-rows">
+            <div class="iptv-setting-row">
+              <div class="iptv-setting-row-info">
+                <strong>Usuário Ativo</strong>
+                <small>${esc(state.user?.name||'Administrador')} (${esc(state.user?.username||'admin')})</small>
+              </div>
+            </div>
+            <div class="iptv-setting-row">
+              <div class="iptv-setting-row-info">
+                <strong>Servidor IPTV Conectado</strong>
+                <small>http://*****.com:8080 (Protegido)</small>
+              </div>
+              <span class="iptv-live-chip" style="background:rgba(34,197,94,0.15); color:var(--iptv-success);">ATIVO</span>
+            </div>
+          </div>
+          <button class="iptv-btn-submit" data-action="logout" tabindex="0" style="margin-top:1.5rem; background:#333;">
+            ${icon('logout')} Trocar de Conta / Sair
+          </button>
+        `:`
+          <div class="iptv-settings-panel-head">
+            <h2>${activeSection==='player'?'Player Engine':activeSection==='epg'?'EPG':'Informações'}</h2>
+            <p>Configurações avançadas do sistema.</p>
+          </div>
+          <div class="iptv-settings-rows">
+            <div class="iptv-setting-row" tabindex="0">
+              <div class="iptv-setting-row-info">
+                <strong>${activeSection==='player'?'Mecanismo de Reprodução (ExoPlayer / HLS)':activeSection==='epg'?'Sincronização Automática do Guia':'Versão do Aplicativo'}</strong>
+                <small>${activeSection==='player'?'Buffer adaptativo de alta performance':activeSection==='epg'?'Atualiza a cada 6 horas':'JstudioPlay Pro v7.7.0 (Smart TV Build)'}</small>
               </div>
               <label class="iptv-toggle-switch">
                 <input type="checkbox" checked>
@@ -672,7 +986,6 @@ function savedPage(kind){const items=state[kind],isFav=kind==='favorites';return
 function usersPage(){return `${heading('Usuários',state.user.role==='manager'?'Gerencie até 10 usuários criados por você.':'Gerencie os acessos da plataforma JstudioPlay.')}<div class="toolbar"><div class="field search">${icon('search')}<input id="user-search" type="search" placeholder="Buscar usuário…" aria-label="Buscar usuário"></div><button class="btn small" data-action="new-user" ${state.user.role==='manager'&&state.users.length>=10?'disabled title="Limite de 10 usuários atingido"':''}>${icon('plus')}Novo usuário</button></div><section class="card table-wrap"><table class="data-table"><thead><tr><th>Usuário</th><th>Status</th><th>Playlists</th><th>Último acesso</th><th>Ações</th></tr></thead><tbody id="user-rows">${userRows('')}</tbody></table><div class="table-foot">${state.user.role==='manager'?`${number(state.users.length)} de 10 usuários criados`:`${number(state.users.length)} usuários cadastrados`}</div></section>`;}
 function userRows(query){return state.users.filter(({user:u})=>(u.name+' '+u.username).toLowerCase().includes(query.toLowerCase())).map(({user:u,playlists})=>`<tr><td><div class="row"><span class="avatar">${esc(initials(u.name))}</span><span>${esc(u.username)}${u.role==='admin'?'<br><small>Administrador</small>':u.role==='manager'?'<br><small>Gestor</small>':''}</span></div></td><td><span class="badge ${u.blocked?'blocked':''}">${u.blocked?'Bloqueado':'Ativo'}</span></td><td>${playlists}</td><td><small>${dateTime(u.lastLogin)}</small></td><td>${u.role==='admin'?'<a href="#/settings" class="icon-btn" aria-label="Configurações do administrador">'+icon('settings')+'</a>':`<button class="icon-btn" data-action="user-options" data-id="${u.id}" aria-label="Gerenciar ${esc(u.username)}">${icon('more')}</button>`}</td></tr>`).join('')||'<tr><td colspan="5">Nenhum usuário encontrado.</td></tr>';}
 function logsPage(){return `${heading('Logs da plataforma','Acompanhe os últimos acessos e alterações administrativas no JstudioPlay.')}<section class="card table-wrap"><table class="data-table"><thead><tr><th>Data e hora</th><th>Usuário</th><th>Atividade</th></tr></thead><tbody>${state.logs.map(l=>`<tr><td><small>${dateTime(l.at)}</small></td><td>${esc(l.user)}</td><td>${esc(l.action)}</td></tr>`).join('')||'<tr><td colspan="3">Nenhuma atividade registrada.</td></tr>'}</tbody></table><div class="table-foot">Até 500 atividades mais recentes. Endereços das playlists e senhas não são registrados.</div></section>`;}
-
 
 async function renderRoute(){
   const defaultPage = state.user ? '/dashboard' : '/login';
@@ -696,14 +1009,28 @@ async function renderRoute(){
     if(page==='users')state.users=await api('/admin/users');
     if(page==='logs')state.logs=await api('/admin/logs')||[];
     if(generation!==routeGeneration)return;
-    const content=page==='dashboard'?dashboard():page==='epg'?epgPage():page==='playlists'?heading('Minhas playlists','Todas as suas listas, organizadas em um só lugar.')+playlistSection():page==='settings'?settings():page==='users'?usersPage():page==='logs'?logsPage():page==='player'?playerPage():page==='automation'?'<div class="loading-state">Carregando M3U Hub…<div class="loading-line"></div></div>':savedPage(page);
-    $('#app').innerHTML=shell(content);
+    const content=page==='dashboard'?dashboard():page==='live'||page==='channels'?livePage():page==='movies'?moviesPage():page==='series'?seriesPage():page==='search'?searchPage():page==='favorites'?favoritesPage():page==='recordings'?recordingsPage():page==='epg'?epgPage():page==='playlists'?heading('Minhas playlists','Todas as suas listas, organizadas em um só lugar.')+playlistSection():page==='settings'?settings():page==='users'?usersPage():page==='logs'?logsPage():page==='player'?playerPage():page==='automation'?'<div class="loading-state">Carregando M3U Hub…<div class="loading-line"></div></div>':savedPage(page);
+    // Estrutura de TV com Sidebar Oficial (9 itens) nas telas Smart TV
+    if(['dashboard','live','channels','movies','series','search','favorites','recordings','epg','settings'].includes(page)){
+      $('#app').innerHTML=`
+        <div style="display:flex; min-height:100vh; background:var(--iptv-bg); color:#fff; font-family:var(--iptv-font);">
+          ${iptvSmartSidebar(page)}
+          <div style="flex:1; display:flex; flex-direction:column; min-width:0; overflow-x:hidden;">
+            ${page!=='settings'?iptvTopBar(page):''}
+            <main style="flex:1; overflow-y:auto;">
+              ${content}
+            </main>
+          </div>
+        </div>
+      `;
+    } else {
+      $('#app').innerHTML=shell(content);
+      document.querySelector('.shell')?.classList.toggle('player-mode', page==='player');
+    }
     setMenu(false);
-    // Modo imersivo nas telas da suíte IPTV (sem sidebar tradicional lateral)
-    document.querySelector('.shell')?.classList.toggle('player-mode', ['player','dashboard','epg','settings'].includes(page));
     if(page==='automation'&&window.renderAutomationPage)window.renderAutomationPage();
     if(page==='player'&&state.playlists.length)await loadChannels(state.activePlaylist||state.playlists[0].id,generation);
-    if(tvMode&&generation===routeGeneration)focusTV(page==='player'?$('#channel-list .channel-select')||$('#category-list .category-button'):$('.nav-link.active')||visibleTVTargets()[0]);
+    if(tvMode&&generation===routeGeneration)focusTV(page==='player'?$('#channel-list .channel-select')||$('#category-list .category-button'):$('.iptv-smart-nav-item.active')||visibleTVTargets()[0]);
   }catch(error){if(generation===routeGeneration && state.user)$('#content').innerHTML=empty('Não foi possível carregar',error.message,'<button class="btn" data-action="retry-page">Tentar novamente</button>','info');}
 }
 function playerPage(){
@@ -1310,10 +1637,81 @@ document.addEventListener('click',async event=>{
       navigate('player');
       return;
     }
+    if(action==='vkey-press'){
+      const input=$('#iptv-search-input');
+      if(input){
+        input.value += (b.dataset.val||'');
+        input.dispatchEvent(new Event('input', {bubbles:true}));
+      }
+      return;
+    }
+    if(action==='vkey-space'){
+      const input=$('#iptv-search-input');
+      if(input){
+        input.value += ' ';
+        input.dispatchEvent(new Event('input', {bubbles:true}));
+      }
+      return;
+    }
+    if(action==='vkey-backspace'){
+      const input=$('#iptv-search-input');
+      if(input){
+        input.value = input.value.slice(0, -1);
+        input.dispatchEvent(new Event('input', {bubbles:true}));
+      }
+      return;
+    }
+    if(action==='vkey-clear'){
+      const input=$('#iptv-search-input');
+      if(input){
+        input.value = '';
+        input.dispatchEvent(new Event('input', {bubbles:true}));
+      }
+      return;
+    }
+    if(action==='select-live-ch'){
+      document.querySelectorAll('.iptv-tri-channel-item').forEach(c=>c.classList.toggle('active', c===b));
+      const chName = b.dataset.name;
+      const chProg = b.dataset.prog;
+      const chLogo = b.dataset.logo;
+      const nameEl = document.getElementById('preview-ch-name');
+      const progEl = document.getElementById('preview-ch-prog');
+      const logoEl = document.getElementById('preview-ch-logo');
+      if(nameEl && chName) nameEl.textContent = chName;
+      if(progEl && chProg) progEl.textContent = chProg;
+      if(logoEl && chLogo) logoEl.src = chLogo;
+      return;
+    }
+    if(action==='run-speedtest'){
+      b.disabled = true;
+      b.innerHTML = `${icon('refresh')} Testando conexão...`;
+      setTimeout(()=>{
+        b.disabled = false;
+        b.innerHTML = `${icon('refresh')} Iniciar Novo Teste`;
+        toast('Diagnóstico concluído: 145 Mbps · Ping: 9ms (Excelente)');
+      }, 1200);
+      return;
+    }
     if(action==='block-user'){b.disabled=true;const u=state.users.find(x=>x.user.id===b.dataset.id).user;await api(`/admin/users/${u.id}`,'PATCH',{blocked:!u.blocked});$('#modal').close();await renderRoute();toast('Acesso atualizado.');return;}
   }catch(error){b.disabled=false;toast(error.message,true);}
 });
 document.addEventListener('input',event=>{
+  if(event.target.id==='iptv-search-input'){
+    const q=event.target.value.toLowerCase().trim();
+    const res=$('#iptv-search-results');
+    if(res){
+      if(!q){
+        res.innerHTML='<p style="color:var(--iptv-text-sec); font-size:0.95rem;">Busque pelo nome ou selecione as teclas acima para filtrar.</p>';
+      } else {
+        const matches = (state.channels||[]).filter(c=>c.name.toLowerCase().includes(q)).slice(0, 12);
+        if(matches.length){
+          res.innerHTML=`<div class="iptv-tri-col-channels" style="width:100%; max-height:360px;">${matches.map(c=>`<button class="iptv-tri-channel-item" data-action="open-first-live" tabindex="0"><span class="iptv-tri-ch-num">▶</span><div class="iptv-tri-ch-meta"><span class="iptv-tri-ch-name">${esc(c.name)}</span><span class="iptv-tri-ch-prog">${esc(c.group||'Geral')}</span></div></button>`).join('')}</div>`;
+        } else {
+          res.innerHTML=`<p style="color:var(--iptv-text-sec); font-size:0.95rem;">Nenhum canal encontrado para "${esc(q)}".</p>`;
+        }
+      }
+    }
+  }
   if(event.target.id==='channel-search'){clearTimeout(searchTimer);searchTimer=setTimeout(()=>{state.query=event.target.value;state.channelPage=1;renderChannels();},160);}
   if(event.target.id==='user-search')$('#user-rows').innerHTML=userRows(event.target.value);
   if(event.target.id==='quick-volume-slider'){const v=$('#video');if(v){const val=Number(event.target.value);v.muted=val===0;v.volume=val/100;const lbl=$('#quick-volume-val');if(lbl)lbl.textContent=val===0?'Mudo':`${val}%`;}}

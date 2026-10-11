@@ -32,6 +32,16 @@ app.use(security.securityHeadersMiddleware());
 app.use(express.json({ limit: '120mb' }));
 app.use(express.urlencoded({ extended: true, limit: '120mb' }));
 
+// Disable aggressive browser caching for static assets
+app.use((req, res, next) => {
+  if (req.path.startsWith('/static') || req.path === '/' || req.path.endsWith('.html') || req.path.endsWith('.js') || req.path.endsWith('.css')) {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+  }
+  next();
+});
+
 // Static frontend files
 app.use('/static', express.static(path.join(__dirname, '..', 'public', 'static')));
 app.use(express.static(path.join(__dirname, '..', 'public')));

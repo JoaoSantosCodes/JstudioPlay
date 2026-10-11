@@ -598,34 +598,41 @@ function iptvSmartSidebar(active='dashboard'){
 }
 
 function livePage(){
-  const categories = [
-    { name: 'Todos os canais', count: 156, active: true },
-    { name: 'Esportes', count: 24 },
-    { name: 'Filmes', count: 32 },
-    { name: 'Séries', count: 28 },
-    { name: 'Notícias', count: 12 },
-    { name: 'Infantil', count: 15 },
-    { name: 'Documentários', count: 10 },
-    { name: 'Música', count: 8 },
-    { name: 'Variedades', count: 14 },
-    { name: 'Internacionais', count: 13 }
+  const allChs = (state.channels && state.channels.length) ? state.channels : [
+    { name: 'SporTV HD', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/SporTV_2021.svg/120px-SporTV_2021.svg.png', group: 'Esportes', url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8' },
+    { name: 'Globo SP', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/TV_Globo_2021.svg/120px-TV_Globo_2021.svg.png', group: 'Variedades', url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8' },
+    { name: 'ESPN Brasil', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/ESPN_wordmark.svg/120px-ESPN_wordmark.svg.png', group: 'Esportes', url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8' },
+    { name: 'TNT Séries', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/Discovery_Channel_2019.svg/120px-Discovery_Channel_2019.svg.png', group: 'Filmes', url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8' },
+    { name: 'Band News', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Rede_Bandeirantes_logo.svg/120px-Rede_Bandeirantes_logo.svg.png', group: 'Notícias', url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8' },
+    { name: 'CNN Brasil', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/CNN_Brasil_logo.svg/120px-CNN_Brasil_logo.svg.png', group: 'Notícias', url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8' }
   ];
 
-  const channels = [
-    { num: '01', name: 'SporTV', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/SporTV_2021.svg/120px-SporTV_2021.svg.png', prog: 'Brasileirão: Flamengo x Palmeiras', time: '21:30 - 23:30', next: 'SporTV News', active: true },
-    { num: '02', name: 'Globo', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/TV_Globo_2021.svg/120px-TV_Globo_2021.svg.png', prog: 'Jornal Nacional', time: '20:30 - 21:30', next: 'Troca de Passes' },
-    { num: '03', name: 'ESPN', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/ESPN_wordmark.svg/120px-ESPN_wordmark.svg.png', prog: 'NBA - Playoffs', time: '21:15 - 23:45', next: 'SportsCenter' },
-    { num: '04', name: 'TNT', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/Discovery_Channel_2019.svg/120px-Discovery_Channel_2019.svg.png', prog: 'Champions League Show', time: '21:00 - 23:00', next: 'Filme Especial' },
-    { num: '05', name: 'Band', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Rede_Bandeirantes_logo.svg/120px-Rede_Bandeirantes_logo.svg.png', prog: 'MasterChef Brasil', time: '21:15 - 23:00', next: 'Jornal da Noite' },
-    { num: '06', name: 'CNN Brasil', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/CNN_Brasil_logo.svg/120px-CNN_Brasil_logo.svg.png', prog: 'CNN Prime Time', time: '21:00 - 22:30', next: 'Agora CNN' }
+  const groupCounts = {};
+  allChs.forEach(c => {
+    const g = c.group || 'Geral';
+    groupCounts[g] = (groupCounts[g] || 0) + 1;
+  });
+
+  const categories = [
+    { name: 'Todos os canais', count: allChs.length, active: !state.category || state.category === 'Todos os canais' },
+    ...Object.entries(groupCounts).map(([name, count]) => ({
+      name,
+      count,
+      active: state.category === name
+    }))
   ];
+
+  const curCat = state.category && state.category !== 'Todos os canais' ? state.category : null;
+  const filtered = curCat ? allChs.filter(c => (c.group || 'Geral') === curCat) : allChs;
+  const activeCh = state.selected || filtered[0] || allChs[0];
+  window._liveChannels = allChs;
 
   return `<div class="iptv-tri-layout">
     <!-- Área Esquerda: Categorias -->
     <aside class="iptv-tri-col-cats">
       <div style="padding:0.5rem 0.5rem 1rem; font-size:1.1rem; font-weight:700; color:#fff;">Categorias</div>
       ${categories.map(c => `
-        <button class="iptv-epg-cat-item ${c.active?'active':''}" data-action="iptv-epg-cat" data-name="${esc(c.name)}" tabindex="0">
+        <button class="iptv-epg-cat-item ${c.active?'active':''}" data-action="iptv-live-cat" data-name="${esc(c.name)}" tabindex="0">
           <span>${esc(c.name)}</span>
           <span class="iptv-epg-cat-count">${c.count}</span>
         </button>
@@ -635,48 +642,57 @@ function livePage(){
     <!-- Área Central: Lista de Canais -->
     <main class="iptv-tri-col-channels">
       <div style="padding:1rem 1.25rem; font-size:1.1rem; font-weight:700; color:#fff; border-bottom:1px solid var(--iptv-border); display:flex; justify-content:space-between; align-items:center;">
-        <span>Canais (${channels.length})</span>
+        <span>Canais (${filtered.length})</span>
         <span class="iptv-live-badge" style="margin:0;"><span class="iptv-live-dot"></span> AO VIVO</span>
       </div>
-      <div style="overflow-y:auto; flex:1;">
-        ${channels.map(ch => `
-          <button class="iptv-tri-channel-row ${ch.active?'active':''}" data-action="select-live-ch" data-name="${esc(ch.name)}" tabindex="0">
+      <div style="overflow-y:auto; flex:1;" id="live-channel-list">
+        ${filtered.slice(0, 100).map((ch, idx) => {
+          const isAct = (activeCh && (activeCh.url === ch.url || activeCh.name === ch.name));
+          const numStr = String(idx + 1).padStart(2, '0');
+          return `
+          <button class="iptv-tri-channel-row ${isAct?'active':''}" data-action="select-live-ch" data-index="${allChs.indexOf(ch)}" data-name="${esc(ch.name)}" tabindex="0">
             <div style="display:flex; align-items:center; gap:0.85rem;">
-              <span style="font-size:0.85rem; font-weight:700; color:var(--iptv-text-sec); width:24px;">${ch.num}</span>
+              <span style="font-size:0.85rem; font-weight:700; color:var(--iptv-text-sec); width:24px;">${numStr}</span>
               <div class="iptv-epg-ch-logo" style="width:34px; height:34px;">
-                <img src="${ch.logo}" alt="${esc(ch.name)}" onerror="this.onerror=null;this.parentElement.textContent='${esc(initials(ch.name))}';">
+                ${ch.logo ? `<img src="${esc(ch.logo)}" alt="${esc(ch.name)}" onerror="this.onerror=null;this.parentElement.textContent='${esc(initials(ch.name))}';">` : initials(ch.name)}
               </div>
-              <div>
+              <div style="text-align:left;">
                 <strong style="display:block; font-size:0.95rem; color:#fff;">${esc(ch.name)}</strong>
-                <span style="font-size:0.78rem; color:var(--iptv-text-sec);">${esc(ch.prog)}</span>
+                <span style="font-size:0.78rem; color:var(--iptv-text-sec);">${esc(ch.group || 'Geral')}</span>
               </div>
             </div>
             <span class="iptv-live-chip">AO VIVO</span>
-          </button>
-        `).join('')}
+          </button>`;
+        }).join('')}
       </div>
     </main>
 
-    <!-- Área Direita: Prévia -->
+    <!-- Área Direita: Prévia e Player de Vídeo -->
     <aside class="iptv-tri-col-preview">
-      <div class="iptv-preview-screen">
-        <div style="position:absolute; inset:0; background:linear-gradient(135deg, rgba(229,9,20,0.2) 0%, transparent 80%), url('https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=800&q=80') center center / cover no-repeat;"></div>
-        <div style="position:absolute; bottom:1rem; left:1rem; z-index:2;">
-          <span class="iptv-live-badge"><span class="iptv-live-dot"></span> AO VIVO</span>
+      <div class="iptv-preview-screen" style="position:relative; background:#000; border-radius:12px; overflow:hidden; aspect-ratio:16/9; display:flex; align-items:center; justify-content:center;">
+        <video id="video" playsinline controls autoplay style="width:100%; height:100%; object-fit:contain; background:#000; z-index:1;"></video>
+        <div id="video-empty" role="status" aria-live="polite" style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(0,0,0,0.85); color:#fff; z-index:2; text-align:center; padding:1rem;" hidden></div>
+        <div style="position:absolute; top:0.75rem; left:0.75rem; z-index:3; pointer-events:none;">
+          <span class="iptv-live-badge" id="video-live"><span class="iptv-live-dot"></span> AO VIVO</span>
         </div>
       </div>
-      <div style="display:flex; flex-direction:column; gap:0.5rem;">
-        <h2 style="font-size:1.5rem; font-weight:800; color:#fff; margin:0;" id="preview-ch-name">SporTV</h2>
-        <h3 style="font-size:1.1rem; font-weight:600; color:#e5e7eb; margin:0;" id="preview-prog-title">Brasileirão: Flamengo x Palmeiras</h3>
-        <p style="font-size:0.88rem; color:var(--iptv-text-sec); margin:0;" id="preview-prog-time">Hoje • 21:30 - 23:30 • Esportes</p>
+      <div style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.75rem;">
+        <h2 style="font-size:1.5rem; font-weight:800; color:#fff; margin:0;" id="preview-ch-name">${esc(activeCh?.name || 'Canal')}</h2>
+        <h3 style="font-size:1.1rem; font-weight:600; color:#e5e7eb; margin:0;" id="preview-prog-title">${esc(activeCh?.group || 'Transmissão Ao Vivo')}</h3>
+        <p style="font-size:0.88rem; color:var(--iptv-text-sec); margin:0;" id="preview-prog-time">Ao vivo agora • Qualidade Adaptativa (HLS)</p>
       </div>
       <div style="background:var(--iptv-surface); border:1px solid var(--iptv-border); padding:1rem 1.25rem; border-radius:10px;">
-        <span style="font-size:0.75rem; text-transform:uppercase; font-weight:700; color:var(--iptv-text-sec); letter-spacing:0.5px;">A Seguir</span>
-        <strong style="display:block; font-size:0.95rem; color:#fff; margin-top:4px;" id="preview-next-prog">SporTV News (23:30)</strong>
+        <span style="font-size:0.75rem; text-transform:uppercase; font-weight:700; color:var(--iptv-text-sec); letter-spacing:0.5px;">Status da Transmissão</span>
+        <strong style="display:block; font-size:0.95rem; color:#fff; margin-top:4px;" id="preview-next-prog">Sinal Online (HLS Stream)</strong>
       </div>
-      <button class="iptv-btn-submit" data-action="open-first-live" tabindex="0" style="margin-top:0.5rem; height:52px;">
-        ${icon('play')} Assistir em Tela Cheia
-      </button>
+      <div style="display:flex; gap:0.75rem; margin-top:0.5rem;">
+        <button class="iptv-btn-submit" data-action="fullscreen-live" tabindex="0" style="flex:1; height:52px;">
+          ${icon('fullscreen')} Tela Cheia
+        </button>
+        <button class="iptv-btn-submit" data-action="reconnect-live" tabindex="0" style="background:var(--iptv-surface-card); border:1px solid var(--iptv-border); width:52px; height:52px; padding:0; display:flex; align-items:center; justify-content:center;" title="Reconectar">
+          ${icon('refresh')}
+        </button>
+      </div>
     </aside>
   </div>`;
 }
@@ -1001,6 +1017,10 @@ async function renderRoute(){
     if(page==='users')state.users=await api('/admin/users');
     if(page==='logs')state.logs=await api('/admin/logs')||[];
     if(generation!==routeGeneration)return;
+    if(['live','channels','player','dashboard'].includes(page) && state.playlists.length && !state.channels.length){
+      await loadChannels(state.activePlaylist||state.playlists[0].id, generation);
+      if(generation!==routeGeneration)return;
+    }
     const content=page==='dashboard'?dashboard():page==='live'||page==='channels'?livePage():page==='movies'?moviesPage():page==='series'?seriesPage():page==='search'?searchPage():page==='favorites'?favoritesPage():page==='recordings'?recordingsPage():page==='epg'?epgPage():page==='playlists'?heading('Minhas playlists','Todas as suas listas, organizadas em um só lugar.')+playlistSection():page==='settings'?settings():page==='users'?usersPage():page==='logs'?logsPage():page==='player'?playerPage():page==='automation'?'<div class="loading-state">Carregando M3U Hub…<div class="loading-line"></div></div>':savedPage(page);
     // Estrutura de TV com Sidebar Oficial (9 itens) nas telas Smart TV
     if(['dashboard','live','channels','movies','series','search','favorites','recordings','epg','settings'].includes(page)){
@@ -1020,6 +1040,18 @@ async function renderRoute(){
       document.querySelector('.shell')?.classList.toggle('player-mode', page==='player');
     }
     setMenu(false);
+    if(page==='live'||page==='channels'){
+      const pool = (state.channels && state.channels.length) ? state.channels : (window._liveChannels || []);
+      const ch = state.selected || pool[0];
+      if(ch){
+        setTimeout(()=>{
+          const v = document.getElementById('video');
+          if(v && (!v.src && !hls)){
+            playChannel(ch);
+          }
+        }, 150);
+      }
+    }
     if(page==='automation'&&window.renderAutomationPage)window.renderAutomationPage();
     if(page==='player'&&state.playlists.length)await loadChannels(state.activePlaylist||state.playlists[0].id,generation);
     if(tvMode&&generation===routeGeneration)focusTV(page==='player'?$('#channel-list .channel-select')||$('#category-list .category-button'):$('.iptv-smart-nav-item.active')||visibleTVTargets()[0]);
@@ -1372,7 +1404,12 @@ function playChannel(ch){
   if(!ch)return;
   if(typeof window.epgModule!=='undefined')window.epgModule.updateSelectedEpg(state.selected?.url,ch.url);
   stopPlayback();state.selected=ch;playbackPlaylist=state.activePlaylist;lastProgressSave=Date.now();const generation=playbackGeneration;const v=$('#video');if(!v)return;
-  $('#now-name').textContent=ch.name;$('#now-category').textContent=ch.group;$('#now-favorite').disabled=false;updateNowFavorite();updateEpisodeControls(ch);updateStreamingHero(ch);renderChannels();
+  if($('#now-name'))$('#now-name').textContent=ch.name;
+  if($('#now-category'))$('#now-category').textContent=ch.group;
+  if($('#now-favorite'))$('#now-favorite').disabled=false;
+  if($('#preview-ch-name'))$('#preview-ch-name').textContent=ch.name;
+  if($('#preview-prog-title'))$('#preview-prog-title').textContent=ch.group||'Transmissão Ao Vivo';
+  updateNowFavorite();updateEpisodeControls(ch);updateStreamingHero(ch);renderChannels();
   playerMessage('Carregando…','Conectando à fonte da sua playlist. Se não iniciar em alguns instantes, confira a conexão e a compatibilidade do conteúdo.');
   let url;try{url=new URL(ch.url);if(!['http:','https:'].includes(url.protocol))throw new Error();}catch{playerMessage('Endereço inválido','Este conteúdo não possui uma URL de reprodução válida.');return;}
   if(location.protocol==='https:'&&url.protocol==='http:'&&!state.relayMode){playerMessage('Esta fonte usa HTTP','Solicite ao provedor uma transmissão HTTPS para assistir diretamente nesta página.',true);return;}
@@ -1663,16 +1700,33 @@ document.addEventListener('click',async event=>{
       return;
     }
     if(action==='select-live-ch'){
-      document.querySelectorAll('.iptv-tri-channel-item').forEach(c=>c.classList.toggle('active', c===b));
-      const chName = b.dataset.name;
-      const chProg = b.dataset.prog;
-      const chLogo = b.dataset.logo;
-      const nameEl = document.getElementById('preview-ch-name');
-      const progEl = document.getElementById('preview-ch-prog');
-      const logoEl = document.getElementById('preview-ch-logo');
-      if(nameEl && chName) nameEl.textContent = chName;
-      if(progEl && chProg) progEl.textContent = chProg;
-      if(logoEl && chLogo) logoEl.src = chLogo;
+      document.querySelectorAll('.iptv-tri-channel-row').forEach(c=>c.classList.toggle('active', c===b));
+      const idx = Number(b.dataset.index);
+      const pool = (state.channels && state.channels.length) ? state.channels : (window._liveChannels || []);
+      const ch = pool[idx] || pool.find(c=>c.name===b.dataset.name) || pool[0];
+      if(ch){
+        playChannel(ch);
+      }
+      return;
+    }
+    if(action==='fullscreen-live'){
+      const v = document.getElementById('video');
+      if(v){
+        if(v.requestFullscreen) v.requestFullscreen();
+        else if(v.webkitEnterFullscreen) v.webkitEnterFullscreen();
+      }
+      return;
+    }
+    if(action==='reconnect-live'){
+      const pool = (state.channels && state.channels.length) ? state.channels : (window._liveChannels || []);
+      const ch = state.selected || pool[0];
+      if(ch) playChannel(ch);
+      return;
+    }
+    if(action==='iptv-live-cat'){
+      const cat = b.dataset.name;
+      state.category = (cat === 'Todos os canais' || !cat) ? '' : cat;
+      await renderRoute();
       return;
     }
     if(action==='run-speedtest'){

@@ -1754,3 +1754,272 @@
   setTimeout(checkRoute, 500);
 
 })();
+
+// =============================================================================
+// UX CORE — Health Indicator Module (sprint-v75)
+// Dots de status ao vivo por canal via IntersectionObserver + Probe_Speed_Endpoint
+// =============================================================================
+window.healthModule = (() => {
+  'use strict';
+
+  let observer = null;
+  let batchPending = [];
+  let batchTimer = null;
+  let probeController = null;
+
+  function isDataSaver() {
+    return localStorage.getItem('m3u-data-saver') === 'true';
+  }
+
+  function getToken() {
+    return localStorage.getItem('m3u-token') || '';
+  }
+
+  function getBase() {
+    const custom = localStorage.getItem('m3u-backend-url');
+    if (custom && custom.trim()) return custom.trim().replace(/\/+$/, '');
+    if (window.Capacitor || location.protocol === 'capacitor:' ||
+        (location.hostname === 'localhost' && !location.port)) {
+      return 'https://jstudioplay.joaocarlosrh23.workers.dev';
+    }
+    return '';
+  }
+
+  function updateDot(id, status) {
+    if (!id) return;
+    const el = document.querySelector(`[data-channel-id="${CSS.escape(id)}"] .health-indicator`);
+    if (el) el.dataset.status = status;
+  }
+
+  async function flushBatch() {
+    if (!batchPending.length) return;
+    const ids = [...batchPending];
+    batchPending = [];
+    batchTimer = null;
+
+    probeController = new AbortController();
+    const token = getToken();
+    const base = getBase();
+
+    try {
+      const res = await fetch(`${base}/api/automation/probe-speed`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ channels: ids.map(id => ({ id })) }),
+        signal: probeController.signal
+      });
+      if (!res.ok) return;
+      const { results } = await res.json();
+      if (Array.isArray(results)) {
+        results.forEach(r => updateDot(r.id, r.status));
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') console.warn('[Health] probe error:', e.message);
+    }
+  }
+
+  function queueChannel(id) {
+    if (!id || batchPending.includes(id)) return;
+    batchPending.push(id);
+    if (batchPending.length >= 20) {
+      clearTimeout(batchTimer);
+      batchTimer = null;
+      flushBatch();
+    } else {
+      clearTimeout(batchTimer);
+      batchTimer = setTimeout(flushBatch, 500);
+    }
+  }
+
+  function observe() {
+    if (isDataSaver()) return;
+    if (observer) observer.disconnect();
+
+    observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const row = entry.target;
+        const id = row.dataset.channelId;
+        const dot = row.querySelector('.health-indicator');
+        const status = dot ? dot.dataset.status : 'unknown';
+        if (id && status === 'unknown') {
+          queueChannel(id);
+          observer.unobserve(row);
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('#channel-list .channel-row[data-channel-id]')
+      .forEach(row => observer.observe(row));
+  }
+
+  function cancelPending() {
+    if (probeController) probeController.abort();
+    clearTimeout(batchTimer);
+    batchPending = [];
+    batchTimer = null;
+  }
+
+  function toggleDataSaver(btn) {
+    const next = !isDataSaver();
+    localStorage.setItem('m3u-data-saver', String(next));
+    if (btn) btn.setAttribute('aria-pressed', String(next));
+    if (next) {
+      cancelPending();
+    } else {
+      observe();
+    }
+  }
+
+  return { observe, cancelPending, toggleDataSaver };
+})();
+
+// =============================================================================
+// UX CORE — EPG Inline Module (sprint-v75)
+// Programa atual/próximo na Channel_Row via cache + /api/epg/now
+// =============================================================================
+window.epgModule = (() => {
+  'use strict';
+
+  const cache = new Map();
+  let epgObserver = null;
+
+  function getToken() {
+    return localStorage.getItem('m3u-token') || '';
+  }
+
+  function getBase() {
+    const custom = localStorage.getItem('m3u-backend-url');
+    if (custom && custom.trim()) return custom.trim().replace(/\/+$/, '');
+    if (window.Capacitor || location.protocol === 'capacitor:' ||
+        (location.hostname === 'localhost' && !location.port)) {
+      return 'https://jstudioplay.joaocarlosrh23.workers.dev';
+    }
+    return '';
+  }
+
+  function formatTime(str) {
+    if (!str) return '';
+    return String(str).slice(0, 5);
+  }
+
+  function truncate(text, max) {
+    if (!text) return '';
+    const m = max || 40;
+    return text.length > m ? text.slice(0, m) + '…' : text;
+  }
+
+  function renderEpgInRow(row, data) {
+    const textSpan = row.querySelector('.channel-text');
+    if (!textSpan) return;
+
+    let inlineEl = textSpan.querySelector('.epg-inline');
+    let nextEl = textSpan.querySelector('.epg-next');
+
+    if (!data || !data.hasEpg || !data.current) {
+      if (inlineEl) inlineEl.remove();
+      if (nextEl) nextEl.remove();
+      return;
+    }
+
+    const title = truncate(data.current.title, 40);
+    const times = `${formatTime(data.current.startTimeStr)} – ${formatTime(data.current.endTimeStr)}`;
+    const inlineText = `${title}  ${times}`;
+
+    if (!inlineEl) {
+      inlineEl = document.createElement('span');
+      inlineEl.className = 'epg-inline';
+      textSpan.appendChild(inlineEl);
+    }
+    inlineEl.textContent = inlineText;
+
+    if (data.next && data.next.title) {
+      const nextText = `A seguir ${formatTime(data.next.startTimeStr)}: ${truncate(data.next.title, 35)}`;
+      if (!nextEl) {
+        nextEl = document.createElement('span');
+        nextEl.className = 'epg-next';
+        nextEl.style.display = 'none';
+        textSpan.appendChild(nextEl);
+      }
+      nextEl.textContent = nextText;
+    } else {
+      if (nextEl) nextEl.remove();
+    }
+  }
+
+  async function fetchEpg(channelName) {
+    if (cache.has(channelName)) return;
+    cache.set(channelName, null); // marca como "em consulta"
+
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => {
+      ctrl.abort();
+      console.warn('[EPG] timeout:', channelName);
+    }, 3000);
+
+    const token = getToken();
+    const base = getBase();
+
+    try {
+      const res = await fetch(
+        `${base}/api/epg/now?name=${encodeURIComponent(channelName)}`,
+        {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+          signal: ctrl.signal
+        }
+      );
+      clearTimeout(timeout);
+      if (!res.ok) return;
+      const data = await res.json();
+      cache.set(channelName, data.hasEpg ? data : null);
+
+      // Atualizar DOM cirurgicamente
+      const row = document.querySelector(
+        `[data-channel-name="${CSS.escape(channelName)}"]`
+      );
+      if (row) renderEpgInRow(row, data);
+    } catch (e) {
+      clearTimeout(timeout);
+      if (e.name !== 'AbortError') console.warn('[EPG] error:', channelName, e.message);
+    }
+  }
+
+  function observeEpg() {
+    if (epgObserver) epgObserver.disconnect();
+
+    epgObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const row = entry.target;
+        const name = row.dataset.channelName;
+        if (name && !cache.has(name)) fetchEpg(name);
+        epgObserver.unobserve(row);
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('#channel-list .channel-row[data-channel-name]')
+      .forEach(row => epgObserver.observe(row));
+  }
+
+  function updateSelectedEpg(prevUrl, newUrl) {
+    if (prevUrl) {
+      try {
+        const prev = document.querySelector(`[data-channel-url="${CSS.escape(prevUrl)}"]`);
+        const el = prev && prev.querySelector('.epg-next');
+        if (el) el.style.display = 'none';
+      } catch (_) {}
+    }
+    if (newUrl) {
+      try {
+        const curr = document.querySelector(`[data-channel-url="${CSS.escape(newUrl)}"]`);
+        const el = curr && curr.querySelector('.epg-next');
+        if (el) el.style.display = '';
+      } catch (_) {}
+    }
+  }
+
+  return { observeEpg, updateSelectedEpg, renderEpgInRow, cache };
+})();

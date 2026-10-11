@@ -224,7 +224,7 @@ async function renderRoute(){
 function playerPage(){
   if(!state.playlists.some(p=>p.id===state.activePlaylist))state.activePlaylist=state.playlists[0]?.id||'';
   if(!state.playlists.length)return heading('Assistir','Escolha o que assistir, do seu jeito.')+`<div class="card">${empty('Primeiro, adicione uma playlist','Os itens e categorias da sua lista aparecerão aqui após a importação.',addButton(),'tv')}</div>`;
-  return `<div class="player-toolbar"><h1>Assistir</h1><div class="player-tools">${state.relayEnabled?`<button class="compatibility-quick ${state.relayMode?'active':''}" id="relay-quick" data-action="toggle-relay" aria-pressed="${state.relayMode}" aria-label="${state.relayMode?'Desativar':'Ativar'} modo de compatibilidade"><span class="compatibility-quick-copy"><strong>Modo de compatibilidade</strong><small id="relay-quick-status">${state.relayMode?'Ativado':'Desativado'} · ${state.relayMode?'modo alternativo em uso':'tente se o vídeo não abrir'}</small></span><span class="compatibility-quick-action" id="relay-quick-action">${state.relayMode?'Desativar':'Ativar'}</span></button>`:''}<select id="player-playlist" aria-label="Playlist atual">${state.playlists.map(p=>`<option value="${p.id}" ${p.id===state.activePlaylist?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div></div>
+  return `<div class="player-toolbar"><h1>Assistir</h1><div class="player-tools">${state.relayEnabled?`<button class="compatibility-quick ${state.relayMode?'active':''}" id="relay-quick" data-action="toggle-relay" aria-pressed="${state.relayMode}" aria-label="${state.relayMode?'Desativar':'Ativar'} modo de compatibilidade"><span class="compatibility-quick-copy"><strong>Modo de compatibilidade</strong><small id="relay-quick-status">${state.relayMode?'Ativado':'Desativado'} · ${state.relayMode?'modo alternativo em uso':'tente se o vídeo não abrir'}</small></span><span class="compatibility-quick-action" id="relay-quick-action">${state.relayMode?'Desativar':'Ativar'}</span></button>`:''}<button class="icon-btn subtle-icon" id="btn-data-saver" data-action="toggle-data-saver" aria-pressed="${localStorage.getItem('m3u-data-saver')==='true'}" title="${localStorage.getItem('m3u-data-saver')==='true'?'Economizar dados: ativado':'Economizar dados: desativado'}">${icon('zap')}</button><select id="player-playlist" aria-label="Playlist atual">${state.playlists.map(p=>`<option value="${p.id}" ${p.id===state.activePlaylist?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div></div>
   <div class="player-layout player-layout-v2"><div class="browser-slot"><section class="card channels-panel player-browser">
     <div class="channel-search"><label for="channel-search">O que você quer assistir?</label><div class="field">${icon('search')}<input id="channel-search" type="search" placeholder="Busque pelo nome do conteúdo" aria-label="Buscar conteúdo na playlist"></div></div>
     <div class="category-filter"><label for="category-select">Categorias <span id="category-count" class="muted">0</span></label><select id="category-select" aria-label="Selecionar categoria"><option value="-1">Todas as categorias</option></select></div>
@@ -309,7 +309,7 @@ function updateEpisodeControls(ch){
   if(previous)previous.disabled=!episodeNavigation.previous;
   if(next)next.disabled=!episodeNavigation.next;
 }
-function renderChannelRow(ch,i,sub=false){return `<div class="channel-row ${sub?'episode-row ':''}${state.selected?.url===ch.url?'selected':''}"><button class="channel-select" data-action="play" data-index="${i}" title="${esc(ch.name)}">${channelLogo(ch,i,true)}<span class="channel-text"><strong>${esc(ch.name)}</strong><small>${esc(ch.group)}</small></span></button><button class="favorite-button ${isFavorite(ch)?'is-favorite':''}" data-action="favorite" data-index="${i}" aria-label="${isFavorite(ch)?'Remover dos favoritos':'Favoritar'} ${esc(ch.name)}" aria-pressed="${isFavorite(ch)}">${icon('heart')}</button></div>`;}
+function renderChannelRow(ch,i,sub=false){return `<div class="channel-row ${sub?'episode-row ':''}${state.selected?.url===ch.url?'selected':''}" data-channel-id="${esc(ch.id||'')}" data-channel-name="${esc(ch.name)}" data-channel-url="${esc(ch.url||'')}"><button class="channel-select" data-action="play" data-index="${i}" title="${esc(ch.name)}">${channelLogo(ch,i,true)}<span class="channel-text"><strong>${esc(ch.name)}</strong><small>${esc(ch.group)}</small></span></button><span class="health-indicator" data-status="${ch.status||'unknown'}" aria-hidden="true"></span><button class="favorite-button ${isFavorite(ch)?'is-favorite':''}" data-action="favorite" data-index="${i}" aria-label="${isFavorite(ch)?'Remover dos favoritos':'Favoritar'} ${esc(ch.name)}" aria-pressed="${isFavorite(ch)}">${icon('heart')}</button></div>`;}
 let channelLogoObserver=null,pageTurnTimer=null;
 function queuePageTurn(direction){
   const pages=Math.ceil(filteredCount/100)||1;
@@ -350,6 +350,7 @@ function renderChannels(){
   let index=0;$('#channel-list').innerHTML=visible.map(item=>{if(item.type==='channel')return renderChannelRow(item.ch,index++);const first=item.episodes[0];const title=`${item.title}${item.season!==null?` S${String(item.season).padStart(2,'0')}`:''}`;const open=openSeries.has(item.key)||item.episodes.some(ch=>ch.url===state.selected?.url);return `<details class="series-group" data-series="${esc(item.key)}" ${open?'open':''}><summary>${channelLogo(first,index,true)}<span><strong>${esc(title)}</strong><small>${item.episodes.length} episódios</small></span></summary>${item.episodes.map(ch=>renderChannelRow(ch,index++,true)).join('')}</details>`;}).join('')||'<div class="empty"><p>Nenhum canal encontrado.</p></div>';
   loadVisibleChannelLogos(channelList);
   if(focused)focusTV([...channelList.querySelectorAll('[data-action]')].find(el=>el.dataset.action===focused.action&&el.dataset.index===focused.index)||channelList.querySelector('.channel-select,summary'));
+  if(state.page==='player'){if(typeof window.healthModule!=='undefined')window.healthModule.observe();if(typeof window.epgModule!=='undefined')window.epgModule.observeEpg();}
 }
 function stopPlayback(save=true){const v=$('#video');if(save&&v&&state.selected)savePlaybackProgress(state.selected,v).catch(()=>{});playbackGeneration++;clearTimeout(playbackTimer);playbackTimer=null;if(hls){hls.destroy();hls=null;}if(v){v.onplaying=null;v.onerror=null;v.onloadedmetadata=null;v.ontimeupdate=null;v.onpause=null;v.onended=null;v.onwaiting=null;v.onstalled=null;v.pause();v.removeAttribute('src');v.load();}}
 let playbackPlaylist='', lastProgressSave=0, progressWrites=Promise.resolve();
@@ -378,7 +379,9 @@ function updateRelayControl(){
   document.querySelectorAll('[data-action="toggle-relay"]').forEach(button=>{button.setAttribute('aria-pressed',String(state.relayMode));if(button.closest('#relay-card'))button.textContent=state.relayMode?'Desativar modo de compatibilidade':'Ativar modo de compatibilidade';});
 }
 function playChannel(ch){
-  if(!ch)return;stopPlayback();state.selected=ch;playbackPlaylist=state.activePlaylist;lastProgressSave=Date.now();const generation=playbackGeneration;const v=$('#video');if(!v)return;
+  if(!ch)return;
+  if(typeof window.epgModule!=='undefined')window.epgModule.updateSelectedEpg(state.selected?.url,ch.url);
+  stopPlayback();state.selected=ch;playbackPlaylist=state.activePlaylist;lastProgressSave=Date.now();const generation=playbackGeneration;const v=$('#video');if(!v)return;
   $('#now-name').textContent=ch.name;$('#now-category').textContent=ch.group;$('#now-favorite').disabled=false;updateNowFavorite();updateEpisodeControls(ch);renderChannels();
   playerMessage('Carregando…','Conectando à fonte da sua playlist. Se não iniciar em alguns instantes, confira a conexão e a compatibilidade do conteúdo.');
   let url;try{url=new URL(ch.url);if(!['http:','https:'].includes(url.protocol))throw new Error();}catch{playerMessage('Endereço inválido','Este conteúdo não possui uma URL de reprodução válida.');return;}
@@ -552,6 +555,7 @@ document.addEventListener('click',async event=>{
     if(action==='previous'||action==='next'){queuePageTurn(action==='next'?1:-1);return;}
     if(action==='play'){playChannel(visibleChannels[Number(b.dataset.index)]);return;}
     if(action==='toggle-relay'){state.relayMode=!state.relayMode;updateRelayControl();const selected=state.selected;if(selected)playChannel(selected);return;}
+    if(action==='toggle-data-saver'){if(typeof window.healthModule!=='undefined')window.healthModule.toggleDataSaver(b);return;}
     if(action==='favorite'){b.disabled=true;await toggleFavorite(visibleChannels[Number(b.dataset.index)]);return;}
     if(action==='now-favorite'){b.disabled=true;await toggleFavorite(state.selected);b.disabled=false;return;}
     if(action==='reconnect'){if(state.selected)playChannel(state.selected);else toast('Escolha um canal para reproduzir.');return;}

@@ -435,53 +435,60 @@ function renderStreamingSections(){
   const container=document.getElementById('streaming-sections-content');
   if(!container)return;
   const q=state.query.toLocaleLowerCase('pt-BR');
-  const filtered=state.channels.filter(c=>(!state.category||c.group===state.category)&&(!q||c.name.toLocaleLowerCase('pt-BR').includes(q)));
-  if(!filtered.length){container.innerHTML=`<div class="streaming-empty">${q?'Nenhum canal encontrado para "'+esc(q)+'"':'Nenhum canal disponível nesta categoria.'}</div>`;return;}
+  const filtered=state.channels.filter(c=>
+    (!state.category||c.group===state.category)&&
+    (!q||c.name.toLocaleLowerCase('pt-BR').includes(q))
+  );
+  if(!filtered.length){
+    container.innerHTML=`<div class="streaming-empty">${q?'Nenhum canal encontrado para "'+esc(q)+'"':'Nenhum canal disponível nesta categoria.'}</div>`;
+    return;
+  }
 
-  // Agrupa por categoria (ou mostra tudo se categoria selecionada)
   let sections=[];
   if(state.category){
+    // Categoria selecionada: mostra só ela em uma seção
     sections=[{title:state.category,channels:filtered}];
   }else{
-    const byGroup=new Map();
-    filtered.forEach(ch=>{if(!byGroup.has(ch.group))byGroup.set(ch.group,[]);byGroup.get(ch.group).push(ch);});
     // Favoritos em destaque
     const favs=filtered.filter(ch=>isFavorite(ch));
     if(favs.length)sections.push({title:'⭐ Meus Favoritos',channels:favs});
-    // Recentes (history)
-    const recentUrls=state.history.filter(h=>h.playlistId===state.activePlaylist).slice(0,20).map(h=>h.channel?.url);
-    const recents=recentUrls.map(url=>filtered.find(ch=>ch.url===url)).filter(Boolean);
-    if(recents.length)sections.push({title:'▶ Vistos Recentemente',channels:recents});
-    // Por grupo
+    // Vistos recentemente
+    const recentUrls=state.history.filter(h=>h.playlistId===state.activePlaylist).slice(0,20).map(h=>h.channel?.url).filter(Boolean);
+    if(recentUrls.length){
+      const recents=recentUrls.map(url=>filtered.find(ch=>ch.url===url)).filter(Boolean);
+      if(recents.length)sections.push({title:'▶ Vistos Recentemente',channels:recents});
+    }
+    // Por grupo — ignorar grupos vazios ou undefined
+    const byGroup=new Map();
+    filtered.forEach(ch=>{
+      const g=ch.group&&ch.group.trim()?ch.group.trim():'Geral';
+      if(!byGroup.has(g))byGroup.set(g,[]);
+      byGroup.get(g).push(ch);
+    });
     byGroup.forEach((channels,group)=>sections.push({title:group,channels}));
   }
 
-  // Índice global para visibleChannels
+  // Índice global para visibleChannels (compatibilidade com data-index)
   let globalIndex=0;
   const allVisible=[];
   const html=sections.map(sec=>{
-    const cards=sec.channels.slice(0,50).map(ch=>{
+    const cards=sec.channels.slice(0,60).map(ch=>{
       const idx=globalIndex++;
       allVisible.push(ch);
       return renderChannelCard(ch,idx);
     }).join('');
-    const hasMore=sec.channels.length>50;
     return `<section class="streaming-section">
       <div class="streaming-section-header">
         <h2 class="streaming-section-title">${esc(sec.title)}</h2>
-        <span class="streaming-section-count">${sec.channels.length} canais</span>
+        <span class="streaming-section-count">${number(sec.channels.length)} canais</span>
       </div>
       <div class="streaming-carousel">${cards}</div>
-      ${hasMore?`<button class="streaming-load-more" data-action="load-more-section" data-group="${esc(sec.title)}">${icon('right')} Ver todos (${sec.channels.length})</button>`:''}
+      ${sec.channels.length>60?`<button class="streaming-load-more" data-action="load-more-section" data-group="${esc(sec.title)}">${icon('right')} Ver todos (${number(sec.channels.length)})</button>`:''}
     </section>`;
   }).join('');
 
   container.innerHTML=html||`<div class="streaming-empty">Nenhum conteúdo encontrado.</div>`;
   visibleChannels=allVisible;
-  // Lazy load logos nas cards
-  container.querySelectorAll('.channel-card-poster img[loading="lazy"]').forEach(img=>{
-    if(!img.complete&&img.src){img.src=img.src;}
-  });
   // Hooks de health e EPG
   if(typeof window.healthModule!=='undefined')window.healthModule.observe();
   if(typeof window.epgModule!=='undefined')window.epgModule.observeEpg();
@@ -601,22 +608,45 @@ function updateStreamingHero(ch){
   if(state.page!=='player'||!ch)return;
   const tileColors=['#6366f1','#0ea5e9','#10b981','#f59e0b','#f43f5e','#8b5cf6','#06b6d4'];
   const logo=ch.logo&&/^https?:\/\//i.test(ch.logo)?ch.logo:'';
-  const color=tileColors[state.channels.indexOf(ch)%tileColors.length]||tileColors[0];
+  const color=tileColors[Math.abs(ch.name.split('').reduce((a,c)=>a+c.charCodeAt(0),0))%tileColors.length]||tileColors[0];
   const initial=(ch.name||'J')[0].toUpperCase();
-  // Atualiza background
+  // Atualiza background com a logo como backdrop
   const bg=document.getElementById('hero-bg');
-  if(bg)bg.style.background=logo?`url('${CSS.escape(logo).replace(/'/g,"\\'")}') center/cover no-repeat`:`${color}`;
-  // Título
-  const title=document.getElementById('hero-title');
-  if(title)title.textContent=ch.name;
-  // Badge de tipo
+  if(bg){
+    if(logo){
+      bg.style.backgroundImage=`url('${logo.replace(/'/g,"%27")}')`;
+      bg.style.background='';
+    }else{
+      bg.style.backgroundImage='';
+      bg.style.background=color;
+    }
+  }
+  // Título e grupo
+  const titleEl=document.getElementById('hero-title');
+  if(titleEl)titleEl.textContent=ch.name;
+  const epgEl=document.getElementById('hero-epg');
+  if(epgEl)epgEl.innerHTML=ch.group?`<span>${esc(ch.group)}</span>`:'';
+  // Toggle hero video mode
   const hero=document.getElementById('streaming-hero');
-  if(hero)hero.classList.toggle('streaming-hero-video-mode',!!state.selected);
+  if(hero)hero.classList.toggle('streaming-hero-video-mode',true);
+  // Botão play
+  const playBtn=document.getElementById('hero-play-btn');
+  if(playBtn)playBtn.innerHTML=`${icon('play')} Em reprodução`;
   // Now bar
   const barName=document.getElementById('now-bar-name');
   const barMeta=document.getElementById('now-bar-meta');
   if(barName)barName.textContent=ch.name;
   if(barMeta)barMeta.textContent=ch.group||'';
+  // Thumb da now bar
+  const thumb=document.getElementById('now-bar-thumb');
+  const thumbFallback=document.getElementById('now-bar-thumb-fallback');
+  if(logo){
+    if(thumb){thumb.src=logo;thumb.style.display='';}
+    if(thumbFallback)thumbFallback.style.display='none';
+  }else{
+    if(thumb)thumb.style.display='none';
+    if(thumbFallback){thumbFallback.style.display='flex';thumbFallback.style.background=color;thumbFallback.textContent=initial;}
+  }
   // Favorito no hero
   const favBtn=document.getElementById('hero-fav-btn');
   if(favBtn){const on=isFavorite(ch);favBtn.classList.toggle('is-favorite',on);favBtn.innerHTML=icon('heart')+' '+(on?'Favoritado':'Favoritar');}

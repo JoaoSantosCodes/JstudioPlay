@@ -1757,3 +1757,195 @@ dialog::backdrop {
 }
 .shell.player-mode .topbar { display: none; }
 .player-mode .content { padding: 0 !important; max-width: none !important; }
+
+/* ==========================================================================
+   13. STREAMING FIXES v9.1 — Correções visuais (sprint-v76.1)
+   ========================================================================== */
+
+/* Hero: altura maior, mais impacto */
+.streaming-hero {
+  height: 480px !important;
+  margin-top: -60px;
+}
+.streaming-hero-video-mode {
+  height: 520px !important;
+}
+
+/* Hero bg: garantir que o background-image funcione corretamente */
+.streaming-hero-bg {
+  background-size: cover !important;
+  background-position: center center !important;
+  filter: blur(18px) brightness(0.35) saturate(1.4) !important;
+  transform: scale(1.12) !important;
+}
+
+/* video-empty: OCULTO por padrão no modo streaming (não é um overlay permanente) */
+.streaming-hero #video-empty {
+  display: none !important;
+}
+.streaming-hero #video-empty:not([hidden]) {
+  display: flex !important;
+}
+
+/* Hero content: mais espaço, melhor hierarquia */
+.streaming-hero-content {
+  bottom: 36px;
+  left: 36px;
+  right: 36px;
+  gap: 24px;
+}
+
+/* Logo do hero maior e mais nítido */
+.streaming-hero-logo,
+.streaming-hero-logo-fallback {
+  width: 96px !important;
+  height: 96px !important;
+  border-radius: var(--radius-xl) !important;
+  flex-shrink: 0;
+}
+.streaming-hero-logo-fallback {
+  font-size: 36px !important;
+}
+
+/* Título mais impactante */
+.streaming-hero-title {
+  font-size: clamp(26px, 4vw, 44px) !important;
+  margin-bottom: 10px !important;
+  text-shadow: 0 4px 20px rgba(0,0,0,0.8) !important;
+}
+
+/* Gradiente mais profundo para legibilidade */
+.streaming-hero-gradient {
+  background: linear-gradient(
+    to bottom,
+    rgba(8,11,17,0.15) 0%,
+    rgba(8,11,17,0.0) 25%,
+    rgba(8,11,17,0.5) 60%,
+    rgba(8,11,17,0.98) 100%
+  ) !important;
+}
+
+/* Topbar: fundo sólido para não sobrepor mal o hero */
+.streaming-topbar {
+  background: rgba(8,11,17,0.95) !important;
+  backdrop-filter: blur(20px) !important;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Tabs de playlist: tamanho adequado */
+.streaming-tab {
+  font-size: 13px !important;
+  padding: 8px 18px !important;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Busca: largura maior */
+.streaming-search-wrap input {
+  width: 220px !important;
+}
+.streaming-search-wrap input:focus {
+  width: 300px !important;
+}
+
+/* Tabs de categoria: melhor espaçamento e contraste */
+.streaming-categories {
+  padding: 0 28px;
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+.streaming-cat-btn {
+  font-size: 13px !important;
+  padding: 8px 20px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.1px;
+}
+
+/* Cards: maiores, proporção melhor */
+.channel-card {
+  width: 160px !important;
+  min-width: 160px !important;
+}
+.channel-card-poster {
+  aspect-ratio: 16/9 !important; /* Mais adequado para IPTV ao vivo */
+}
+
+/* Fallback: centralizar melhor */
+.channel-card-poster-fallback {
+  font-size: 28px !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.5px;
+  background-size: cover;
+}
+
+/* Card info: nome mais legível */
+.channel-card-name {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  margin-bottom: 3px !important;
+}
+.channel-card-group {
+  font-size: 11px !important;
+  color: var(--ink-dim) !important;
+}
+
+/* Badge ao vivo: vermelho pulsante mais visível */
+.channel-card-type-badge.live {
+  background: rgba(244,63,94,0.95) !important;
+  box-shadow: 0 0 8px rgba(244,63,94,0.5);
+}
+
+/* Carrossel: gap maior entre cards */
+.streaming-carousel {
+  gap: 14px !important;
+  padding-bottom: 16px !important;
+}
+
+/* Seção header: mais respiro */
+.streaming-section-header {
+  padding: 20px 28px 10px !important;
+}
+.streaming-section-title {
+  font-size: 19px !important;
+  font-weight: 900 !important;
+}
+
+/* Now bar: mais polido */
+.streaming-now-bar {
+  padding: 14px 28px !important;
+  gap: 18px;
+}
+.streaming-now-name {
+  font-size: 14px !important;
+  font-weight: 800 !important;
+}
+
+/* Seções: overflow correto */
+.streaming-sections {
+  min-height: 200px;
+}
+
+/* Corrigir overflow da página */
+.player-streaming-page {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* Responsivo fix */
+@media (max-width: 760px) {
+  .streaming-hero { height: 300px !important; }
+  .streaming-hero-video-mode { height: 320px !important; }
+  .channel-card { width: 140px !important; min-width: 140px !important; }
+  .streaming-topbar { padding: 0 16px !important; }
+  .streaming-categories { padding: 0 16px !important; }
+  .streaming-section-header { padding: 14px 16px 8px !important; }
+  .streaming-carousel { padding: 4px 16px 12px !important; }
+  .streaming-now-bar { padding: 10px 16px !important; }
+}
+
+@media (max-width: 480px) {
+  .streaming-hero { height: 240px !important; }
+  .channel-card { width: 130px !important; min-width: 130px !important; }
+}

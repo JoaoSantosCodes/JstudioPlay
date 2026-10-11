@@ -157,19 +157,266 @@ function dateTime(value){return !value||String(value).startsWith('0001')?'Ainda 
 function tileStyle(i){return `--tile:${colors[i%colors.length]}`;}
 function channelLogo(ch,i=0,deferImage=false){let logo='';const name=ch?.name||ch?.tvgName||'TV';if(ch?.logo&&/^https?:\/\//i.test(ch.logo)){try{const url=new URL(ch.logo);if((url.protocol==='https:'||url.protocol==='http:')&&(location.protocol!=='https:'||url.protocol==='https:'))logo=url.href;}catch{}}return `<span class="channel-logo" style="${tileStyle(i)}">${logo?`<img ${deferImage?'data-logo-src':'src'}="${esc(logo)}" alt="" width="30" height="30" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.style.display='none';this.parentElement.textContent='${esc(initials(name))}';">`:esc(initials(name))}</span>`;}
 
-function landingHeroArt(){
-  const items=[['Natureza ao vivo','Relaxar','#3777ea'],['Viagem pelas montanhas','Documentários','#7446dc'],['Sons da natureza','Música','#11a989']];
-  return `<div class="hero-art" role="img" aria-label="Ilustração do player JstudioPlay em um computador e um celular, com busca, lista e área de reprodução"><div class="art-glow"></div><div class="monitor"><div class="preview-app"><div class="preview-rail"><img src="/static/logo.svg" alt=""><span>${icon('home')}</span><span class="active">${icon('tv')}</span><span>${icon('heart')}</span><span>${icon('settings')}</span></div><div class="preview-main"><div class="preview-top"><span>Biblioteca ${icon('right')} <b>JstudioPlay</b></span><span class="preview-avatar">J</span></div><div class="preview-heading"><strong>Assistir</strong><span>Minha playlist ${icon('right')}</span></div><div class="preview-columns"><div class="preview-browser"><b>O que você quer assistir?</b><div class="preview-search">${icon('search')}<span>Busque pelo nome do conteúdo</span></div><small>Categorias</small><div class="preview-categories"><span class="active">Todos</span><span>Natureza</span><span>Música</span></div><div class="preview-list-title">Conteúdos</div>${items.map(([name,group,color],i)=>`<div class="preview-item ${i===0?'active':''}"><span class="preview-thumb" style="--preview-color:${color}">${icon(i===2?'music':'play')}</span><span><b>${name}</b><small>${group}</small></span>${icon('heart')}</div>`).join('')}</div><div class="preview-watch"><div class="preview-video"><img src="/static/landscape.svg" alt=""><span class="preview-play">${icon('play')}</span></div><div class="preview-now"><span class="preview-now-icon">${icon('play')}</span><span><b>Natureza ao vivo</b><small>Relaxar</small></span>${icon('heart')}</div><div class="preview-compat">${icon('info')} Modo de compatibilidade</div></div></div></div></div><div class="monitor-stand"></div></div><div class="phone"><div class="phone-screen"><div class="preview-phone-top"><img src="/static/logo.svg" alt=""><span>JstudioPlay</span></div><div class="preview-phone-video"><img src="/static/landscape.svg" alt=""><span>${icon('play')}</span></div><b>Natureza ao vivo</b><small>Minha playlist</small><div class="preview-phone-search">${icon('search')} Buscar conteúdo</div><div class="preview-phone-item"><span class="preview-thumb">${icon('play')}</span><span>Viagem pelas montanhas</span></div></div></div></div>`;
-}
 function landing(){
-  return `<div class="landing"><header class="public-nav">${brand('home')}<nav aria-label="Navegação principal"><a href="#como-funciona">Como funciona</a><a href="#recursos">Recursos</a><a href="#dispositivos">Dispositivos</a><a href="#faq">Dúvidas</a></nav><div class="row"><a class="btn" href="#/${state.user?'dashboard':'login'}">${state.user?'Minha conta':'Entrar'}</a>${themeButton()}</div></header>
-  <main><section class="hero"><div class="hero-copy"><span class="tag">Streaming & IPTV de Nova Geração</span><h1>Seu streaming,<br>organizado.<br><em>Com JstudioPlay.</em></h1><p>Adicione suas próprias playlists M3U, navegue por milhares de canais com EPG em tempo real e assista com áudio e vídeo de alta performance.</p><div class="under-cta">${icon('shield')}<span><strong>Suas fontes, sua liberdade</strong>O JstudioPlay não vende nem fornece playlists, canais ou assinaturas.</span></div><a class="btn" href="#/${state.user?'dashboard':'login'}">${state.user?'Abrir minha biblioteca':'Entrar na minha conta'} ${icon('arrow')}</a></div>
-  ${landingHeroArt()}</section>
-  <section class="landing-notice" aria-label="Origem do conteúdo"><div class="notice-icon">${icon('shield')}</div><div><strong>O JstudioPlay é uma ferramenta. Não vendemos playlists.</strong><p>Não temos catálogo próprio, canais ou assinaturas. Você adiciona uma playlist sua ou de uma fonte que tenha autorização para usar.</p></div></section>
-  <section id="como-funciona" class="landing-section how-section"><div class="section-intro"><span class="eyebrow">Simples de começar</span><h2 class="section-title">Da sua lista à sua tela.</h2><p>Organize sua biblioteca sem depender de um catálogo da plataforma.</p></div><div class="how-grid"><article class="card how-card"><span class="step-number">01</span>${icon('user')}<h3>Acesse sua conta</h3><p>Entre com o acesso criado pelo administrador no JstudioPlay.</p></article><article class="card how-card"><span class="step-number">02</span>${icon('playlist')}<h3>Adicione sua playlist</h3><p>Informe uma URL M3U ou importe um arquivo do seu dispositivo com sincronização instantânea.</p></article><article class="card how-card"><span class="step-number">03</span>${icon('play')}<h3>Encontre e assista</h3><p>Busque pelo nome, explore categorias, EPG e reproduza em alta fidelidade.</p></article></div></section>
-  <section id="recursos" class="landing-section resources-section"><div class="section-intro"><span class="eyebrow">Sua biblioteca</span><h2 class="section-title">Tudo organizado para encontrar de novo.</h2><p>Recursos que já fazem parte do JstudioPlay.</p></div><div class="resource-grid">${[['search','Busca Inteligente','Encontre canais e programas instantaneamente.'],['grid','Categorias & EPG','Navegue pela grade horária e catálogo completo.'],['heart','Favoritos e Histórico','Salve o que gosta e retome conteúdos recentes.'],['play','Player de Alta Performance','Áudio cristalino, boost de volume e failover inteligente.']].map(([k,title,description])=>`<article class="card resource-card"><span class="feature-icon">${icon(k)}</span><h3>${title}</h3><p>${description}</p></article>`).join('')}</div></section>
-  <section id="dispositivos" class="landing-section device-section"><div><span class="eyebrow">Em diferentes telas</span><h2 class="section-title">O JstudioPlay acompanha você.</h2><p>Use pelo navegador no computador, celular, tablet ou Smart TV com suporte a controle remoto.</p><p class="device-note">A reprodução depende dos formatos, codecs e recursos aceitos pelo navegador e pela fonte da playlist.</p></div><div class="device-icons">${[['monitor','Computador'],['phone','Celular'],['tablet','Tablet'],['tv','TV']].map(([k,n])=>`<span>${icon(k)}${n}</span>`).join('')}</div></section>
-  <section id="faq" class="landing-section faq"><div><span class="eyebrow">Tudo às claras</span><h2 class="section-title">Perguntas frequentes</h2><p>O essencial para usar o JstudioPlay com suas próprias fontes.</p></div><div class="faq-items"><details><summary>O JstudioPlay vende playlists ou fornece canais?</summary><p>Não. Somos uma ferramenta profissional para organizar e reproduzir playlists. Não oferecemos catálogo, assinaturas ou canais.</p></details><details><summary>Como adiciono minha playlist?</summary><p>Entre na conta criada pelo administrador, escolha “Adicionar playlist” e informe uma URL M3U ou importe um arquivo M3U do seu dispositivo.</p></details><details><summary>Minhas listas ficam salvas?</summary><p>Sim. Playlists, favoritos e histórico ficam associados à sua conta e podem ser acessados em qualquer tela.</p></details><details><summary>Funciona em Smart TV?</summary><p>Sim! A interface foi adaptada para navegadores de TV, controle remoto e possui modo de teclado numérico (0-9).</p></details></div></section></main><footer class="public-footer"><div class="footer-main"><div class="footer-brand">${brand('home')}<p>JstudioPlay: Sua central definitiva de streaming IPTV e player inteligente.</p></div><nav class="footer-links" aria-label="Explorar o site"><strong>Explore</strong><a href="#como-funciona">Como funciona</a><a href="#recursos">Recursos</a><a href="#dispositivos">Dispositivos</a><a href="#faq">Dúvidas frequentes</a></nav><div class="footer-access"><strong>Sua biblioteca começa aqui</strong><p>Entre com sua conta JstudioPlay para gerenciar e assistir.</p><a class="btn secondary" href="#/login">Entrar na minha conta ${icon('arrow')}</a></div></div><div class="footer-bottom"><span>© ${new Date().getFullYear()} JstudioPlay</span><span>JstudioPlay é uma plataforma de reprodução e gerenciamento de mídia.</span></div></footer></div>`;
+  return `<div class="onex-landing-wrapper">
+    <!-- Header Fixo Glassmorphism -->
+    <header class="onex-header">
+      <a class="onex-brand" href="#/landing" aria-label="JstudioPlay Início">
+        <div class="iptv-play-icon" style="width:36px; height:36px; border-radius:8px;">
+          <svg viewBox="0 0 24 24" style="width:18px; height:18px;"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+        <span class="iptv-logo-title" style="font-size:1.4rem;">JSTUDIO<span style="color:var(--iptv-red);">PLAY</span></span>
+      </a>
+
+      <nav class="onex-nav" aria-label="Navegação da Página">
+        <a href="#recursos">Recursos</a>
+        <a href="#dispositivos">Dispositivos</a>
+        <a href="#faq">Dúvidas (FAQ)</a>
+      </nav>
+
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <a class="onex-btn-login" href="#/login">
+          <span>Acessar Plataforma</span>
+          ${icon('right')}
+        </a>
+      </div>
+    </header>
+
+    <!-- Seção Hero Principal (Padrão OneX) -->
+    <section class="onex-hero">
+      <div class="onex-badge">
+        <span class="onex-badge-dot"></span>
+        <span>Streaming de Alta Fidelidade & IPTV</span>
+      </div>
+
+      <h1>
+        Sua Central Definitiva de Streaming.<br>
+        <span class="gradient">TV Ao Vivo, Filmes e Séries.</span>
+      </h1>
+
+      <p class="subtitle">
+        Organize e assista suas listas M3U e servidores Xtream Codes em uma experiência cinematográfica. Player HLS anti-travamento com EPG em tempo real e interface otimizada para Smart TVs e navegadores modernos.
+      </p>
+
+      <div class="onex-hero-actions">
+        <a class="onex-btn-login" href="#/login" style="padding:0.9rem 2.2rem; font-size:1.05rem; border-radius:10px;">
+          <span>Entrar na Minha Conta</span>
+          ${icon('play')}
+        </a>
+        <a class="onex-btn-secondary" href="#recursos" style="padding:0.9rem 2rem; font-size:1.05rem; border-radius:10px;">
+          <span>Conhecer Recursos</span>
+          ${icon('arrow')}
+        </a>
+      </div>
+
+      <!-- Métricas / Estatísticas no Padrão OneX -->
+      <div class="onex-stats-grid">
+        <div class="onex-stat-card">
+          <div class="onex-stat-number"><span class="accent">4K</span> & FHD</div>
+          <div class="onex-stat-label">Ultra Alta Definição</div>
+        </div>
+        <div class="onex-stat-card">
+          <div class="onex-stat-number">100<span class="accent">%</span></div>
+          <div class="onex-stat-label">EPG & Grade Horária</div>
+        </div>
+        <div class="onex-stat-card">
+          <div class="onex-stat-number">Zero</div>
+          <div class="onex-stat-label">Travamentos com Proxy HLS</div>
+        </div>
+        <div class="onex-stat-card">
+          <div class="onex-stat-number">Multi<span class="accent">TV</span></div>
+          <div class="onex-stat-label">Smart TV, Celular e Web</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Seção Recursos e Diferenciais Técnicos -->
+    <section id="recursos" class="onex-section">
+      <div class="onex-section-head">
+        <span class="onex-section-tag">Tecnologia & Estabilidade</span>
+        <h2 class="onex-section-title">Construído para o Máximo Desempenho</h2>
+        <p class="onex-section-desc">Uma plataforma concebida desde o primeiro byte para entregar reprodução fluida, organização inteligente e navegação instantânea em qualquer controle remoto.</p>
+      </div>
+
+      <div class="onex-features-grid">
+        <div class="onex-feature-card">
+          <div class="onex-feature-icon">${icon('tv')}</div>
+          <h3>Player HLS de Baixa Latência</h3>
+          <p>Motor de vídeo adaptativo com suporte a streams HLS (m3u8), TS e MP4. Relay inteligente para bypass de bloqueios CORS e failover automático de conexões instáveis.</p>
+        </div>
+
+        <div class="onex-feature-card">
+          <div class="onex-feature-icon">${icon('refresh')}</div>
+          <h3>Guia EPG em Tempo Real</h3>
+          <p>Sincronização contínua com programação oficial. Veja o que está passando agora, a barra de progresso do programa e o que vem a seguir em cada canal.</p>
+        </div>
+
+        <div class="onex-feature-card">
+          <div class="onex-feature-icon">${icon('playlist')}</div>
+          <h3>Conector Duplo M3U + Xtream</h3>
+          <p>Suporte completo a arquivos locais M3U, URLs remotas de provedores e integração nativa com servidores pagos Xtream Codes API (Host, Usuário e Senha).</p>
+        </div>
+
+        <div class="onex-feature-card">
+          <div class="onex-feature-icon">${icon('shield')}</div>
+          <h3>Controle Parental com PIN</h3>
+          <p>Bloqueie categorias sensíveis e conteúdos adultos com código de segurança numérico de 4 dígitos (0-9), garantindo proteção total para toda a família.</p>
+        </div>
+
+        <div class="onex-feature-card">
+          <div class="onex-feature-icon">${icon('grid')}</div>
+          <h3>VOD Filmes & Séries com Poster</h3>
+          <p>Separação automática de catálogos VOD. Navegação em grade imersiva por episódios, temporadas e sinopses no mais puro estilo Netflix.</p>
+        </div>
+
+        <div class="onex-feature-card">
+          <div class="onex-feature-icon">${icon('clock')}</div>
+          <h3>Histórico & Favoritos em Nuvem</h3>
+          <p>Marque seus canais favoritos com um clique e retome exatamente onde parou com sincronização persistente na sua conta.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Seção Dispositivos Compatíveis -->
+    <section id="dispositivos" class="onex-section" style="padding-top:2rem;">
+      <div class="onex-section-head">
+        <span class="onex-section-tag">Compatibilidade Total</span>
+        <h2 class="onex-section-title">Assista Onde e Quando Quiser</h2>
+        <p class="onex-section-desc">Design responsivo pensado tanto para telas gigantes de Smart TV quanto para smartphones, tablets e notebooks.</p>
+      </div>
+
+      <div class="onex-devices-grid">
+        <div class="onex-device-card">
+          <div class="onex-device-icon">${icon('tv')}</div>
+          <div class="onex-device-info">
+            <h4>Smart TVs Samsung & LG</h4>
+            <p>Otimizado para Tizen e WebOS com navegação por setas (D-Pad).</p>
+          </div>
+        </div>
+
+        <div class="onex-device-card">
+          <div class="onex-device-icon">${icon('grid')}</div>
+          <div class="onex-device-info">
+            <h4>Android TV & Google TV</h4>
+            <p>Fluidez máxima com aceleração por hardware e suporte a controle.</p>
+          </div>
+        </div>
+
+        <div class="onex-device-card">
+          <div class="onex-device-icon">${icon('play')}</div>
+          <div class="onex-device-info">
+            <h4>Fire TV Stick & TV Box</h4>
+            <p>Compatível com navegadores Silk e Chrome para Fire OS.</p>
+          </div>
+        </div>
+
+        <div class="onex-device-card">
+          <div class="onex-device-icon">${icon('user')}</div>
+          <div class="onex-device-info">
+            <h4>Computadores & Web</h4>
+            <p>Acesse pelo Chrome, Edge, Firefox e Safari em qualquer sistema.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Perguntas Frequentes (FAQ Accordion) -->
+    <section id="faq" class="onex-section">
+      <div class="onex-section-head">
+        <span class="onex-section-tag">Tire Suas Dúvidas</span>
+        <h2 class="onex-section-title">Perguntas Frequentes</h2>
+        <p class="onex-section-desc">Tudo o que você precisa saber sobre como funciona a plataforma JstudioPlay.</p>
+      </div>
+
+      <div class="onex-faq-container">
+        <details class="onex-faq-item">
+          <summary class="onex-faq-summary">
+            <span>O JstudioPlay vende listas ou fornece canais?</span>
+            <span style="color:var(--iptv-red); font-size:1.2rem;">+</span>
+          </summary>
+          <div class="onex-faq-content">
+            Não. O JstudioPlay é um reprodutor e gerenciador profissional de mídia de alta performance. Nós fornecemos a tecnologia e a interface para você organizar e reproduzir suas próprias fontes autorizadas M3U ou contas Xtream Codes.
+          </div>
+        </details>
+
+        <details class="onex-faq-item">
+          <summary class="onex-faq-summary">
+            <span>Como faço para adicionar minha lista ou IPTV pago?</span>
+            <span style="color:var(--iptv-red); font-size:1.2rem;">+</span>
+          </summary>
+          <div class="onex-faq-content">
+            Após efetuar o login, acesse o menu <strong>Playlists</strong> e clique em <strong>Adicionar playlist</strong>. Você pode colar a URL do arquivo M3U, fazer upload de um arquivo salvo ou selecionar a aba <strong>Servidor Xtream Codes</strong> informando a URL do servidor, usuário e senha.
+          </div>
+        </details>
+
+        <details class="onex-faq-item">
+          <summary class="onex-faq-summary">
+            <span>Funciona direto no navegador da minha Smart TV?</span>
+            <span style="color:var(--iptv-red); font-size:1.2rem;">+</span>
+          </summary>
+          <div class="onex-faq-content">
+            Sim! A interface do JstudioPlay possui detecção inteligente de TV (Tizen, WebOS, Android TV) e mapeia os botões do controle remoto (Cima, Baixo, Esquerda, Direita, Enter, Voltar e Teclado Numérico 0-9 para troca rápida de canais).
+          </div>
+        </details>
+
+        <details class="onex-faq-item">
+          <summary class="onex-faq-summary">
+            <span>Minhas listas e configurações ficam salvas?</span>
+            <span style="color:var(--iptv-red); font-size:1.2rem;">+</span>
+          </summary>
+          <div class="onex-faq-content">
+            Sim. Suas playlists, categorias favoritas, histórico de reprodução e preferências de áudio/legendas ficam salvas com segurança na sua conta no banco de dados e sincronizadas em qualquer dispositivo.
+          </div>
+        </details>
+      </div>
+
+      <!-- Caixa de Chamada Final (CTA Box) -->
+      <div class="onex-cta-box">
+        <h2>Pronto Para Transformar Sua Experiência?</h2>
+        <p>Acesse sua conta agora mesmo e desfrute da mais moderna interface de streaming para suas playlists.</p>
+        <a class="onex-btn-login" href="#/login" style="padding:1rem 2.5rem; font-size:1.1rem; border-radius:10px;">
+          <span>Entrar no JstudioPlay Agora</span>
+          ${icon('right')}
+        </a>
+      </div>
+    </section>
+
+    <!-- Rodapé Oficial -->
+    <footer class="onex-footer">
+      <div class="onex-footer-inner">
+        <div style="max-width:380px;">
+          <div class="onex-brand" style="margin-bottom:1rem;">
+            <div class="iptv-play-icon" style="width:32px; height:32px; border-radius:6px;">
+              <svg viewBox="0 0 24 24" style="width:16px; height:16px;"><path d="M8 5v14l11-7z"/></svg>
+            </div>
+            <span class="iptv-logo-title" style="font-size:1.25rem;">JSTUDIO<span style="color:var(--iptv-red);">PLAY</span></span>
+          </div>
+          <p style="font-size:0.88rem; color:var(--iptv-text-sec); line-height:1.6; margin:0;">
+            Plataforma profissional de reprodução e gerenciamento de mídia em nuvem. Compatível com os padrões abertos HLS, M3U e Xtream Codes.
+          </p>
+        </div>
+
+        <div class="onex-footer-col">
+          <h4>Navegação</h4>
+          <a href="#recursos">Recursos Técnicos</a>
+          <a href="#dispositivos">Dispositivos Compatíveis</a>
+          <a href="#faq">Perguntas Frequentes</a>
+        </div>
+
+        <div class="onex-footer-col">
+          <h4>Acesso</h4>
+          <a href="#/login">Entrar na Conta</a>
+          <a href="#/login">Painel do Administrador</a>
+          <a href="/privacy.html" target="_blank">Política de Privacidade</a>
+        </div>
+      </div>
+
+      <div class="onex-footer-bottom">
+        <span>© ${new Date().getFullYear()} JstudioPlay. Todos os direitos reservados.</span>
+        <span>JstudioPlay é uma ferramenta de software e não comercializa canais nem assinaturas.</span>
+      </div>
+    </footer>
+  </div>`;
 }
 function getIptvClock(){
   const d = new Date();
@@ -997,18 +1244,19 @@ function userRows(query){return state.users.filter(({user:u})=>(u.name+' '+u.use
 function logsPage(){return `${heading('Logs da plataforma','Acompanhe os últimos acessos e alterações administrativas no JstudioPlay.')}<section class="card table-wrap"><table class="data-table"><thead><tr><th>Data e hora</th><th>Usuário</th><th>Atividade</th></tr></thead><tbody>${state.logs.map(l=>`<tr><td><small>${dateTime(l.at)}</small></td><td>${esc(l.user)}</td><td>${esc(l.action)}</td></tr>`).join('')||'<tr><td colspan="3">Nenhuma atividade registrada.</td></tr>'}</tbody></table><div class="table-foot">Até 500 atividades mais recentes. Endereços das playlists e senhas não são registrados.</div></section>`;}
 
 async function renderRoute(){
-  const defaultPage = state.user ? '/dashboard' : '/login';
+  const defaultPage = state.user ? '/dashboard' : '/landing';
   const raw = location.hash.slice(1) || defaultPage;
-  if(!raw.startsWith('/')){navigate(state.user ? 'dashboard' : 'login');return;}
+  if(!raw.startsWith('/')){navigate(state.user ? 'dashboard' : 'landing');return;}
   const generation=++routeGeneration;
   let page=raw.slice(1).split('?')[0];
-  if(page==='home') page = state.user ? 'dashboard' : 'login';
-  if(!['login',...Object.keys(pageNames)].includes(page))page = state.user ? 'dashboard' : 'login';
-  if(!state.user && page!=='login'){navigate('login');return;}
-  if(state.user && page==='login'){navigate('dashboard');return;}
+  if(!page || page==='home') page = state.user ? 'dashboard' : 'landing';
+  if(!['login','landing',...Object.keys(pageNames)].includes(page))page = state.user ? 'dashboard' : 'landing';
+  if(!state.user && !['login','landing'].includes(page)){navigate('landing');return;}
+  if(state.user && (page==='login'||page==='landing')){navigate('dashboard');return;}
   if((page==='users'&&!['admin','manager'].includes(state.user?.role))||(page==='logs'&&state.user?.role!=='admin')){navigate('dashboard');return;}
   stopPlayback();state.page=page;$('#modal').close();
-  document.title=`${pageNames[page]|| (page==='login'?'Entrar':'Do seu jeito.')} — JstudioPlay`;
+  document.title=`${pageNames[page]|| (page==='login'?'Entrar':page==='landing'?'IPTV, Filmes & Séries':'Do seu jeito.')} — JstudioPlay`;
+  if(page==='landing'){$('#app').innerHTML=landing();return;}
   if(page==='login'){$('#app').innerHTML=loginPage();if(tvMode)focusTV($('#username')||visibleTVTargets()[0]);initGoogleAuth();return;}
   $('#app').innerHTML='<div style="min-height:100vh;display:grid;place-items:center;background:var(--iptv-bg);color:#fff;font-family:var(--iptv-font);"><div class="loading-state">Carregando JstudioPlay…<div class="loading-line"></div></div></div>';
   setMenu(false);

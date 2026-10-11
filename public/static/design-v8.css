@@ -4493,5 +4493,483 @@ input:focus-visible {
   border-color: rgba(229, 9, 20, 0.3);
 }
 
+/* --------------------------------------------------------------------------
+   15.8 LANDING PAGE OFICIAL JSTUDIOPLAY (PADRÃO ONEX COM PALETA IPTV DARK)
+   -------------------------------------------------------------------------- */
+
+.onex-landing-wrapper {
+  min-height: 100vh;
+  width: 100%;
+  background: 
+    radial-gradient(circle at 18% 12%, rgba(229, 9, 20, 0.14) 0%, transparent 45%),
+    radial-gradient(circle at 82% 78%, rgba(229, 9, 20, 0.08) 0%, transparent 40%),
+    linear-gradient(180deg, #0d0e12 0%, #141414 50%, #0a0b0e 100%);
+  color: #ffffff;
+  font-family: var(--iptv-font);
+  overflow-x: hidden;
+}
+
+.onex-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  background: rgba(14, 15, 18, 0.88);
+  border-bottom: 1px solid var(--iptv-border);
+  padding: 1rem 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.25s ease;
+}
+
+.onex-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+}
+
+.onex-nav {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.onex-nav a {
+  color: var(--iptv-text-sec);
+  font-size: 0.92rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.onex-nav a:hover {
+  color: #ffffff;
+}
+
+.onex-btn-login {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--iptv-red);
+  color: #ffffff;
+  padding: 0.65rem 1.4rem;
+  border-radius: var(--iptv-radius-sm);
+  font-weight: 600;
+  font-size: 0.92rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 16px var(--iptv-red-glow);
+}
+
+.onex-btn-login:hover {
+  background: var(--iptv-red-hover);
+  box-shadow: 0 0 24px rgba(229, 9, 20, 0.6);
+  transform: translateY(-1px);
+}
+
+.onex-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--iptv-surface-card);
+  color: #ffffff;
+  border: 1px solid var(--iptv-border);
+  padding: 0.65rem 1.4rem;
+  border-radius: var(--iptv-radius-sm);
+  font-weight: 600;
+  font-size: 0.92rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.onex-btn-secondary:hover {
+  background: var(--iptv-elevated);
+  border-color: var(--iptv-text-muted);
+  transform: translateY(-1px);
+}
+
+.onex-hero {
+  padding: 6rem 2rem 5rem;
+  max-width: 1180px;
+  margin: 0 auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.onex-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: rgba(229, 9, 20, 0.12);
+  border: 1px solid rgba(229, 9, 20, 0.35);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 0.45rem 1.25rem;
+  border-radius: var(--iptv-radius-full);
+  margin-bottom: 1.75rem;
+  box-shadow: 0 0 18px rgba(229, 9, 20, 0.15);
+}
+
+.onex-badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--iptv-red);
+  box-shadow: 0 0 8px var(--iptv-red);
+}
+
+.onex-hero h1 {
+  font-size: clamp(2.3rem, 5.2vw, 4.2rem);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -1.2px;
+  margin: 0 0 1.5rem;
+  color: #ffffff;
+}
+
+.onex-hero h1 span.gradient {
+  background: linear-gradient(135deg, #ffffff 40%, var(--iptv-red) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.onex-hero p.subtitle {
+  font-size: clamp(1.05rem, 2vw, 1.25rem);
+  color: var(--iptv-text-sec);
+  max-width: 820px;
+  line-height: 1.65;
+  margin: 0 0 2.5rem;
+}
+
+.onex-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 4rem;
+}
+
+.onex-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.onex-stat-card {
+  background: var(--iptv-surface-card);
+  border: 1px solid var(--iptv-border);
+  border-radius: var(--iptv-radius-md);
+  padding: 1.75rem 1.25rem;
+  text-align: center;
+  transition: all 0.25s ease;
+}
+
+.onex-stat-card:hover {
+  border-color: rgba(229, 9, 20, 0.4);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.onex-stat-number {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 0.35rem;
+  letter-spacing: -0.5px;
+}
+
+.onex-stat-number span.accent {
+  color: var(--iptv-red);
+}
+
+.onex-stat-label {
+  font-size: 0.85rem;
+  color: var(--iptv-text-sec);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.onex-section {
+  padding: 5.5rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.onex-section-head {
+  text-align: center;
+  max-width: 760px;
+  margin: 0 auto 3.5rem;
+}
+
+.onex-section-tag {
+  color: var(--iptv-red);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 0.6rem;
+  display: inline-block;
+}
+
+.onex-section-title {
+  font-size: clamp(1.8rem, 3.8vw, 2.7rem);
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.8px;
+  margin: 0 0 1rem;
+}
+
+.onex-section-desc {
+  font-size: 1.05rem;
+  color: var(--iptv-text-sec);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.onex-features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1.5rem;
+}
+
+.onex-feature-card {
+  background: var(--iptv-surface-card);
+  border: 1px solid var(--iptv-border);
+  border-radius: var(--iptv-radius-lg);
+  padding: 2.25rem 2rem;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.onex-feature-card:hover {
+  border-color: var(--iptv-red);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 0 18px rgba(229, 9, 20, 0.22);
+}
+
+.onex-feature-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: rgba(229, 9, 20, 0.12);
+  border: 1px solid rgba(229, 9, 20, 0.3);
+  color: var(--iptv-red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.onex-feature-card h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 0.75rem;
+}
+
+.onex-feature-card p {
+  font-size: 0.95rem;
+  color: var(--iptv-text-sec);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.onex-devices-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+
+.onex-device-card {
+  background: var(--iptv-surface-card);
+  border: 1px solid var(--iptv-border);
+  border-radius: var(--iptv-radius-md);
+  padding: 1.75rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  transition: all 0.2s ease;
+}
+
+.onex-device-card:hover {
+  border-color: var(--iptv-red);
+  background: var(--iptv-surface-hover);
+  transform: translateY(-2px);
+}
+
+.onex-device-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--iptv-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.onex-device-info h4 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 0.25rem;
+}
+
+.onex-device-info p {
+  font-size: 0.82rem;
+  color: var(--iptv-text-sec);
+  margin: 0;
+}
+
+.onex-faq-container {
+  max-width: 860px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.onex-faq-item {
+  background: var(--iptv-surface-card);
+  border: 1px solid var(--iptv-border);
+  border-radius: var(--iptv-radius-md);
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.onex-faq-item[open] {
+  border-color: rgba(229, 9, 20, 0.45);
+}
+
+.onex-faq-summary {
+  padding: 1.35rem 1.75rem;
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+}
+
+.onex-faq-summary::-webkit-details-marker {
+  display: none;
+}
+
+.onex-faq-content {
+  padding: 0 1.75rem 1.5rem;
+  color: var(--iptv-text-sec);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.onex-cta-box {
+  background: 
+    radial-gradient(circle at 50% 50%, rgba(229, 9, 20, 0.18) 0%, transparent 65%),
+    var(--iptv-surface-card);
+  border: 1px solid rgba(229, 9, 20, 0.35);
+  border-radius: var(--iptv-radius-lg);
+  padding: 4.5rem 2rem;
+  text-align: center;
+  max-width: 1000px;
+  margin: 3rem auto 0;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+.onex-cta-box h2 {
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 1rem;
+}
+
+.onex-cta-box p {
+  font-size: 1.1rem;
+  color: var(--iptv-text-sec);
+  max-width: 650px;
+  margin: 0 auto 2.5rem;
+}
+
+.onex-footer {
+  border-top: 1px solid var(--iptv-border);
+  background: var(--iptv-bg-sec);
+  padding: 4rem 2rem 2rem;
+}
+
+.onex-footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 2.5rem;
+}
+
+.onex-footer-col h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.onex-footer-col a {
+  display: block;
+  color: var(--iptv-text-sec);
+  font-size: 0.88rem;
+  text-decoration: none;
+  margin-bottom: 0.6rem;
+  transition: color 0.15s ease;
+}
+
+.onex-footer-col a:hover {
+  color: var(--iptv-red);
+}
+
+.onex-footer-bottom {
+  max-width: 1200px;
+  margin: 3rem auto 0;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.82rem;
+  color: var(--iptv-text-dim);
+}
+
+@media (max-width: 768px) {
+  .onex-header {
+    padding: 1rem 1.5rem;
+  }
+  .onex-nav {
+    display: none;
+  }
+  .onex-hero {
+    padding: 4rem 1.25rem 3rem;
+  }
+}
+
+
 
 

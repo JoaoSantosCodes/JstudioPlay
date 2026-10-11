@@ -1949,3 +1949,685 @@ dialog::backdrop {
   .streaming-hero { height: 240px !important; }
   .channel-card { width: 130px !important; min-width: 130px !important; }
 }
+
+/* ==========================================================================
+   14. IPTVFLIX DESIGN — Layout estilo Netflix/IPTVFlix (sprint-v77)
+   Fundo preto #141414, acentos vermelho #E50914, tipografia pesada
+   ========================================================================== */
+
+/* Variáveis IPTVFlix */
+:root {
+  --nf-red:    #E50914;
+  --nf-red2:   #B20710;
+  --nf-black:  #141414;
+  --nf-dark:   #181818;
+  --nf-card:   #2F2F2F;
+  --nf-text:   #FFFFFF;
+  --nf-muted:  #BCBCBC;
+  --nf-dim:    #808080;
+  --nf-topbar: rgba(20,20,20,0.95);
+}
+
+/* Reset da página no modo player */
+.nf-page {
+  background: var(--nf-black);
+  color: var(--nf-text);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  font-family: inherit;
+  overflow-x: hidden;
+}
+.nf-compat-hidden { display: none !important; }
+
+/* --------------------------------------------------------------------------
+   14.1 Topbar IPTVFlix
+   -------------------------------------------------------------------------- */
+
+.nf-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4%;
+  background: linear-gradient(180deg, rgba(20,20,20,0.98) 0%, rgba(20,20,20,0) 100%);
+  transition: background 0.3s ease;
+}
+.nf-topbar.nf-topbar--scrolled,
+.nf-topbar:hover {
+  background: var(--nf-topbar) !important;
+}
+
+.nf-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+/* Logo */
+.nf-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.nf-brand img { width: 32px; height: 32px; }
+.nf-brand span {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -1px;
+  color: var(--nf-text);
+}
+.nf-brand span em,
+.nf-brand span b {
+  color: var(--nf-red);
+  font-style: normal;
+}
+
+/* Nav itens */
+.nf-nav {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.nf-nav-item {
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--nf-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s;
+  white-space: nowrap;
+}
+.nf-nav-item:hover { color: var(--nf-text); }
+.nf-nav-item.active { color: var(--nf-text); font-weight: 700; }
+
+/* Topbar direita */
+.nf-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.nf-icon-btn {
+  background: none;
+  border: none;
+  color: var(--nf-text);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s;
+}
+.nf-icon-btn svg { width: 20px; height: 20px; }
+.nf-icon-btn:hover { color: var(--nf-red); }
+.nf-icon-btn.active { color: var(--nf-red); }
+
+/* Busca */
+.nf-search-box { position: relative; display: flex; align-items: center; }
+.nf-search-input {
+  width: 0;
+  overflow: hidden;
+  padding: 0;
+  border: none;
+  background: rgba(0,0,0,0.75);
+  color: var(--nf-text);
+  font-size: 13px;
+  border-radius: 4px;
+  transition: width 0.25s ease, padding 0.25s ease, border 0.25s ease;
+  outline: none;
+}
+.nf-search-input.nf-search-input--open {
+  width: 220px;
+  padding: 7px 12px 7px 10px;
+  border: 1px solid rgba(255,255,255,0.3);
+}
+.nf-search-input::placeholder { color: var(--nf-dim); }
+
+/* Avatar */
+.nf-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  background: var(--nf-red);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+/* Dropdown browse */
+.nf-browse-dropdown {
+  position: fixed;
+  top: 68px;
+  left: 4%;
+  z-index: 99;
+  background: rgba(20,20,20,0.97);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  padding: 16px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+.nf-browse-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 600px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.nf-browse-item {
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--nf-muted);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.nf-browse-item:hover { color: var(--nf-text); background: rgba(255,255,255,0.12); }
+.nf-browse-item.active { color: var(--nf-text); border-color: var(--nf-red); background: rgba(229,9,20,0.15); }
+
+/* --------------------------------------------------------------------------
+   14.2 Hero IPTVFlix — fullscreen, gradiente esquerda→direita
+   -------------------------------------------------------------------------- */
+
+.nf-hero {
+  position: relative;
+  width: 100%;
+  height: 80vh;
+  min-height: 500px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.nf-hero-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center top;
+  filter: brightness(0.55);
+  transform: scale(1.02);
+  transition: background-image 0.5s ease;
+}
+
+/* Vinheta: gradiente escuro da esquerda + inferior */
+.nf-hero-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(20,20,20,0.95) 0%, rgba(20,20,20,0.6) 50%, rgba(20,20,20,0) 75%),
+    linear-gradient(0deg,  rgba(20,20,20,1)    0%, rgba(20,20,20,0)   50%);
+}
+
+/* Vídeo no hero */
+.nf-hero-video-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+.nf-hero-video-wrap video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+.nf-hero-video-wrap #video-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.6);
+  font-size: 13px;
+  color: var(--nf-muted);
+}
+.nf-hero .video-live {
+  position: absolute;
+  top: 80px;
+  left: 4%;
+  z-index: 5;
+  background: var(--nf-red);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 3px 9px;
+  border-radius: 3px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+/* Info do hero */
+.nf-hero-info {
+  position: absolute;
+  bottom: 30%;
+  left: 4%;
+  z-index: 3;
+  max-width: 45%;
+  transition: bottom 0.3s ease;
+}
+.nf-hero-info.nf-hero-info--playing { bottom: 8%; }
+
+.nf-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--nf-red);
+  margin-bottom: 10px;
+}
+.nf-hero-badge::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--nf-red);
+  animation: nf-pulse 1.4s ease infinite;
+}
+@keyframes nf-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+.nf-hero-title {
+  font-size: clamp(32px, 5vw, 64px);
+  font-weight: 900;
+  letter-spacing: -1.5px;
+  line-height: 1.0;
+  margin: 0 0 12px;
+  color: var(--nf-text);
+  text-shadow: 2px 2px 12px rgba(0,0,0,0.7);
+}
+
+.nf-hero-meta {
+  font-size: 15px;
+  color: var(--nf-muted);
+  margin: 0 0 20px;
+  font-weight: 500;
+}
+
+/* Botões do hero */
+.nf-hero-btns {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.nf-btn-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 26px;
+  background: var(--nf-text);
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+.nf-btn-play svg { width: 20px; height: 20px; }
+.nf-btn-play:hover { background: rgba(255,255,255,0.8); transform: scale(1.03); }
+
+.nf-btn-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 22px;
+  background: rgba(109,109,110,0.7);
+  color: var(--nf-text);
+  border: none;
+  border-radius: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: background 0.15s;
+}
+.nf-btn-info:hover { background: rgba(109,109,110,0.5); }
+.nf-btn-info.is-fav { color: var(--nf-red); }
+.nf-btn-info svg { width: 18px; height: 18px; }
+
+.nf-btn-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(42,42,42,0.6);
+  border: 2px solid rgba(255,255,255,0.5);
+  color: var(--nf-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  backdrop-filter: blur(4px);
+}
+.nf-btn-icon svg { width: 16px; height: 16px; }
+.nf-btn-icon:hover { background: rgba(42,42,42,0.9); border-color: var(--nf-text); }
+.nf-btn-icon:disabled { opacity: 0.3; pointer-events: none; }
+
+/* Controles flutuantes quando vídeo ativo */
+.nf-hero-video-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  padding: 16px 4%;
+  background: linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 100%);
+}
+.nf-hero-vc-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.nf-hero-vc-row input[type=range] { flex: 0 0 140px; accent-color: var(--nf-red); }
+.nf-vol-val { font-size: 12px; color: var(--nf-muted); min-width: 40px; }
+.nf-spacer { flex: 1; }
+.nf-audio-track { background: #222; color: #fff; border: 1px solid #555; border-radius: 3px; font-size: 12px; padding: 3px 6px; }
+
+/* --------------------------------------------------------------------------
+   14.3 Rows de canais IPTVFlix
+   -------------------------------------------------------------------------- */
+
+.nf-rows {
+  flex: 1;
+  padding-bottom: 48px;
+  background: var(--nf-black);
+  position: relative;
+  z-index: 5;
+  margin-top: -80px;
+}
+.nf-rows-inner { padding-top: 8px; }
+
+.nf-row {
+  margin-bottom: 8px;
+  padding: 0;
+  position: relative;
+}
+
+.nf-row-title {
+  padding: 16px 4% 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--nf-text);
+  letter-spacing: -0.3px;
+  margin: 0;
+  transition: color 0.2s;
+}
+.nf-row:hover .nf-row-title { color: #fff; }
+
+.nf-row-items {
+  display: flex;
+  gap: 6px;
+  padding: 0 4% 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+}
+.nf-row-items::-webkit-scrollbar { display: none; }
+
+/* --------------------------------------------------------------------------
+   14.4 Cards Netflix
+   -------------------------------------------------------------------------- */
+
+.nf-card {
+  position: relative;
+  flex-shrink: 0;
+  width: 220px;
+  border-radius: 4px;
+  overflow: visible;
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition: transform 0.25s cubic-bezier(0.4,0,0.2,1), z-index 0s 0.25s;
+  z-index: 1;
+}
+.nf-card:hover {
+  transform: scale(1.22) translateY(-8px);
+  z-index: 10;
+  transition: transform 0.25s cubic-bezier(0.4,0,0.2,1), z-index 0s;
+}
+/* Primeiro e último cards: hover sem corte */
+.nf-card:first-child:hover { transform: scale(1.22) translateY(-8px) translateX(8px); }
+.nf-card:last-child:hover  { transform: scale(1.22) translateY(-8px) translateX(-8px); }
+
+.nf-card--playing .nf-card-thumb {
+  outline: 2px solid var(--nf-red);
+  outline-offset: 1px;
+}
+
+/* Thumbnail 16:9 */
+.nf-card-thumb {
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: var(--nf-dark);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+.nf-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.nf-card-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 900;
+  color: rgba(255,255,255,0.9);
+  letter-spacing: -1px;
+  border-radius: 4px;
+}
+
+/* Badge AO VIVO */
+.nf-live-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: var(--nf-red);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1.2px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+
+/* Barra "em reprodução" */
+.nf-card-playing-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--nf-red);
+  border-radius: 0 0 4px 4px;
+}
+
+/* Health dot no card */
+.nf-card .health-indicator {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  width: 8px;
+  height: 8px;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.5);
+}
+
+/* Hover body — aparece abaixo da thumb ao hover no card pai */
+.nf-card-hover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--nf-dark);
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease 0.15s;
+  z-index: 2;
+}
+.nf-card:hover .nf-card-hover {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.nf-card-hover-thumb {
+  width: 100%;
+  aspect-ratio: 16/9;
+  overflow: hidden;
+  border-radius: 4px 4px 0 0;
+}
+.nf-card-hover-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.nf-card-hover-body {
+  padding: 10px 12px 12px;
+}
+.nf-card-hover-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.nf-card-play-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--nf-text);
+  color: #000;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.1s;
+  flex-shrink: 0;
+}
+.nf-card-play-btn svg { width: 16px; height: 16px; }
+.nf-card-play-btn:hover { background: rgba(255,255,255,0.8); transform: scale(1.08); }
+
+.nf-card-fav-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: transparent;
+  border: 2px solid rgba(255,255,255,0.4);
+  color: var(--nf-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.nf-card-fav-btn svg { width: 14px; height: 14px; }
+.nf-card-fav-btn:hover { border-color: var(--nf-text); color: var(--nf-text); }
+.nf-card-fav-btn.is-favorite { color: var(--nf-red); border-color: var(--nf-red); }
+
+.nf-card-hover-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--nf-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 3px;
+}
+.nf-card-hover-meta {
+  font-size: 11px;
+  color: var(--nf-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --------------------------------------------------------------------------
+   14.5 Estados especiais
+   -------------------------------------------------------------------------- */
+
+.nf-loading, .nf-empty {
+  padding: 48px 4%;
+  font-size: 15px;
+  color: var(--nf-dim);
+}
+.nf-empty em { color: var(--nf-text); font-style: normal; font-weight: 700; }
+
+/* --------------------------------------------------------------------------
+   14.6 Override shell — sem sidebar no player
+   -------------------------------------------------------------------------- */
+
+.shell.player-mode { grid-template-columns: 0 minmax(0,1fr) !important; }
+.shell.player-mode .sidebar {
+  width: 0 !important; padding: 0 !important;
+  overflow: hidden !important; border: none !important;
+}
+.shell.player-mode .topbar { display: none !important; }
+.shell.player-mode .content { padding: 0 !important; max-width: none !important; background: var(--nf-black) !important; }
+
+/* --------------------------------------------------------------------------
+   14.7 Responsivo
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 900px) {
+  .nf-topbar { padding: 0 3%; }
+  .nf-hero-info { max-width: 70%; }
+  .nf-hero-title { font-size: clamp(24px, 5vw, 44px); }
+  .nf-card { width: 180px; }
+  .nf-row-title { padding-left: 3%; font-size: 16px; }
+  .nf-row-items { padding-left: 3%; }
+}
+
+@media (max-width: 600px) {
+  .nf-nav { display: none; }
+  .nf-hero { height: 60vh; }
+  .nf-hero-info { max-width: 90%; bottom: 20%; }
+  .nf-hero-title { font-size: 26px; }
+  .nf-btn-play { font-size: 14px; padding: 9px 18px; }
+  .nf-card { width: 150px; }
+  .nf-card:hover { transform: scale(1.1) translateY(-4px); }
+  .nf-rows { margin-top: -40px; }
+}
+
+/* Light mode override — manter preto no player */
+:root[data-theme=light] .nf-page,
+:root[data-theme=light] .shell.player-mode .content {
+  background: var(--nf-black) !important;
+  color: var(--nf-text) !important;
+}

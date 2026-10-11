@@ -216,6 +216,8 @@ async function renderRoute(){
     const content=page==='dashboard'?dashboard():page==='playlists'?heading('Minhas playlists','Todas as suas listas, organizadas em um só lugar.')+playlistSection():page==='settings'?settings():page==='users'?usersPage():page==='logs'?logsPage():page==='player'?playerPage():page==='automation'?'<div class="loading-state">Carregando M3U Hub…<div class="loading-line"></div></div>':savedPage(page);
     $('#app').innerHTML=shell(content);
     setMenu(false);
+    // Toggle player-mode: oculta sidebar e topbar no player streaming
+    document.querySelector('.shell')?.classList.toggle('player-mode', page==='player');
     if(page==='automation'&&window.renderAutomationPage)window.renderAutomationPage();
     if(page==='player'&&state.playlists.length)await loadChannels(state.activePlaylist||state.playlists[0].id,generation);
     if(tvMode&&generation===routeGeneration)focusTV(page==='player'?$('#channel-list .channel-select')||$('#category-list .category-button'):$('.nav-link.active')||visibleTVTargets()[0]);
@@ -224,23 +226,115 @@ async function renderRoute(){
 function playerPage(){
   if(!state.playlists.some(p=>p.id===state.activePlaylist))state.activePlaylist=state.playlists[0]?.id||'';
   if(!state.playlists.length)return heading('Assistir','Escolha o que assistir, do seu jeito.')+`<div class="card">${empty('Primeiro, adicione uma playlist','Os itens e categorias da sua lista aparecerão aqui após a importação.',addButton(),'tv')}</div>`;
-  return `<div class="player-toolbar"><h1>Assistir</h1><div class="player-tools">${state.relayEnabled?`<button class="compatibility-quick ${state.relayMode?'active':''}" id="relay-quick" data-action="toggle-relay" aria-pressed="${state.relayMode}" aria-label="${state.relayMode?'Desativar':'Ativar'} modo de compatibilidade"><span class="compatibility-quick-copy"><strong>Modo de compatibilidade</strong><small id="relay-quick-status">${state.relayMode?'Ativado':'Desativado'} · ${state.relayMode?'modo alternativo em uso':'tente se o vídeo não abrir'}</small></span><span class="compatibility-quick-action" id="relay-quick-action">${state.relayMode?'Desativar':'Ativar'}</span></button>`:''}<button class="icon-btn subtle-icon" id="btn-data-saver" data-action="toggle-data-saver" aria-pressed="${localStorage.getItem('m3u-data-saver')==='true'}" title="${localStorage.getItem('m3u-data-saver')==='true'?'Economizar dados: ativado':'Economizar dados: desativado'}">${icon('zap')}</button><select id="player-playlist" aria-label="Playlist atual">${state.playlists.map(p=>`<option value="${p.id}" ${p.id===state.activePlaylist?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div></div>
-  <div class="player-layout player-layout-v2"><div class="browser-slot"><section class="card channels-panel player-browser">
-    <div class="channel-search"><label for="channel-search">O que você quer assistir?</label><div class="field">${icon('search')}<input id="channel-search" type="search" placeholder="Busque pelo nome do conteúdo" aria-label="Buscar conteúdo na playlist"></div></div>
-    <div class="category-filter"><label for="category-select">Categorias <span id="category-count" class="muted">0</span></label><select id="category-select" aria-label="Selecionar categoria"><option value="-1">Todas as categorias</option></select></div>
-    <div class="category-navigation"><button class="icon-btn category-arrow" data-action="category-previous" aria-label="Ver categorias anteriores">${icon('left')}</button><div class="category-list" id="category-list" aria-label="Categorias"></div><button class="icon-btn category-arrow" data-action="category-next" aria-label="Ver próximas categorias">${icon('right')}</button></div>
-    <div class="panel-title"><h2>Conteúdos <span id="channel-count" class="muted"></span></h2>${icon('play')}</div><div class="channel-list" id="channel-list"><div class="loading-state">Carregando…</div></div><div class="pagination"><button class="icon-btn" data-action="previous" aria-label="Página anterior">${icon('left')}</button><span id="page-info">1 / 1</span><button class="icon-btn" data-action="next" aria-label="Próxima página">${icon('right')}</button></div>
-  </section></div><section class="watch-panel"><div class="video-wrap"><video id="video" controls playsinline preload="none" aria-label="Player de vídeo"></video><div id="video-empty" class="video-empty" role="status" aria-live="polite"><img src="/static/logo.svg" alt=""><h2>O que vamos assistir?</h2><p>Escolha um item da sua lista para começar.</p></div><span class="video-live" id="video-live" hidden>AO VIVO</span></div>
-    <div class="card audio-quick-bar" id="audio-quick-bar">
-      <div class="audio-label"><button class="icon-btn subtle-icon" id="btn-quick-mute" data-action="quick-mute" title="Mutar / Desmutar">${icon('volume')}</button><span>Áudio</span></div>
-      <div class="volume-slider-wrap"><input type="range" id="quick-volume-slider" min="0" max="100" value="100" aria-label="Volume"><span class="vol-val" id="quick-volume-val">100%</span></div>
-      <div class="volume-boost-group"><button class="vol-boost-btn active" data-action="vol-boost" data-boost="1">100%</button><button class="vol-boost-btn" data-action="vol-boost" data-boost="1.5">150% 🚀</button><button class="vol-boost-btn" data-action="vol-boost" data-boost="2">200% 🔥</button></div>
-      <select id="quick-audio-track" class="audio-track-select" aria-label="Faixa de áudio" hidden><option value="-1">Faixa Padrão</option></select>
+  const heroChannel=state.selected||state.channels[0]||null;
+  const heroLogo=heroChannel?.logo&&/^https?:\/\//i.test(heroChannel.logo)?heroChannel.logo:'';
+  const heroInitial=(heroChannel?.name||'J')[0].toUpperCase();
+  const tileColors=['#6366f1','#0ea5e9','#10b981','#f59e0b','#f43f5e','#8b5cf6','#06b6d4'];
+  const heroColor=tileColors[0];
+  return `<div class="player-streaming-page">
+  <!-- Topbar -->
+  <header class="streaming-topbar">
+    <a class="brand" href="#/dashboard" aria-label="JstudioPlay — Início"><img src="/static/logo.svg" alt="JstudioPlay"><span>Jstudio<span>Play</span></span></a>
+    <div class="streaming-playlist-tabs">
+      ${state.playlists.map(p=>`<button class="streaming-tab ${p.id===state.activePlaylist?'active':''}" data-action="switch-playlist" data-id="${p.id}">${esc(p.name)}</button>`).join('')}
     </div>
-    <div class="card now-playing"><span class="tile">${icon('play')}</span><div class="grow"><h2 id="now-name">Seu próximo conteúdo está aqui</h2><p id="now-category">Selecione algo para começar</p></div><button class="icon-btn" data-action="now-favorite" id="now-favorite" aria-label="Favoritar conteúdo atual" disabled>${icon('heart')}</button></div>
-    ${state.relayEnabled?`<div class="relay-card" id="relay-card"><div class="relay-copy"><span class="eyebrow">Recurso em teste</span><h2>Modo de compatibilidade <span id="relay-status">${state.relayMode?'Ativado':'Desativado'}</span></h2><p>Algum conteúdo não abriu? Ative este modo para tentar outra forma de reprodução. Ele não garante que toda fonte funcione.</p></div><button class="btn secondary" data-action="toggle-relay" aria-pressed="${state.relayMode}">${state.relayMode?'Desativar modo de compatibilidade':'Ativar modo de compatibilidade'}</button></div>`:''}
-    <div class="playback-actions"><button class="btn ghost" data-action="reconnect">${icon('refresh')}Reconectar</button><button class="btn ghost episode-nav" data-action="episode-previous" disabled>${icon('episodePrevious')}Episódio anterior</button><button class="btn episode-nav" data-action="episode-next" disabled>${icon('episodeNext')}Próximo episódio</button><button class="btn ghost" data-action="pip" title="Mini Player (PiP)">${icon('monitor')}PiP</button><button class="btn ghost" data-action="fullscreen">${icon('fullscreen')}Tela cheia</button><button class="btn ghost" data-action="back-player">${icon('left')}Voltar à lista</button></div><div class="player-help">${icon('info')}O JstudioPlay reproduz fontes da sua playlist com aceleração de hardware e decodificação otimizada.</div>
-  </section></div>`;
+    <div class="streaming-topbar-actions">
+      <div class="streaming-search-wrap">${icon('search')}<input id="channel-search" type="search" placeholder="Buscar…" aria-label="Buscar canal"></div>
+      <button class="icon-btn subtle-icon" id="btn-data-saver" data-action="toggle-data-saver" aria-pressed="${localStorage.getItem('m3u-data-saver')==='true'}" title="Economizar dados">${icon('zap')}</button>
+      ${state.relayEnabled?`<button class="icon-btn subtle-icon ${state.relayMode?'active':''}" id="relay-quick" data-action="toggle-relay" aria-pressed="${state.relayMode}" aria-label="Modo de compatibilidade" title="Modo de compatibilidade">${icon('refresh')}</button>`:''}
+      <a href="#/settings" class="icon-btn" aria-label="Configurações">${icon('settings')}</a>
+    </div>
+  </header>
+
+  <!-- Hero Banner com vídeo integrado -->
+  <div class="streaming-hero ${state.selected?'streaming-hero-video-mode':''}" id="streaming-hero">
+    <div class="streaming-hero-bg" id="hero-bg" style="${heroLogo?`background-image:url('${esc(heroLogo)}')`:`background:${heroColor}`}"></div>
+    <div class="streaming-hero-gradient"></div>
+    ${state.selected?`
+      <video id="video" controls playsinline preload="none" aria-label="Player de vídeo"></video>
+      <span class="video-live" id="video-live" hidden>AO VIVO</span>
+      <div id="video-empty" class="video-empty" role="status" aria-live="polite"><img src="/static/logo.svg" alt=""><h2>Carregando…</h2><p>Conectando à transmissão.</p></div>
+      <div class="streaming-video-controls">
+        <button class="icon-btn" data-action="fullscreen" title="Tela cheia">${icon('fullscreen')}</button>
+        <button class="icon-btn" data-action="pip" title="PiP">${icon('monitor')}</button>
+        <button class="icon-btn" data-action="reconnect" title="Reconectar">${icon('refresh')}</button>
+      </div>
+    `:`
+      <video id="video" controls playsinline preload="none" aria-label="Player de vídeo" style="display:none"></video>
+      <span class="video-live" id="video-live" hidden>AO VIVO</span>
+      <div id="video-empty" class="video-empty" role="status" aria-live="polite" hidden></div>
+    `}
+    <div class="streaming-hero-content">
+      ${heroLogo
+        ?`<img class="streaming-hero-logo" src="${esc(heroLogo)}" alt="${esc(heroChannel?.name||'')}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+        :''}
+      <div class="streaming-hero-logo-fallback" style="background:${heroColor};${heroLogo?'display:none':''}">${heroInitial}</div>
+      <div class="streaming-hero-info">
+        <div class="streaming-hero-badge">${heroChannel?.streamType==='movie'?'FILME':heroChannel?.streamType==='series'?'SÉRIE':'AO VIVO'}</div>
+        <h1 class="streaming-hero-title" id="hero-title">${esc(heroChannel?.name||'JstudioPlay')}</h1>
+        <div class="streaming-hero-epg" id="hero-epg">${heroChannel?.group?`<span>${esc(heroChannel.group)}</span>`:'<span>Selecione um canal para assistir</span>'}</div>
+        <div class="streaming-hero-actions">
+          <button class="hero-btn-play" data-action="hero-play" id="hero-play-btn">${icon('play')} ${state.selected?'Em reprodução':'Assistir'}</button>
+          <button class="hero-btn-fav ${heroChannel&&isFavorite(heroChannel)?'is-favorite':''}" data-action="hero-favorite" id="hero-fav-btn">${icon('heart')} ${heroChannel&&isFavorite(heroChannel)?'Favoritado':'Favoritar'}</button>
+          ${state.selected?`<button class="hero-btn-fav" data-action="episode-previous" id="episode-prev-btn" disabled>${icon('episodePrevious')}</button><button class="hero-btn-fav" data-action="episode-next" id="episode-next-btn" disabled>${icon('episodeNext')}</button>`:''}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audio bar (oculta, mantida por compatibilidade) -->
+  <div id="audio-quick-bar" class="streaming-hide">
+    <div class="audio-label"><button id="btn-quick-mute" data-action="quick-mute">${icon('volume')}</button></div>
+    <div class="volume-slider-wrap"><input type="range" id="quick-volume-slider" min="0" max="100" value="100" aria-label="Volume"><span class="vol-val" id="quick-volume-val">100%</span></div>
+    <div class="volume-boost-group"><button class="vol-boost-btn active" data-action="vol-boost" data-boost="1">100%</button><button class="vol-boost-btn" data-action="vol-boost" data-boost="1.5">150%</button><button class="vol-boost-btn" data-action="vol-boost" data-boost="2">200%</button></div>
+    <select id="quick-audio-track" class="audio-track-select" aria-label="Faixa de áudio" hidden><option value="-1">Faixa Padrão</option></select>
+  </div>
+  <!-- Now playing (oculto, IDs preservados para playChannel) -->
+  <div class="streaming-hide"><h2 id="now-name"></h2><p id="now-category"></p><button id="now-favorite" data-action="now-favorite" disabled>${icon('heart')}</button></div>
+  ${state.relayEnabled?`<div id="relay-card" class="streaming-hide"><span id="relay-status"></span><button data-action="toggle-relay" aria-pressed="${state.relayMode}"></button><span id="relay-quick-status"></span><span id="relay-quick-action"></span></div>`:''}
+
+  <!-- Tabs de categoria -->
+  <nav class="streaming-categories" aria-label="Categorias">
+    <div class="streaming-cat-scroll" id="category-list" aria-label="Categorias"></div>
+  </nav>
+  <!-- Select oculto para compatibilidade -->
+  <select id="category-select" style="display:none"><option value="-1">Todas</option></select>
+  <span id="category-count" style="display:none">0</span>
+
+  <!-- Seções de carrossel -->
+  <main class="streaming-sections">
+    <div id="streaming-sections-content">
+      <div class="streaming-empty">Carregando canais…</div>
+    </div>
+    <!-- Paginação oculta — mantida por compatibilidade com renderChannels() -->
+    <div style="display:none">
+      <button data-action="previous"></button>
+      <span id="page-info">1 / 1</span>
+      <button data-action="next"></button>
+    </div>
+    <!-- channel-list oculto — renderChannels() ainda popula, o streaming-render lê dali -->
+    <div id="channel-list" style="display:none"></div>
+    <span id="channel-count" style="display:none"></span>
+  </main>
+
+  <!-- Now Playing Bar (rodapé fixo) -->
+  <footer class="streaming-now-bar" id="streaming-now-bar">
+    ${heroLogo
+      ?`<img class="streaming-now-thumb" id="now-bar-thumb" src="${esc(heroLogo)}" alt="">`
+      :`<div class="streaming-now-thumb-fallback" id="now-bar-thumb-fallback" style="background:${heroColor}">${heroInitial}</div>`}
+    <div class="streaming-now-info">
+      <div class="streaming-now-name" id="now-bar-name">${state.selected?esc(state.selected.name):'Nada em reprodução'}</div>
+      <div class="streaming-now-meta" id="now-bar-meta">${state.selected?esc(state.selected.group):'Escolha um canal para começar'}</div>
+    </div>
+    <div class="streaming-now-actions">
+      <button class="icon-btn episode-nav" data-action="episode-previous" disabled>${icon('episodePrevious')}</button>
+      <button class="icon-btn episode-nav" data-action="episode-next" disabled>${icon('episodeNext')}</button>
+      <button class="icon-btn" data-action="quick-mute">${icon('volume')}</button>
+      <button class="icon-btn" data-action="fullscreen">${icon('fullscreen')}</button>
+      <button class="icon-btn" data-action="pip">${icon('monitor')}</button>
+    </div>
+  </footer>
+</div>`;
 }
 let channelRequest=0, pendingChannel=null;
 async function loadChannels(id,generation=routeGeneration){
@@ -310,6 +404,88 @@ function updateEpisodeControls(ch){
   if(next)next.disabled=!episodeNavigation.next;
 }
 function renderChannelRow(ch,i,sub=false){return `<div class="channel-row ${sub?'episode-row ':''}${state.selected?.url===ch.url?'selected':''}" data-channel-id="${esc(ch.id||'')}" data-channel-name="${esc(ch.name)}" data-channel-url="${esc(ch.url||'')}"><button class="channel-select" data-action="play" data-index="${i}" title="${esc(ch.name)}">${channelLogo(ch,i,true)}<span class="channel-text"><strong>${esc(ch.name)}</strong><small>${esc(ch.group)}</small></span></button><span class="health-indicator" data-status="${ch.status||'unknown'}" aria-hidden="true"></span><button class="favorite-button ${isFavorite(ch)?'is-favorite':''}" data-action="favorite" data-index="${i}" aria-label="${isFavorite(ch)?'Remover dos favoritos':'Favoritar'} ${esc(ch.name)}" aria-pressed="${isFavorite(ch)}">${icon('heart')}</button></div>`;}
+
+// Card visual para o modo streaming (carrossel horizontal)
+const cardTileColors=['#6366f1','#0ea5e9','#10b981','#f59e0b','#f43f5e','#8b5cf6','#06b6d4','#ec4899'];
+function renderChannelCard(ch,i){
+  const logo=ch.logo&&/^https?:\/\//i.test(ch.logo)?ch.logo:'';
+  const initials=String(ch.name||'?').split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||ch.name[0]||'?';
+  const color=cardTileColors[i%cardTileColors.length];
+  const typeBadge=ch.streamType==='movie'?`<span class="channel-card-type-badge movie">Filme</span>`:ch.streamType==='series'?`<span class="channel-card-type-badge series">Série</span>`:`<span class="channel-card-type-badge live">Ao Vivo</span>`;
+  return `<article class="channel-card ${state.selected?.url===ch.url?'selected':''}" data-channel-id="${esc(ch.id||'')}" data-channel-name="${esc(ch.name)}" data-channel-url="${esc(ch.url||'')}">
+  <div class="channel-card-poster">
+    ${logo
+      ?`<img src="${esc(logo)}" alt="${esc(ch.name)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+      :''}
+    <div class="channel-card-poster-fallback" style="display:${logo?'none':'flex'};background:${color}">${esc(initials)}</div>
+    <div class="channel-card-poster-overlay"></div>
+    ${typeBadge}
+    <span class="health-indicator" data-status="${ch.status||'unknown'}" aria-hidden="true"></span>
+    <div class="channel-card-play-overlay"><button class="channel-select" data-action="play" data-index="${i}" aria-label="Reproduzir ${esc(ch.name)}" title="${esc(ch.name)}">${icon('play')}</button></div>
+  </div>
+  <div class="channel-card-info">
+    <div class="channel-card-name">${esc(ch.name)}</div>
+    <div class="channel-card-group">${esc(ch.group)}</div>
+  </div>
+</article>`;
+}
+
+// Renderiza as seções de carrossel por categoria no modo streaming
+function renderStreamingSections(){
+  const container=document.getElementById('streaming-sections-content');
+  if(!container)return;
+  const q=state.query.toLocaleLowerCase('pt-BR');
+  const filtered=state.channels.filter(c=>(!state.category||c.group===state.category)&&(!q||c.name.toLocaleLowerCase('pt-BR').includes(q)));
+  if(!filtered.length){container.innerHTML=`<div class="streaming-empty">${q?'Nenhum canal encontrado para "'+esc(q)+'"':'Nenhum canal disponível nesta categoria.'}</div>`;return;}
+
+  // Agrupa por categoria (ou mostra tudo se categoria selecionada)
+  let sections=[];
+  if(state.category){
+    sections=[{title:state.category,channels:filtered}];
+  }else{
+    const byGroup=new Map();
+    filtered.forEach(ch=>{if(!byGroup.has(ch.group))byGroup.set(ch.group,[]);byGroup.get(ch.group).push(ch);});
+    // Favoritos em destaque
+    const favs=filtered.filter(ch=>isFavorite(ch));
+    if(favs.length)sections.push({title:'⭐ Meus Favoritos',channels:favs});
+    // Recentes (history)
+    const recentUrls=state.history.filter(h=>h.playlistId===state.activePlaylist).slice(0,20).map(h=>h.channel?.url);
+    const recents=recentUrls.map(url=>filtered.find(ch=>ch.url===url)).filter(Boolean);
+    if(recents.length)sections.push({title:'▶ Vistos Recentemente',channels:recents});
+    // Por grupo
+    byGroup.forEach((channels,group)=>sections.push({title:group,channels}));
+  }
+
+  // Índice global para visibleChannels
+  let globalIndex=0;
+  const allVisible=[];
+  const html=sections.map(sec=>{
+    const cards=sec.channels.slice(0,50).map(ch=>{
+      const idx=globalIndex++;
+      allVisible.push(ch);
+      return renderChannelCard(ch,idx);
+    }).join('');
+    const hasMore=sec.channels.length>50;
+    return `<section class="streaming-section">
+      <div class="streaming-section-header">
+        <h2 class="streaming-section-title">${esc(sec.title)}</h2>
+        <span class="streaming-section-count">${sec.channels.length} canais</span>
+      </div>
+      <div class="streaming-carousel">${cards}</div>
+      ${hasMore?`<button class="streaming-load-more" data-action="load-more-section" data-group="${esc(sec.title)}">${icon('right')} Ver todos (${sec.channels.length})</button>`:''}
+    </section>`;
+  }).join('');
+
+  container.innerHTML=html||`<div class="streaming-empty">Nenhum conteúdo encontrado.</div>`;
+  visibleChannels=allVisible;
+  // Lazy load logos nas cards
+  container.querySelectorAll('.channel-card-poster img[loading="lazy"]').forEach(img=>{
+    if(!img.complete&&img.src){img.src=img.src;}
+  });
+  // Hooks de health e EPG
+  if(typeof window.healthModule!=='undefined')window.healthModule.observe();
+  if(typeof window.epgModule!=='undefined')window.epgModule.observeEpg();
+}
 let channelLogoObserver=null,pageTurnTimer=null;
 function queuePageTurn(direction){
   const pages=Math.ceil(filteredCount/100)||1;
@@ -350,7 +526,7 @@ function renderChannels(){
   let index=0;$('#channel-list').innerHTML=visible.map(item=>{if(item.type==='channel')return renderChannelRow(item.ch,index++);const first=item.episodes[0];const title=`${item.title}${item.season!==null?` S${String(item.season).padStart(2,'0')}`:''}`;const open=openSeries.has(item.key)||item.episodes.some(ch=>ch.url===state.selected?.url);return `<details class="series-group" data-series="${esc(item.key)}" ${open?'open':''}><summary>${channelLogo(first,index,true)}<span><strong>${esc(title)}</strong><small>${item.episodes.length} episódios</small></span></summary>${item.episodes.map(ch=>renderChannelRow(ch,index++,true)).join('')}</details>`;}).join('')||'<div class="empty"><p>Nenhum canal encontrado.</p></div>';
   loadVisibleChannelLogos(channelList);
   if(focused)focusTV([...channelList.querySelectorAll('[data-action]')].find(el=>el.dataset.action===focused.action&&el.dataset.index===focused.index)||channelList.querySelector('.channel-select,summary'));
-  if(state.page==='player'){if(typeof window.healthModule!=='undefined')window.healthModule.observe();if(typeof window.epgModule!=='undefined')window.epgModule.observeEpg();}
+  if(state.page==='player'){if(typeof window.healthModule!=='undefined')window.healthModule.observe();if(typeof window.epgModule!=='undefined')window.epgModule.observeEpg();renderStreamingSections();}
 }
 function stopPlayback(save=true){const v=$('#video');if(save&&v&&state.selected)savePlaybackProgress(state.selected,v).catch(()=>{});playbackGeneration++;clearTimeout(playbackTimer);playbackTimer=null;if(hls){hls.destroy();hls=null;}if(v){v.onplaying=null;v.onerror=null;v.onloadedmetadata=null;v.ontimeupdate=null;v.onpause=null;v.onended=null;v.onwaiting=null;v.onstalled=null;v.pause();v.removeAttribute('src');v.load();}}
 let playbackPlaylist='', lastProgressSave=0, progressWrites=Promise.resolve();
@@ -382,7 +558,7 @@ function playChannel(ch){
   if(!ch)return;
   if(typeof window.epgModule!=='undefined')window.epgModule.updateSelectedEpg(state.selected?.url,ch.url);
   stopPlayback();state.selected=ch;playbackPlaylist=state.activePlaylist;lastProgressSave=Date.now();const generation=playbackGeneration;const v=$('#video');if(!v)return;
-  $('#now-name').textContent=ch.name;$('#now-category').textContent=ch.group;$('#now-favorite').disabled=false;updateNowFavorite();updateEpisodeControls(ch);renderChannels();
+  $('#now-name').textContent=ch.name;$('#now-category').textContent=ch.group;$('#now-favorite').disabled=false;updateNowFavorite();updateEpisodeControls(ch);updateStreamingHero(ch);renderChannels();
   playerMessage('Carregando…','Conectando à fonte da sua playlist. Se não iniciar em alguns instantes, confira a conexão e a compatibilidade do conteúdo.');
   let url;try{url=new URL(ch.url);if(!['http:','https:'].includes(url.protocol))throw new Error();}catch{playerMessage('Endereço inválido','Este conteúdo não possui uma URL de reprodução válida.');return;}
   if(location.protocol==='https:'&&url.protocol==='http:'&&!state.relayMode){playerMessage('Esta fonte usa HTTP','Solicite ao provedor uma transmissão HTTPS para assistir diretamente nesta página.',true);return;}
@@ -419,7 +595,34 @@ function playChannel(ch){
   }else direct();
 }
 function updateNowFavorite(){const b=$('#now-favorite');if(!b||!state.selected)return;const on=isFavorite(state.selected);b.classList.toggle('is-favorite',on);b.style.color=on?'#fc6382':'';b.setAttribute('aria-pressed',String(on));b.setAttribute('aria-label',on?'Remover canal dos favoritos':'Favoritar canal atual');}
-function backToChannels(){stopPlayback();state.selected=null;updateEpisodeControls(null);if($('#now-name'))$('#now-name').textContent='Seu próximo conteúdo está aqui';if($('#now-category'))$('#now-category').textContent='Selecione algo para começar';if($('#now-favorite'))$('#now-favorite').disabled=true;playerMessage('Escolha um conteúdo','Selecione outro item da playlist para iniciar a reprodução.');renderChannels();}
+
+// Atualiza o hero banner do modo streaming com o canal atual
+function updateStreamingHero(ch){
+  if(state.page!=='player'||!ch)return;
+  const tileColors=['#6366f1','#0ea5e9','#10b981','#f59e0b','#f43f5e','#8b5cf6','#06b6d4'];
+  const logo=ch.logo&&/^https?:\/\//i.test(ch.logo)?ch.logo:'';
+  const color=tileColors[state.channels.indexOf(ch)%tileColors.length]||tileColors[0];
+  const initial=(ch.name||'J')[0].toUpperCase();
+  // Atualiza background
+  const bg=document.getElementById('hero-bg');
+  if(bg)bg.style.background=logo?`url('${CSS.escape(logo).replace(/'/g,"\\'")}') center/cover no-repeat`:`${color}`;
+  // Título
+  const title=document.getElementById('hero-title');
+  if(title)title.textContent=ch.name;
+  // Badge de tipo
+  const hero=document.getElementById('streaming-hero');
+  if(hero)hero.classList.toggle('streaming-hero-video-mode',!!state.selected);
+  // Now bar
+  const barName=document.getElementById('now-bar-name');
+  const barMeta=document.getElementById('now-bar-meta');
+  if(barName)barName.textContent=ch.name;
+  if(barMeta)barMeta.textContent=ch.group||'';
+  // Favorito no hero
+  const favBtn=document.getElementById('hero-fav-btn');
+  if(favBtn){const on=isFavorite(ch);favBtn.classList.toggle('is-favorite',on);favBtn.innerHTML=icon('heart')+' '+(on?'Favoritado':'Favoritar');}
+}
+function backToChannels(){stopPlayback();state.selected=null;updateEpisodeControls(null);if($('#now-name'))$('#now-name').textContent='Seu próximo conteúdo está aqui';if($('#now-category'))$('#now-category').textContent='Selecione algo para começar';if($('#now-favorite'))$('#now-favorite').disabled=true;playerMessage('Escolha um conteúdo','Selecione outro item da playlist para iniciar a reprodução.');// Atualiza now bar
+const barName=document.getElementById('now-bar-name');const barMeta=document.getElementById('now-bar-meta');if(barName)barName.textContent='Nada em reprodução';if(barMeta)barMeta.textContent='Escolha um canal para começar';renderChannels();}
 async function toggleFavorite(ch,id=state.activePlaylist){state.favorites=await api('/favorites','PUT',{playlistId:id,channel:ch})||[];if(state.page==='player'){renderChannels();updateNowFavorite();}else if(state.page==='favorites')$('#content').innerHTML=savedPage('favorites');}
 
 function openModal(title,content){const modal=$('#modal');modal.innerHTML=`<div class="dialog-heading"><h2 id="modal-title">${title}</h2><button class="icon-btn" data-action="close-modal" aria-label="Fechar">${icon('close')}</button></div>${content}`;if(!modal.open)modal.showModal();}
@@ -556,6 +759,10 @@ document.addEventListener('click',async event=>{
     if(action==='play'){playChannel(visibleChannels[Number(b.dataset.index)]);return;}
     if(action==='toggle-relay'){state.relayMode=!state.relayMode;updateRelayControl();const selected=state.selected;if(selected)playChannel(selected);return;}
     if(action==='toggle-data-saver'){if(typeof window.healthModule!=='undefined')window.healthModule.toggleDataSaver(b);return;}
+    if(action==='switch-playlist'){if(b.dataset.id&&b.dataset.id!==state.activePlaylist){pendingChannel=null;state.activePlaylist=b.dataset.id;navigate('player');}return;}
+    if(action==='hero-play'){const ch=state.selected||state.channels[0];if(ch)playChannel(ch);return;}
+    if(action==='hero-favorite'){const ch=state.selected||state.channels[0];if(ch){b.disabled=true;await toggleFavorite(ch);updateStreamingHero(ch);b.disabled=false;}return;}
+    if(action==='load-more-section'){const group=b.dataset.group;if(group){state.category=group;renderCategories();renderChannels();}return;}
     if(action==='favorite'){b.disabled=true;await toggleFavorite(visibleChannels[Number(b.dataset.index)]);return;}
     if(action==='now-favorite'){b.disabled=true;await toggleFavorite(state.selected);b.disabled=false;return;}
     if(action==='reconnect'){if(state.selected)playChannel(state.selected);else toast('Escolha um canal para reproduzir.');return;}

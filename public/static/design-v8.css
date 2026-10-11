@@ -965,3 +965,795 @@ dialog::backdrop {
   color: var(--accent-solid, #00f2fe);
   background: var(--surface-hover);
 }
+
+/* ==========================================================================
+   12. STREAMING REDESIGN v9 — Hero Banner + Carrossel + Cards (sprint-v76)
+   Layout visual estilo "streaming app": topbar minimalista, hero do canal
+   atual, tabs de categoria, carrossel horizontal de cards com poster.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   12.1 Player Streaming — shell sem sidebar no modo cinema
+   -------------------------------------------------------------------------- */
+
+.player-streaming-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--surface-100);
+  overflow-x: hidden;
+}
+
+/* Topbar do player streaming */
+.streaming-topbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-topbar);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px;
+  height: 60px;
+  background: linear-gradient(180deg, rgba(8,11,17,0.98) 0%, rgba(8,11,17,0.0) 100%);
+  backdrop-filter: blur(0px);
+  flex-shrink: 0;
+}
+
+.streaming-topbar .brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: var(--ink);
+  text-decoration: none;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+.streaming-topbar .brand img {
+  width: 28px;
+  height: 28px;
+}
+.streaming-topbar .brand span { color: var(--accent-solid); }
+
+/* Playlist tabs no topo */
+.streaming-playlist-tabs {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.streaming-playlist-tabs::-webkit-scrollbar { display: none; }
+
+.streaming-tab {
+  padding: 7px 16px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+  flex-shrink: 0;
+}
+.streaming-tab:hover {
+  color: var(--ink);
+  background: var(--surface-hover);
+}
+.streaming-tab.active {
+  color: var(--on-accent);
+  background: var(--accent-solid);
+  border-color: var(--accent-solid);
+}
+
+/* Ações da topbar */
+.streaming-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.streaming-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.streaming-search-wrap svg {
+  position: absolute;
+  left: 10px;
+  width: 15px;
+  height: 15px;
+  color: var(--ink-muted);
+  pointer-events: none;
+}
+.streaming-search-wrap input {
+  padding: 7px 12px 7px 32px;
+  width: 200px;
+  border-radius: var(--radius-full);
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  font-size: 13px;
+  transition: width 0.2s ease, border-color 0.2s ease;
+}
+.streaming-search-wrap input:focus {
+  width: 260px;
+  border-color: var(--accent-solid);
+  outline: none;
+}
+
+/* --------------------------------------------------------------------------
+   12.2 Hero Banner — canal em reprodução ou destaque
+   -------------------------------------------------------------------------- */
+
+.streaming-hero {
+  position: relative;
+  width: 100%;
+  height: 380px;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin-top: -60px; /* sobrepõe a topbar */
+}
+
+.streaming-hero-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 20%;
+  filter: blur(2px) brightness(0.45);
+  transform: scale(1.05);
+  transition: background-image 0.6s ease;
+}
+
+.streaming-hero-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(8,11,17,0.2) 0%,
+    rgba(8,11,17,0.0) 35%,
+    rgba(8,11,17,0.65) 70%,
+    rgba(8,11,17,1) 100%
+  );
+}
+
+.streaming-hero-content {
+  position: absolute;
+  bottom: 28px;
+  left: 32px;
+  right: 32px;
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+}
+
+.streaming-hero-logo {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-300);
+  border: 2px solid var(--border-strong);
+  object-fit: contain;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-lg);
+}
+
+.streaming-hero-logo-fallback {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-hover);
+  border: 2px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--accent-solid);
+  flex-shrink: 0;
+  box-shadow: var(--shadow-lg);
+  flex-shrink: 0;
+}
+
+.streaming-hero-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.streaming-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--accent-solid);
+  margin-bottom: 6px;
+}
+.streaming-hero-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-solid);
+  animation: hero-pulse 1.5s ease infinite;
+}
+@keyframes hero-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+.streaming-hero-title {
+  font-size: clamp(22px, 3vw, 36px);
+  font-weight: 900;
+  letter-spacing: -1px;
+  color: var(--ink);
+  margin: 0 0 6px;
+  line-height: 1.1;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.streaming-hero-epg {
+  font-size: 13px;
+  color: var(--ink-muted);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.streaming-hero-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hero-btn-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  background: var(--ink);
+  color: var(--surface-100);
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.hero-btn-play:hover {
+  background: var(--accent-solid);
+  color: var(--on-accent);
+  transform: scale(1.04);
+}
+.hero-btn-play svg { width: 16px; height: 16px; }
+
+.hero-btn-fav {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: var(--surface-glass);
+  color: var(--ink);
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  transition: all 0.15s ease;
+}
+.hero-btn-fav:hover { border-color: var(--accent-solid); color: var(--accent-solid); }
+.hero-btn-fav.is-favorite { color: #fc6382; border-color: #fc6382; }
+.hero-btn-fav svg { width: 15px; height: 15px; }
+
+/* --------------------------------------------------------------------------
+   12.3 Player integrado ao hero — vídeo dentro do banner
+   -------------------------------------------------------------------------- */
+
+.streaming-hero-video-mode .streaming-hero {
+  height: 420px;
+}
+
+.streaming-hero video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  z-index: 2;
+}
+
+.streaming-hero .video-live {
+  position: absolute;
+  top: 70px;
+  left: 20px;
+  z-index: 4;
+  background: var(--red);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  letter-spacing: 1px;
+}
+
+.streaming-hero #video-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(0,0,0,0.7);
+  color: var(--ink-muted);
+  font-size: 13px;
+  text-align: center;
+  padding: 20px;
+}
+.streaming-hero #video-empty img { width: 32px; height: 32px; opacity: 0.4; }
+.streaming-hero #video-empty h2 { font-size: 14px; margin: 0; color: var(--ink); }
+.streaming-hero #video-empty p { margin: 0; font-size: 12px; }
+
+/* Controles flutuantes sobre o vídeo */
+.streaming-video-controls {
+  position: absolute;
+  bottom: 90px;
+  right: 20px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.streaming-video-controls .icon-btn {
+  background: rgba(0,0,0,0.65);
+  border: 1px solid rgba(255,255,255,0.15);
+  backdrop-filter: blur(8px);
+  width: 38px;
+  height: 38px;
+}
+
+/* --------------------------------------------------------------------------
+   12.4 Tabs de categoria horizontal
+   -------------------------------------------------------------------------- */
+
+.streaming-categories {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 24px;
+  margin-top: -8px;
+  position: relative;
+  z-index: 5;
+}
+
+.streaming-cat-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 8px 0;
+  flex: 1;
+}
+.streaming-cat-scroll::-webkit-scrollbar { display: none; }
+
+.streaming-cat-btn {
+  padding: 7px 18px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  background: var(--surface-glass);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.18s ease;
+  backdrop-filter: blur(8px);
+}
+.streaming-cat-btn:hover {
+  color: var(--ink);
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+}
+.streaming-cat-btn.active {
+  color: var(--on-accent);
+  background: var(--accent-solid);
+  border-color: var(--accent-solid);
+}
+
+/* Select oculto — para compatibilidade de código existente */
+#category-select { display: none; }
+#category-count { display: none; }
+
+/* --------------------------------------------------------------------------
+   12.5 Seções de carrossel
+   -------------------------------------------------------------------------- */
+
+.streaming-sections {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 0 32px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.streaming-section {
+  margin-bottom: 4px;
+}
+
+.streaming-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px 10px;
+}
+
+.streaming-section-title {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  margin: 0;
+  color: var(--ink);
+}
+
+.streaming-section-count {
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+/* Carrossel horizontal com scroll-snap */
+.streaming-carousel {
+  display: flex;
+  gap: 12px;
+  padding: 4px 24px 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.streaming-carousel::-webkit-scrollbar { display: none; }
+
+/* --------------------------------------------------------------------------
+   12.6 Cards de canal — poster style
+   -------------------------------------------------------------------------- */
+
+.channel-card {
+  position: relative;
+  width: 140px;
+  min-width: 140px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface-300);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition: transform 0.2s cubic-bezier(0.16,1,0.3,1), box-shadow 0.2s ease, border-color 0.2s ease;
+  flex-shrink: 0;
+}
+.channel-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.5), 0 0 20px rgba(0,242,254,0.15);
+  border-color: rgba(0,242,254,0.4);
+}
+.channel-card.selected {
+  border-color: var(--accent-solid);
+  box-shadow: 0 0 0 2px var(--accent-solid), 0 12px 32px rgba(0,242,254,0.25);
+}
+
+/* Área de poster/imagem */
+.channel-card-poster {
+  width: 100%;
+  aspect-ratio: 2/3;
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.channel-card-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+.channel-card:hover .channel-card-poster img {
+  transform: scale(1.06);
+}
+
+/* Fallback quando sem logo */
+.channel-card-poster-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 900;
+  letter-spacing: -1px;
+}
+
+/* Gradiente sobre o poster */
+.channel-card-poster-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 40%,
+    rgba(8,11,17,0.85) 100%
+  );
+}
+
+/* Overlay de play ao hover */
+.channel-card-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  background: rgba(0,0,0,0.35);
+  transition: opacity 0.2s ease;
+}
+.channel-card:hover .channel-card-play-overlay { opacity: 1; }
+.channel-card-play-overlay svg {
+  width: 40px;
+  height: 40px;
+  color: #fff;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+}
+
+/* Health dot no canto superior direito */
+.channel-card .health-indicator {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 9px;
+  height: 9px;
+  z-index: 2;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.5);
+}
+
+/* Badge de tipo (AO VIVO / FILME / SÉRIE) */
+.channel-card-type-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 3px 7px;
+  border-radius: var(--radius-full);
+  z-index: 2;
+}
+.channel-card-type-badge.live {
+  background: var(--red);
+  color: #fff;
+}
+.channel-card-type-badge.movie {
+  background: rgba(99,102,241,0.9);
+  color: #fff;
+}
+.channel-card-type-badge.series {
+  background: rgba(245,158,11,0.9);
+  color: #fff;
+}
+
+/* Info abaixo do poster */
+.channel-card-info {
+  padding: 8px 10px 10px;
+}
+.channel-card-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+.channel-card-group {
+  font-size: 10px;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* EPG na card info */
+.channel-card .epg-inline {
+  display: block;
+  font-size: 10px;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 3px;
+}
+
+/* --------------------------------------------------------------------------
+   12.7 Painel lateral de reprodução (substituição do watch-panel lateral)
+   -------------------------------------------------------------------------- */
+
+.streaming-now-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  background: rgba(8,11,17,0.96);
+  border-top: 1px solid var(--border);
+  backdrop-filter: blur(20px);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.streaming-now-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+  background: var(--surface-300);
+  flex-shrink: 0;
+}
+.streaming-now-thumb-fallback {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--accent-solid);
+  flex-shrink: 0;
+}
+
+.streaming-now-info { flex: 1; min-width: 0; }
+.streaming-now-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.streaming-now-meta {
+  font-size: 12px;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.streaming-now-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Ocultar elementos que migram para o novo layout */
+.streaming-hide { display: none !important; }
+
+/* --------------------------------------------------------------------------
+   12.8 Estados vazios e paginação no carrossel
+   -------------------------------------------------------------------------- */
+
+.streaming-empty {
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--ink-muted);
+  font-size: 14px;
+}
+
+.streaming-load-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  border-radius: var(--radius-full);
+  background: var(--surface-glass);
+  border: 1px solid var(--border);
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  margin: 8px 0 0 24px;
+  transition: all 0.18s ease;
+}
+.streaming-load-more:hover { border-color: var(--accent-solid); color: var(--ink); }
+
+/* --------------------------------------------------------------------------
+   12.9 Responsivo
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 760px) {
+  .streaming-topbar { padding: 0 16px; }
+  .streaming-hero { height: 280px; }
+  .streaming-hero-content { left: 16px; right: 16px; bottom: 16px; }
+  .streaming-hero-title { font-size: 20px; }
+  .streaming-hero-logo,
+  .streaming-hero-logo-fallback { width: 56px; height: 56px; }
+  .streaming-categories { padding: 0 16px; }
+  .streaming-sections { padding: 0; }
+  .streaming-section-header { padding: 12px 16px 8px; }
+  .streaming-carousel { padding: 4px 16px 12px; gap: 10px; }
+  .channel-card { width: 120px; min-width: 120px; }
+  .streaming-now-bar { padding: 10px 16px; }
+  .streaming-search-wrap input { width: 150px; }
+  .streaming-search-wrap input:focus { width: 190px; }
+}
+
+@media (max-width: 480px) {
+  .streaming-hero { height: 240px; }
+  .channel-card { width: 110px; min-width: 110px; }
+  .streaming-topbar .brand span:last-child { display: none; }
+}
+
+/* Light mode */
+:root[data-theme=light] .streaming-topbar {
+  background: linear-gradient(180deg, rgba(248,250,252,0.98) 0%, rgba(248,250,252,0) 100%);
+}
+:root[data-theme=light] .streaming-now-bar {
+  background: rgba(248,250,252,0.97);
+  border-top-color: var(--border);
+}
+:root[data-theme=light] .channel-card { background: var(--surface-200); }
+:root[data-theme=light] .streaming-cat-btn { background: var(--surface-200); }
+
+/* --------------------------------------------------------------------------
+   12.10 Override — player streaming ocupa toda a tela (sem padding do .content)
+   -------------------------------------------------------------------------- */
+
+/* Quando o conteúdo é o player streaming, remove o padding padrão */
+.content:has(.player-streaming-page) {
+  padding: 0 !important;
+  max-width: none !important;
+  overflow: hidden;
+}
+
+/* Garante que o shell não sobreponha a topbar do streaming */
+.shell:has(.player-streaming-page) {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+.shell:has(.player-streaming-page) .sidebar {
+  width: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: none !important;
+}
+.shell:has(.player-streaming-page) .topbar {
+  display: none;
+}
+
+/* Fallback para browsers sem :has() — usa classe explícita */
+.shell.player-mode {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+.shell.player-mode .sidebar {
+  width: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: none !important;
+}
+.shell.player-mode .topbar { display: none; }
+.player-mode .content { padding: 0 !important; max-width: none !important; }

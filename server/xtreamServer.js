@@ -4,9 +4,9 @@
  */
 
 const crypto = require('crypto');
-const db = require('./database');
+const db = require('./db/database');
 const security = require('./security');
-const epgManager = require('./epgManager');
+const epgManager = require('./services/epgManager');
 
 class XtreamServer {
     authenticate(username, password) {

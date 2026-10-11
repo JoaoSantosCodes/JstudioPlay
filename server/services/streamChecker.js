@@ -1,6 +1,6 @@
 const axios = require('axios');
 const EventEmitter = require('events');
-const db = require('./database');
+const db = require('../db/database');
 
 class StreamChecker extends EventEmitter {
     constructor() {

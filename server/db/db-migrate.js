@@ -9,7 +9,7 @@
 const fs   = require('fs');
 const path = require('path');
 
-const DATA_DIR   = path.join(__dirname, '..', 'data');
+const DATA_DIR   = path.join(__dirname, '..', '..', 'data');
 const JSON_FILE  = path.join(DATA_DIR, 'db.json');
 const DONE_FLAG  = path.join(DATA_DIR, '.migrated_to_sqlite');
 

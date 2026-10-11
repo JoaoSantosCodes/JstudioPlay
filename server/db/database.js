@@ -20,7 +20,8 @@ const { applyMigrations }  = require('./db-schema');
 const { migrateIfNeeded }  = require('./db-migrate');
 
 const BCRYPT_COST = 12;
-const DATA_DIR    = path.join(__dirname, '..', 'data');
+// __dirname é agora server/db/ — data/ fica em ../../data/
+const DATA_DIR    = path.join(__dirname, '..', '..', 'data');
 const DB_FILE     = path.join(DATA_DIR, 'jstudioplay.db');
 
 // Garante que o diretório de dados existe
@@ -672,7 +673,7 @@ class Database {
     enrichPlaylist(playlistId) {
         const p = this.getPlaylistById(playlistId);
         if (!p) throw new Error('Playlist não encontrada.');
-        const enricher = require('./m3uEnricher');
+        const enricher = require('../services/m3uEnricher');
         let channels = this.getChannels(playlistId);
         let updatedCount = 0;
         channels = channels.map(ch => {

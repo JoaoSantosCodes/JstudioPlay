@@ -9,17 +9,18 @@ const cors = require('cors');
 const crypto = require('crypto');
 const axios = require('axios');
 
-const db = require('./database');
-const m3uParser = require('./m3uParser');
-const streamChecker = require('./streamChecker');
+const db = require('./db/database');
+const m3uParser = require('./services/m3uParser');
+const streamChecker = require('./services/streamChecker');
 const relay = require('./relay');
-const cronManager = require('./cronManager');
+const cronManager = require('./infra/cronManager');
 const xtreamServer = require('./xtreamServer');
-const epgManager = require('./epgManager');
-const m3uHub = require('./m3uHub');
-const m3uEnricher = require('./m3uEnricher');
+const epgManager = require('./services/epgManager');
+const m3uHub = require('./services/m3uHub');
+const m3uEnricher = require('./services/m3uEnricher');
 const security = require('./security');
-const opsEngine = require('./opsEngine');
+const opsEngine = require('./infra/opsEngine');
+const m3uScraper = require('./services/m3uScraper');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1042,6 +1043,53 @@ app.get('/series/:username/:password/:streamId', (req, res) => {
     if (!channel || !channel.url) return res.status(404).send('Episódio não encontrado');
     req.query.url = channel.url;
     relay.proxyStream(req, res);
+});
+
+// -----------------------------------------------------------------------------
+// 7. M3U Scraper — Raspagem Diária de Fontes Públicas
+// -----------------------------------------------------------------------------
+
+// Status do scraper (última execução, relatório, se está rodando)
+apiRouter.get('/scraper/status', requireAuth, (req, res) => {
+    res.json(m3uScraper.getStatus());
+});
+
+// Lista todas as fontes configuradas e se estão habilitadas
+apiRouter.get('/scraper/sources', requireAuth, (req, res) => {
+    res.json(m3uScraper.getSources());
+});
+
+// Habilitar/desabilitar uma fonte individualmente
+apiRouter.patch('/scraper/sources/:id', requireAuth, security.requireAdmin(), (req, res) => {
+    try {
+        const { enabled } = req.body;
+        if (typeof enabled !== 'boolean') {
+            return res.status(400).json({ error: 'Campo "enabled" (boolean) é obrigatório.' });
+        }
+        const source = m3uScraper.toggleSource(req.params.id, enabled);
+        res.json({ success: true, source });
+    } catch (e) {
+        res.status(404).json({ error: e.message });
+    }
+});
+
+// Trigger manual da raspagem completa (ou de fontes específicas)
+// Body opcional: { sourceIds: ['iptv_org_br', ...], validateSample: false }
+apiRouter.post('/scraper/run', requireAuth, security.requireAdmin(), async (req, res) => {
+    if (m3uScraper.isRunning) {
+        return res.status(409).json({ error: 'Raspagem já está em andamento. Aguarde a conclusão.' });
+    }
+
+    const { sourceIds = null, validateSample = true } = req.body || {};
+
+    // Responde imediatamente e executa em background
+    res.json({ success: true, message: 'Raspagem iniciada em segundo plano. Use GET /scraper/status para acompanhar.' });
+
+    try {
+        await m3uScraper.run({ validateSample, sourceIds });
+    } catch (err) {
+        db.addLog('scraper', `Erro no scrape manual: ${err.message}`);
+    }
 });
 
 app.use('/api', apiRouter);

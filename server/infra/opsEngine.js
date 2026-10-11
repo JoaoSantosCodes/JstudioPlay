@@ -5,11 +5,11 @@
 
 const axios = require('axios');
 const path = require('path');
-const db = require('./database');
-const m3uParser = require('./m3uParser');
-const epgManager = require('./epgManager');
-const m3uEnricher = require('./m3uEnricher');
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+const db = require('../db/database');
+const m3uParser = require('../services/m3uParser');
+const epgManager = require('../services/epgManager');
+const m3uEnricher = require('../services/m3uEnricher');
+require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
 class OpsEngine {
     constructor() {

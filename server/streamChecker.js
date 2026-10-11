@@ -79,8 +79,8 @@ class StreamChecker extends EventEmitter {
             return { isRunning: false, total: 0, checked: 0, online: 0, offline: 0 };
         }
 
-        const concurrency = options.concurrency || db.data.settings.streamCheckConcurrency || 15;
-        const timeout = options.timeout || db.data.settings.streamCheckTimeout || 4000;
+        const concurrency = options.concurrency || db.getSettings().streamCheckConcurrency || 15;
+        const timeout = options.timeout || db.getSettings().streamCheckTimeout || 4000;
 
         const jobState = {
             playlistId,

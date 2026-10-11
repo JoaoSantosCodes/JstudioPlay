@@ -28,29 +28,8 @@ class OpsEngine {
         this.isSyncingEpg = false;
         this.isCheckingHealth = false;
 
-        this.incidentHistory = [
-            {
-                id: 'inc_1',
-                timestamp: new Date(Date.now() - 4 * 60000).toISOString(),
-                type: 'failover',
-                channelName: 'SBT HD Brasil',
-                message: 'Canal 104 → mirror 2 ativado (latência 140ms)'
-            },
-            {
-                id: 'inc_2',
-                timestamp: new Date(Date.now() - 12 * 60000).toISOString(),
-                type: 'down',
-                channelName: 'Record News Regional',
-                message: 'Canal 227 → indisponível (HTTP 404)'
-            },
-            {
-                id: 'inc_3',
-                timestamp: new Date(Date.now() - 25 * 60000).toISOString(),
-                type: 'latency',
-                channelName: 'CNN Internacional 4K',
-                message: 'Canal 891 → latência 1.842ms'
-            }
-        ];
+        // ST-04: Histórico de incidentes inicia vazio (sem dados hardcoded de demonstração)
+        this.incidentHistory = [];
 
         this.stats = {
             streamsOk: 0,
@@ -59,7 +38,10 @@ class OpsEngine {
             lastHealthScore: 94.5
         };
 
-        this.initIntervals();
+        // ST-03: Schedulers autônomos desativados — o cronManager.js é o único scheduler.
+        // Os métodos runM3uSync / runEpgSync / runHealthCheck continuam disponíveis
+        // para chamadas manuais via endpoints /ops/trigger-*.
+        // this.initIntervals();  ← desativado para eliminar conflito com cronManager
     }
 
     addIncident(type, channelName, message, details = {}) {
@@ -129,7 +111,7 @@ class OpsEngine {
         this.lastM3uSync = new Date();
 
         try {
-            const playlists = db.data.playlists.filter(p => p.url && p.autoSync);
+            const playlists = db.getPlaylists(null).filter(p => p.url && p.autoSync);
             let totalUpdated = 0;
 
             for (const pl of playlists) {
@@ -179,7 +161,8 @@ class OpsEngine {
         this.lastHealthCheck = new Date();
 
         try {
-            const allChannels = Object.values(db.data.channels).flat();
+            const allPlaylists = db.getPlaylists(null);
+            const allChannels = allPlaylists.flatMap(p => db.getChannels(p.id));
             if (allChannels.length === 0) return { checked: 0 };
 
             // Pick sample of channels to probe

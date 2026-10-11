@@ -4,8 +4,11 @@
  */
 
 const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 const fs = require('fs');
 const path = require('path');
+
+const BCRYPT_COST = 12;
 const envFile = fs.existsSync(path.join(__dirname, '..', 'CREDENCIAIS', '.env'))
     ? path.join(__dirname, '..', 'CREDENCIAIS', '.env')
     : path.join(__dirname, '..', '.env');
@@ -24,6 +27,18 @@ class SecurityManager {
 
         this.ipRequestMap = new Map(); // ip -> [timestamps]
         this.activeSessions = new Map(); // token -> { userId, username, role, expiresAt }
+
+        // ST-07: Limpeza periódica de sessões expiradas (a cada 1 hora)
+        setInterval(() => this._cleanExpiredSessions(), 60 * 60 * 1000);
+    }
+
+    _cleanExpiredSessions() {
+        const now = Date.now();
+        for (const [token, payload] of this.activeSessions.entries()) {
+            if (payload.expiresAt && now > payload.expiresAt) {
+                this.activeSessions.delete(token);
+            }
+        }
     }
 
     generateSecureKey(bytes = 32) {
@@ -32,6 +47,26 @@ class SecurityManager {
 
     hashPassword(password) {
         return crypto.createHash('sha256').update(password).digest('hex');
+    }
+
+    /**
+     * Gera hash bcrypt (custo 12) — para novos usuários e migração lazy.
+     */
+    hashPasswordBcrypt(password) {
+        return bcrypt.hashSync(password, BCRYPT_COST);
+    }
+
+    /**
+     * Verifica senha contra hash legado SHA-256 ou bcrypt.
+     * Retorna { valid: bool, needsUpgrade: bool }
+     */
+    verifyPassword(plain, storedHash, algo) {
+        if (algo === 'bcrypt' || storedHash.startsWith('$2b$') || storedHash.startsWith('$2a$')) {
+            return { valid: bcrypt.compareSync(plain, storedHash), needsUpgrade: false };
+        }
+        // Legado SHA-256
+        const sha = crypto.createHash('sha256').update(plain).digest('hex');
+        return { valid: sha === storedHash, needsUpgrade: true };
     }
 
     createSessionToken(user) {

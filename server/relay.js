@@ -17,8 +17,9 @@ class StreamRelay {
             'AppleCoreMedia/1.0.0.20K71 (Apple TV; U; CPU OS 16_4 like Mac OS X)'
         ];
         this.defaultUserAgent = this.userAgentList[0];
-        // Memory cache for active m3u8 manifests (TTL 3 seconds for live, 60s for VOD)
+        // ST-08: Cache de manifests HLS com limite de 200 entradas (FIFO) para evitar vazamento de memória
         this.manifestCache = new Map(); // url -> { data, contentType, expires }
+        this.manifestCacheMaxSize = 200;
     }
 
     /**
@@ -135,6 +136,11 @@ class StreamRelay {
 
                     // Cache manifest for 2.5s (live) or 45s (VOD)
                     const isVod = bodyData.includes('#EXT-X-ENDLIST');
+                    // ST-08: Evicção FIFO — remove entrada mais antiga se cache atingiu o limite
+                    if (this.manifestCache.size >= this.manifestCacheMaxSize) {
+                        const oldestKey = this.manifestCache.keys().next().value;
+                        this.manifestCache.delete(oldestKey);
+                    }
                     this.manifestCache.set(targetUrl, {
                         data: rewritten,
                         contentType: finalType,

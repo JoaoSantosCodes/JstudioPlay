@@ -5,6 +5,7 @@
 
 const crypto = require('crypto');
 const db = require('./database');
+const security = require('./security');
 const epgManager = require('./epgManager');
 
 class XtreamServer {
@@ -13,8 +14,11 @@ class XtreamServer {
         const user = db.findUserByUsername(username);
         if (!user) return null;
 
-        const hash = crypto.createHash('sha256').update(password).digest('hex');
-        if (user.passwordHash !== hash) return null;
+        // Lazy migration SHA-256 → bcrypt via security.verifyPassword
+        const { valid, needsUpgrade } = security.verifyPassword(password, user.passwordHash, user.passwordHashAlgo);
+        if (!valid) return null;
+        if (needsUpgrade) db.updateUser(user.id, { password });
+
         if (user.blocked) return null;
         if (user.expiresAt && new Date(user.expiresAt) < new Date()) return null;
 

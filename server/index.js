@@ -56,7 +56,7 @@ function requireAuth(req, res, next) {
     // 1. API Key Check (para n8n / webhooks)
     if (apiKey && (apiKey === security.apiSecretKey || apiKey === settings.apiKey)) {
         req.isApiKey = true;
-        req.user = db.data.users.find(u => u.role === 'admin') || db.data.users[0];
+        req.user = db.findAdminUser();
         return next();
     }
 
@@ -100,14 +100,14 @@ apiRouter.get('/session', (req, res) => {
             createdAt: user.createdAt,
             lastLoginAt: user.lastLoginAt
         } : null,
-        setupRequired: db.data.users.length === 0,
+        setupRequired: db.countUsers() === 0,
         setupAllowed: true,
-        relayEnabled: db.data.settings.relayEnabled,
-        relayMode: db.data.settings.relayMode,
+        relayEnabled: db.getSettings().relayEnabled,
+        relayMode: db.getSettings().relayMode,
         settings: {
-            apiKey: db.data.settings.apiKey,
-            n8nWebhookUrl: db.data.settings.n8nWebhookUrl,
-            autoSyncIntervalHours: db.data.settings.autoSyncIntervalHours
+            apiKey: db.getSettings().apiKey,
+            n8nWebhookUrl: db.getSettings().n8nWebhookUrl,
+            autoSyncIntervalHours: db.getSettings().autoSyncIntervalHours
         },
         playlists: user ? db.getPlaylists(userId) : [],
         favorites: user ? db.getFavorites(userId) : [],
@@ -127,8 +127,9 @@ apiRouter.post('/login', (req, res) => {
         return res.status(401).json({ error: 'Usuário ou senha inválidos.' });
     }
 
-    const hash = crypto.createHash('sha256').update(password).digest('hex');
-    if (user.passwordHash !== hash) {
+    // Lazy migration SHA-256 → bcrypt: verifica com o algoritmo correto e faz upgrade silencioso
+    const { valid, needsUpgrade } = security.verifyPassword(password, user.passwordHash, user.passwordHashAlgo);
+    if (!valid) {
         return res.status(401).json({ error: 'Usuário ou senha inválidos.' });
     }
 
@@ -138,6 +139,11 @@ apiRouter.post('/login', (req, res) => {
 
     if (user.expiresAt && new Date(user.expiresAt) < new Date()) {
         return res.status(403).json({ error: `Acesso expirado em ${new Date(user.expiresAt).toLocaleDateString('pt-BR')}.` });
+    }
+
+    // Faz upgrade do hash para bcrypt se ainda estava em SHA-256
+    if (needsUpgrade) {
+        db.updateUser(user.id, { password });
     }
 
     user.lastLoginAt = new Date().toISOString();
@@ -177,7 +183,7 @@ apiRouter.post('/auth/google', async (req, res) => {
                 name: 'Usuário Google (Demo)',
                 username: 'google_demo',
                 email: 'demo.google@jstudioplay.app',
-                role: db.data.users.length === 0 ? 'admin' : 'user',
+                role: db.countUsers() === 0 ? 'admin' : 'user',
                 googleId: 'demo_google_123456789'
             });
         }
@@ -224,8 +230,9 @@ apiRouter.post('/auth/google', async (req, res) => {
         // Localiza usuário por Google ID ou por e-mail correspondente
         let user = db.findUserByGoogleId(googleId) || db.findUserByEmail(email);
 
-        const adminEmail = (process.env.ADMIN_EMAIL || 'joaocarlosrh23@gmail.com').toLowerCase();
-        const shouldBeAdmin = email && email.toLowerCase() === adminEmail;
+        // ST-05: ADMIN_EMAIL sem fallback hardcoded — configurar via env var
+        const adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase();
+        const shouldBeAdmin = adminEmail && email && email.toLowerCase() === adminEmail;
 
         if (user) {
             // Atualiza Google ID e avatar se necessário
@@ -487,7 +494,9 @@ apiRouter.get('/epg/channel/:id', (req, res) => {
 });
 
 // Custom M3U Generator Endpoint
+// ST-01: Fix — extrair userId, filter, groups, sort do req.query (ReferenceError corrigido)
 apiRouter.get('/m3u/custom', (req, res) => {
+    const { userId, filter, groups, sort } = req.query;
     const sessionUser = getSessionUser(req);
     const targetUser = userId ? db.findUserById(userId) : sessionUser;
     if (!targetUser) return res.status(401).send('#EXTM3U\n#EXTINF:-1,ACESSO NÃO AUTORIZADO\nhttp://invalid');
@@ -520,14 +529,15 @@ apiRouter.get('/m3u/custom', (req, res) => {
 });
 
 // System Backup & Restore Endpoints
-apiRouter.get('/backup/export', requireAuth, (req, res) => {
+// ST-02: RBAC — backup/restore restritos a admin
+apiRouter.get('/backup/export', requireAuth, security.requireAdmin(), (req, res) => {
     const backup = db.exportBackup();
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="m3uplay_backup_${new Date().toISOString().slice(0, 10)}.json"`);
     res.json(backup);
 });
 
-apiRouter.post('/backup/import', requireAuth, (req, res) => {
+apiRouter.post('/backup/import', requireAuth, security.requireAdmin(), (req, res) => {
     try {
         const result = db.importBackup(req.body);
         res.json(result);
@@ -560,13 +570,8 @@ apiRouter.get('/playlists/:id/export', (req, res) => {
 
 // -----------------------------------------------------------------------------
 // EPG & Guide Endpoints
+// ST-09: rota /epg/now duplicada removida (já registrada acima em linha ~478)
 // -----------------------------------------------------------------------------
-apiRouter.get('/epg/now', (req, res) => {
-    const { tvgId, name } = req.query;
-    const nowPlaying = epgManager.getChannelNowPlaying(tvgId, name);
-    res.json(nowPlaying);
-});
-
 apiRouter.get('/epg/grid', requireAuth, (req, res) => {
     const { playlistId, hours = 4, group } = req.query;
     const user = req.user;
@@ -736,8 +741,9 @@ app.get('/proxy/stream', (req, res) => {
 
 // -----------------------------------------------------------------------------
 // 5. Admin & Users
+// ST-02: RBAC — todas as rotas admin restritas a administradores
 // -----------------------------------------------------------------------------
-apiRouter.get('/admin/users', requireAuth, (req, res) => {
+apiRouter.get('/admin/users', requireAuth, security.requireAdmin(), (req, res) => {
     const usersWithStats = db.data.users.map(u => ({
         user: {
             id: u.id,
@@ -754,7 +760,7 @@ apiRouter.get('/admin/users', requireAuth, (req, res) => {
     res.json(usersWithStats);
 });
 
-apiRouter.post('/admin/users', requireAuth, (req, res) => {
+apiRouter.post('/admin/users', requireAuth, security.requireAdmin(), (req, res) => {
     try {
         const { name, username, password, role, expiresAt, playlists } = req.body;
         const user = db.createUser({ name, username, password, role, expiresAt, playlists });
@@ -771,7 +777,7 @@ apiRouter.post('/admin/users', requireAuth, (req, res) => {
     }
 });
 
-apiRouter.patch('/admin/users/:id', requireAuth, (req, res) => {
+apiRouter.patch('/admin/users/:id', requireAuth, security.requireAdmin(), (req, res) => {
     try {
         const updated = db.updateUser(req.params.id, req.body);
         res.json({
@@ -787,7 +793,7 @@ apiRouter.patch('/admin/users/:id', requireAuth, (req, res) => {
     }
 });
 
-apiRouter.get('/admin/logs', requireAuth, (req, res) => {
+apiRouter.get('/admin/logs', requireAuth, security.requireAdmin(), (req, res) => {
     const formattedLogs = db.data.logs.map(l => ({
         id: l.id,
         at: l.at || l.timestamp,

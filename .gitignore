@@ -19,6 +19,10 @@ server_err.log
 Thumbs.db
 .DS_Store
 
+# Banco de dados SQLite e artefatos de migração
+data/*.db
+data/.migrated_to_sqlite
+
 # Cache de IDEs
 .vscode/
 .idea/

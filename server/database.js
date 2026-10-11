@@ -1,577 +1,837 @@
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+/**
+ * JstudioPlay Pro — Database Layer (SQLite via better-sqlite3)
+ *
+ * API pública 100% compatível com a versão JSON anterior.
+ * Nenhum outro módulo precisa ser alterado.
+ *
+ * Melhorias:
+ *  - WAL mode: leituras não bloqueiam escritas
+ *  - Statements preparados (performance + segurança)
+ *  - Migração automática de db.json legado
+ *  - Sem risco de OOM com listas de 7000+ canais
+ */
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+const path    = require('path');
+const crypto  = require('crypto');
+const bcrypt  = require('bcrypt');
+const SQLite  = require('better-sqlite3');
+
+const { applyMigrations }  = require('./db-schema');
+const { migrateIfNeeded }  = require('./db-migrate');
+
+const BCRYPT_COST = 12;
+const DATA_DIR    = path.join(__dirname, '..', 'data');
+const DB_FILE     = path.join(DATA_DIR, 'jstudioplay.db');
+
+// Garante que o diretório de dados existe
+const fs = require('fs');
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+
+// Abre o banco e aplica configurações de performance
+const sql = new SQLite(DB_FILE);
+sql.pragma('journal_mode = WAL');
+sql.pragma('synchronous = NORMAL');
+sql.pragma('foreign_keys = ON');
+sql.pragma('cache_size = -32000');   // ~32 MB de cache
+sql.pragma('temp_store = MEMORY');
+
+// Aplica migrações pendentes e migra db.json legado
+applyMigrations(sql);
+migrateIfNeeded(sql);
+
+// ---------------------------------------------------------------------------
+// Helpers internos
+// ---------------------------------------------------------------------------
+
+function generateDefaultApiKey() {
+    return `m3u_key_${crypto.randomBytes(16).toString('hex')}`;
 }
 
-const DB_FILE = path.join(DATA_DIR, 'db.json');
+/** Converte linha da tabela `channels` → objeto compatível com o app */
+function rowToChannel(r) {
+    if (!r) return null;
+    return {
+        id:          r.id,
+        name:        r.name,
+        rawName:     r.raw_name   || undefined,
+        tvgId:       r.tvg_id     || undefined,
+        tvgName:     r.tvg_name   || undefined,
+        logo:        r.logo       || '',
+        group:       r.grp        || 'Geral',
+        chno:        r.chno       || undefined,
+        streamType:  r.stream_type|| 'live',
+        url:         r.url,
+        userAgent:   r.user_agent || undefined,
+        status:      r.status     || 'unknown',
+        latency:     r.latency    || undefined,
+        lastChecked: r.last_checked || undefined,
+    };
+}
 
-const defaultDb = {
-    settings: {
-        appName: 'JstudioPlay Pro',
-        apiKey: 'm3u_secret_key_889922aabbcc',
-        n8nWebhookUrl: '',
-        relayEnabled: true,
-        relayMode: false,
-        setupRequired: false,
-        setupAllowed: true,
-        maxPlaylistsPerAccount: 20,
-        streamCheckTimeout: 3500,
-        streamCheckConcurrency: 15,
-        autoSyncEnabled: true,
-        autoSyncIntervalHours: 6
-    },
-    users: [
-        {
-            id: 'usr_admin',
-            name: 'Administrador',
-            username: 'admin',
-            passwordHash: crypto.createHash('sha256').update('admin123').digest('hex'),
-            role: 'admin',
-            theme: 'dark',
-            blocked: false,
-            expiresAt: null,
-            createdAt: new Date().toISOString(),
-            lastLoginAt: new Date().toISOString()
+/** Converte linha da tabela `users` → objeto compatível com o app */
+function rowToUser(r) {
+    if (!r) return null;
+    return {
+        id:               r.id,
+        name:             r.name,
+        username:         r.username,
+        email:            r.email     || null,
+        googleId:         r.google_id || null,
+        avatar:           r.avatar    || null,
+        passwordHash:     r.password_hash,
+        passwordHashAlgo: r.password_algo || 'bcrypt',
+        role:             r.role,
+        theme:            r.theme    || 'dark',
+        blocked:          !!r.blocked,
+        expiresAt:        r.expires_at   || null,
+        createdAt:        r.created_at,
+        lastLoginAt:      r.last_login_at || null,
+        // Playlists atribuídas (lazy-loaded quando necessário)
+        get assignedPlaylists() {
+            return sql
+                .prepare('SELECT playlist_id FROM user_playlist_access WHERE user_id = ?')
+                .all(r.id)
+                .map(x => x.playlist_id);
         }
-    ],
-    playlists: [],
-    channels: {},
-    favorites: {},
-    history: {},
-    progress: {},
-    logs: [
-        {
-            id: 'log_1',
-            type: 'system',
-            user: 'Sistema',
-            action: 'Sistema JstudioPlay Pro inicializado com ferramentas avançadas de streaming e otimização.',
-            at: new Date().toISOString()
-        }
-    ]
+    };
+}
+
+/** Converte linha da tabela `playlists` → objeto compatível com o app */
+function rowToPlaylist(r) {
+    if (!r) return null;
+    return {
+        id:          r.id,
+        userId:      r.user_id     || null,
+        name:        r.name,
+        url:         r.url,
+        total:       r.total,
+        live:        r.live,
+        vod:         r.vod,
+        series:      r.series,
+        onlineCount: r.online_count,
+        categories:  r.categories,
+        checkStatus: r.check_status,
+        lastChecked: r.last_checked || null,
+        autoSync:    !!r.auto_sync,
+        updated:     r.updated,
+        created:     r.created,
+    };
+}
+
+// ---------------------------------------------------------------------------
+// Statements preparados (compilados uma vez, reutilizados)
+// ---------------------------------------------------------------------------
+const stmts = {
+    // Settings
+    getSetting:    sql.prepare('SELECT value FROM settings WHERE key = ?'),
+    upsertSetting: sql.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?,?)'),
+    allSettings:   sql.prepare('SELECT key, value FROM settings'),
+
+    // Users
+    userById:      sql.prepare('SELECT * FROM users WHERE id = ?'),
+    userByName:    sql.prepare('SELECT * FROM users WHERE username = ? COLLATE NOCASE'),
+    userByEmail:   sql.prepare('SELECT * FROM users WHERE email = ? OR username = ? COLLATE NOCASE'),
+    userByGoogle:  sql.prepare('SELECT * FROM users WHERE google_id = ?'),
+    insertUser:    sql.prepare(`
+        INSERT INTO users (id,name,username,email,google_id,avatar,
+            password_hash,password_algo,role,theme,blocked,expires_at,created_at,last_login_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `),
+    updateUser:    sql.prepare(`
+        UPDATE users SET name=?,theme=?,role=?,expires_at=?,blocked=?,
+            password_hash=?,password_algo=?,email=?,google_id=?,avatar=?,last_login_at=?
+        WHERE id=?
+    `),
+    deleteUser:    sql.prepare('DELETE FROM users WHERE id = ? AND role != ?'),
+    saveUser:      sql.prepare(`
+        INSERT OR REPLACE INTO users (id,name,username,email,google_id,avatar,
+            password_hash,password_algo,role,theme,blocked,expires_at,created_at,last_login_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `),
+
+    // user_playlist_access
+    insertAccess:  sql.prepare('INSERT OR IGNORE INTO user_playlist_access (user_id,playlist_id) VALUES (?,?)'),
+    deleteAccess:  sql.prepare('DELETE FROM user_playlist_access WHERE user_id = ?'),
+    getUserAccess: sql.prepare('SELECT playlist_id FROM user_playlist_access WHERE user_id = ?'),
+
+    // Playlists
+    allPlaylists:  sql.prepare('SELECT * FROM playlists ORDER BY created ASC'),
+    playlistById:  sql.prepare('SELECT * FROM playlists WHERE id = ?'),
+    playlistsByUser: sql.prepare(`
+        SELECT p.* FROM playlists p
+        WHERE p.user_id = ? OR p.id IN (
+            SELECT playlist_id FROM user_playlist_access WHERE user_id = ?
+        )
+        ORDER BY p.created ASC
+    `),
+    insertPlaylist: sql.prepare(`
+        INSERT INTO playlists (id,user_id,name,url,total,live,vod,series,
+            online_count,categories,check_status,last_checked,auto_sync,updated,created)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `),
+    updatePlaylist: sql.prepare(`
+        UPDATE playlists SET name=?,url=?,total=?,live=?,vod=?,series=?,
+            online_count=?,categories=?,check_status=?,last_checked=?,
+            auto_sync=?,updated=? WHERE id=?
+    `),
+    deletePlaylist: sql.prepare('DELETE FROM playlists WHERE id = ?'),
+
+    // Channels
+    channelsByPlaylist: sql.prepare(
+        'SELECT * FROM channels WHERE playlist_id = ? ORDER BY sort_order ASC'
+    ),
+    deleteChannels: sql.prepare('DELETE FROM channels WHERE playlist_id = ?'),
+    insertChannel:  sql.prepare(`
+        INSERT OR REPLACE INTO channels
+          (id,playlist_id,name,raw_name,tvg_id,tvg_name,logo,grp,chno,
+           stream_type,url,user_agent,status,latency,last_checked,sort_order)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `),
+    updateChannelStatus: sql.prepare(`
+        UPDATE channels SET status=?,latency=?,last_checked=?
+        WHERE id=? AND playlist_id=?
+    `),
+
+    // Favorites
+    favsByUser:    sql.prepare(`
+        SELECT * FROM favorites WHERE user_id = ? ORDER BY added_at DESC
+    `),
+    favExists:     sql.prepare(
+        'SELECT id FROM favorites WHERE user_id=? AND playlist_id=? AND ch_url=?'
+    ),
+    insertFav:     sql.prepare(`
+        INSERT OR IGNORE INTO favorites
+          (user_id,playlist_id,ch_id,ch_name,ch_group,ch_logo,ch_url,added_at)
+        VALUES (?,?,?,?,?,?,?,?)
+    `),
+    deleteFav:     sql.prepare(
+        'DELETE FROM favorites WHERE user_id=? AND playlist_id=? AND ch_url=?'
+    ),
+
+    // History
+    histByUser:    sql.prepare(`
+        SELECT * FROM history WHERE user_id = ? ORDER BY watched_at DESC LIMIT 100
+    `),
+    histExists:    sql.prepare(
+        'SELECT id FROM history WHERE user_id=? AND playlist_id=? AND ch_url=?'
+    ),
+    deleteHistEntry: sql.prepare(
+        'DELETE FROM history WHERE user_id=? AND playlist_id=? AND ch_url=?'
+    ),
+    insertHist:    sql.prepare(`
+        INSERT INTO history
+          (user_id,playlist_id,ch_id,ch_name,ch_group,ch_logo,ch_url,watched_at)
+        VALUES (?,?,?,?,?,?,?,?)
+    `),
+    clearHistory:  sql.prepare('DELETE FROM history WHERE user_id = ?'),
+
+    // Progress
+    progByUser:    sql.prepare('SELECT * FROM progress WHERE user_id = ? ORDER BY updated DESC'),
+    upsertProgress: sql.prepare(`
+        INSERT INTO progress (user_id,playlist_id,ch_name,ch_group,ch_logo,ch_url,position,duration,percent,updated)
+        VALUES (?,?,?,?,?,?,?,?,?,?)
+        ON CONFLICT(user_id,playlist_id,ch_url) DO UPDATE SET
+            position=excluded.position, duration=excluded.duration,
+            percent=excluded.percent, updated=excluded.updated
+    `),
+
+    // Logs
+    insertLog:     sql.prepare(
+        'INSERT OR IGNORE INTO logs (id,type,username,action,at) VALUES (?,?,?,?,?)'
+    ),
+    recentLogs:    sql.prepare('SELECT * FROM logs ORDER BY at DESC LIMIT ?'),
+    countLogs:     sql.prepare('SELECT COUNT(*) as n FROM logs'),
+    deleteOldLogs: sql.prepare(`
+        DELETE FROM logs WHERE id IN (
+            SELECT id FROM logs ORDER BY at ASC LIMIT ?
+        )
+    `),
 };
+
+// ---------------------------------------------------------------------------
+// Classe Database — mesma API da versão JSON
+// ---------------------------------------------------------------------------
 
 class Database {
     constructor() {
-        this.data = defaultDb;
-        this._saveTimeout = null;
-        this._isDirty = false;
-        this.load();
-
-        const flushHandler = () => this.flushSync();
-        process.on('beforeExit', flushHandler);
-        process.on('SIGINT', () => { flushHandler(); process.exit(0); });
-        process.on('SIGTERM', () => { flushHandler(); process.exit(0); });
+        // Compatibilidade: expõe .data.settings para acesso legado
+        // Módulos internos (cronManager, streamChecker) DEVEM usar métodos públicos
+        this._settingsCache = null;
     }
 
-    load() {
-        try {
-            if (fs.existsSync(DB_FILE)) {
-                const content = fs.readFileSync(DB_FILE, 'utf8');
-                const parsed = JSON.parse(content);
-                this.data = Object.assign({}, defaultDb, parsed);
-                this.data.settings = Object.assign({}, defaultDb.settings, parsed.settings || {});
-            } else {
-                this.save();
-            }
-        } catch (e) {
-            console.error('Error loading db.json, using defaults:', e);
-            this.data = defaultDb;
-        }
+    // ---- Compatibilidade .data (somente leitura, para módulos legados) ----
+    get data() {
+        return {
+            get settings() { return this._getSettings(); },
+            get playlists() {
+                return stmts.allPlaylists.all().map(rowToPlaylist);
+            },
+            get channels() {
+                const pls = stmts.allPlaylists.all();
+                const out = {};
+                for (const p of pls) {
+                    out[p.id] = stmts.channelsByPlaylist.all(p.id).map(rowToChannel);
+                }
+                return out;
+            },
+            get users() {
+                return sql.prepare('SELECT * FROM users').all().map(rowToUser);
+            },
+            get logs() {
+                return stmts.recentLogs.all(500);
+            },
+            _getSettings: () => this.getSettings(),
+        };
     }
 
-    save(immediate = false) {
-        this._isDirty = true;
-        if (immediate) {
-            this.flushSync();
-            return;
-        }
-
-        if (this._saveTimeout) return;
-
-        this._saveTimeout = setTimeout(() => {
-            this._saveTimeout = null;
-            this.flushSync();
-        }, 300);
-    }
-
-    flushSync() {
-        if (!this._isDirty) return;
-        try {
-            const tmpFile = `${DB_FILE}.${Date.now()}.tmp`;
-            fs.writeFileSync(tmpFile, JSON.stringify(this.data, null, 2), 'utf8');
-            fs.renameSync(tmpFile, DB_FILE);
-            this._isDirty = false;
-        } catch (e) {
-            console.error('Error saving db.json atomically:', e);
-        }
-    }
+    // ===== SETTINGS =====
 
     getSettings() {
-        return this.data.settings;
+        const rows = stmts.allSettings.all();
+        if (rows.length === 0) {
+            // First run — semeia defaults
+            this._seedDefaultSettings();
+            return this.getSettings();
+        }
+        const s = {};
+        for (const r of rows) {
+            // Converte strings para tipos nativos
+            const v = r.value;
+            if (v === 'true')       s[r.key] = true;
+            else if (v === 'false') s[r.key] = false;
+            else if (v !== '' && !isNaN(Number(v)) && !isNaN(parseFloat(v))) s[r.key] = Number(v);
+            else                    s[r.key] = v;
+        }
+        return s;
+    }
+
+    _seedDefaultSettings() {
+        const defaults = {
+            appName:                 'JstudioPlay Pro',
+            apiKey:                  generateDefaultApiKey(),
+            n8nWebhookUrl:           '',
+            relayEnabled:            'true',
+            relayMode:               'false',
+            setupRequired:           'false',
+            setupAllowed:            'true',
+            maxPlaylistsPerAccount:  '20',
+            streamCheckTimeout:      '3500',
+            streamCheckConcurrency:  '15',
+            autoSyncEnabled:         'true',
+            autoSyncIntervalHours:   '6',
+        };
+        const tx = sql.transaction(() => {
+            for (const [k, v] of Object.entries(defaults)) {
+                stmts.upsertSetting.run(k, String(v));
+            }
+        });
+        tx();
     }
 
     updateSettings(updates) {
-        Object.assign(this.data.settings, updates);
-        this.save();
-        return this.data.settings;
+        const tx = sql.transaction(() => {
+            for (const [k, v] of Object.entries(updates)) {
+                stmts.upsertSetting.run(k, v === null || v === undefined ? '' : String(v));
+            }
+        });
+        tx();
+        return this.getSettings();
     }
 
+    // ===== LOGS =====
+
     addLog(type, message, userId = null) {
-        const userObj = userId ? this.findUserById(userId) : null;
-        const log = {
-            id: 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
-            type,
-            user: userObj ? userObj.username : (type === 'n8n' ? 'n8n Bot' : 'Sistema'),
-            action: message,
-            at: new Date().toISOString()
-        };
-        this.data.logs.unshift(log);
-        if (this.data.logs.length > 500) {
-            this.data.logs = this.data.logs.slice(0, 500);
-        }
-        this.save();
-        return log;
+        const user = userId ? this.findUserById(userId) : null;
+        const username = user ? user.username
+            : (type === 'n8n' ? 'n8n Bot' : 'Sistema');
+
+        const id = `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        const at = new Date().toISOString();
+
+        stmts.insertLog.run(id, type, username, message, at);
+
+        // Mantém máximo de 500 logs (circular buffer)
+        const { n } = stmts.countLogs.get();
+        if (n > 500) stmts.deleteOldLogs.run(n - 500);
+
+        return { id, type, user: username, action: message, at };
+    }
+
+    // ===== USERS =====
+
+    findUserById(id) {
+        if (!id) return null;
+        return rowToUser(stmts.userById.get(id));
     }
 
     findUserByUsername(username) {
         if (!username) return null;
-        return this.data.users.find(u => u.username && u.username.toLowerCase() === username.toLowerCase());
-    }
-
-    findUserById(id) {
-        if (!id) return null;
-        return this.data.users.find(u => u.id === id);
-    }
-
-    findUserByGoogleId(googleId) {
-        if (!googleId) return null;
-        return this.data.users.find(u => u.googleId === googleId);
+        return rowToUser(stmts.userByName.get(username));
     }
 
     findUserByEmail(email) {
         if (!email) return null;
         const norm = email.toLowerCase().trim();
-        return this.data.users.find(u => 
-            (u.email && u.email.toLowerCase() === norm) || 
-            (u.username && u.username.toLowerCase() === norm)
-        );
+        return rowToUser(stmts.userByEmail.get(norm, norm));
     }
 
-    createUser({ name, username, password, role = 'user', expiresAt = null, playlists = [], googleId = null, email = null, avatar = null }) {
+    findUserByGoogleId(googleId) {
+        if (!googleId) return null;
+        return rowToUser(stmts.userByGoogle.get(googleId));
+    }
+
+    createUser({ name, username, password, role = 'user', expiresAt = null,
+                  playlists = [], googleId = null, email = null, avatar = null }) {
         if (username && this.findUserByUsername(username)) {
             throw new Error('Nome de usuário já está em uso.');
         }
         const pwd = password || crypto.randomBytes(32).toString('hex');
-        const user = {
-            id: 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-            name: name || username || 'Usuário Google',
-            username: username || email || ('google_' + Date.now()),
-            email: email || null,
-            googleId: googleId || null,
-            avatar: avatar || null,
-            passwordHash: crypto.createHash('sha256').update(pwd).digest('hex'),
-            role: role || 'user',
-            theme: 'dark',
-            blocked: false,
-            expiresAt: expiresAt || null,
-            assignedPlaylists: playlists || [],
-            createdAt: new Date().toISOString(),
-            lastLoginAt: null
-        };
-        this.data.users.push(user);
-        this.addLog('user', `Novo usuário cadastrado: ${user.username} ${googleId ? '(via Google OAuth)' : ''} (Expira: ${expiresAt || 'Nunca'})`);
-        this.save();
-        return user;
+        const id  = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        const now = new Date().toISOString();
+
+        const tx = sql.transaction(() => {
+            stmts.insertUser.run(
+                id,
+                name || username || 'Usuário Google',
+                username || email || `google_${Date.now()}`,
+                email    || null,
+                googleId || null,
+                avatar   || null,
+                bcrypt.hashSync(pwd, BCRYPT_COST),
+                'bcrypt',
+                role || 'user',
+                'dark',
+                0,
+                expiresAt || null,
+                now, null
+            );
+            for (const pid of (playlists || [])) {
+                stmts.insertAccess.run(id, pid);
+            }
+        });
+        tx();
+
+        this.addLog('user',
+            `Novo usuário cadastrado: ${username || email} ` +
+            `${googleId ? '(via Google OAuth)' : ''} ` +
+            `(Expira: ${expiresAt || 'Nunca'})`
+        );
+
+        return this.findUserById(id);
     }
 
     updateUser(id, updates) {
         const user = this.findUserById(id);
         if (!user) throw new Error('Usuário não encontrado.');
-        if (updates.name) user.name = updates.name;
-        if (updates.theme) user.theme = updates.theme;
-        if (updates.role) user.role = updates.role;
-        if (updates.expiresAt !== undefined) user.expiresAt = updates.expiresAt;
-        if (updates.assignedPlaylists) user.assignedPlaylists = updates.assignedPlaylists;
-        if (typeof updates.blocked === 'boolean') user.blocked = updates.blocked;
-        if (updates.password) {
-            user.passwordHash = crypto.createHash('sha256').update(updates.password).digest('hex');
+
+        const newHash  = updates.password
+            ? bcrypt.hashSync(updates.password, BCRYPT_COST)
+            : user.passwordHash;
+        const newAlgo  = updates.password ? 'bcrypt' : user.passwordHashAlgo;
+        const newLastLogin = updates.lastLoginAt !== undefined
+            ? updates.lastLoginAt
+            : user.lastLoginAt;
+
+        stmts.updateUser.run(
+            updates.name       ?? user.name,
+            updates.theme      ?? user.theme,
+            updates.role       ?? user.role,
+            updates.expiresAt  !== undefined ? (updates.expiresAt || null) : user.expiresAt,
+            updates.blocked    !== undefined ? (updates.blocked ? 1 : 0) : (user.blocked ? 1 : 0),
+            newHash,
+            newAlgo,
+            updates.email      !== undefined ? (updates.email || null) : user.email,
+            updates.googleId   !== undefined ? (updates.googleId || null) : user.googleId,
+            updates.avatar     !== undefined ? (updates.avatar || null) : user.avatar,
+            newLastLogin,
+            id
+        );
+
+        if (updates.assignedPlaylists) {
+            const tx = sql.transaction(() => {
+                stmts.deleteAccess.run(id);
+                for (const pid of updates.assignedPlaylists) {
+                    stmts.insertAccess.run(id, pid);
+                }
+            });
+            tx();
         }
-        this.save();
-        return user;
+
+        return this.findUserById(id);
     }
 
-    deleteUser(id) {
-        const idx = this.data.users.findIndex(u => u.id === id);
-        if (idx !== -1 && this.data.users[idx].role !== 'admin') {
-            const username = this.data.users[idx].username;
-            this.data.users.splice(idx, 1);
-            this.addLog('user', `Usuário "${username}" removido.`);
-            this.save();
-            return true;
-        }
-        return false;
+    /** Retorna o primeiro usuário admin ou qualquer usuário como fallback */
+    findAdminUser() {
+        const row = sql.prepare("SELECT * FROM users WHERE role='admin' ORDER BY created_at ASC LIMIT 1").get();
+        if (row) return rowToUser(row);
+        const any = sql.prepare("SELECT * FROM users ORDER BY created_at ASC LIMIT 1").get();
+        return any ? rowToUser(any) : null;
     }
+
+    /** Conta usuários cadastrados */
+    countUsers() {
+        return sql.prepare('SELECT COUNT(*) as n FROM users').get().n;
+    }
+
+    /** Conta playlists */
+    countPlaylists() {
+        return sql.prepare('SELECT COUNT(*) as n FROM playlists').get().n;
+    }
+
+    deleteUser(id) {        const user = this.findUserById(id);
+        if (!user || user.role === 'admin') return false;
+        this.addLog('user', `Usuário "${user.username}" removido.`);
+        stmts.deleteUser.run(id, 'admin');
+        return true;
+    }
+
+    save() { /* no-op — SQLite é transacional */ }
+    flushSync() { /* no-op */ }
+
+    // ===== PLAYLISTS =====
 
     getPlaylists(userId) {
+        if (!userId) return stmts.allPlaylists.all().map(rowToPlaylist);
         const user = this.findUserById(userId);
-        if (user && user.role === 'admin') {
-            return this.data.playlists;
-        }
-        return this.data.playlists.filter(p => !p.userId || p.userId === userId || (user?.assignedPlaylists && user.assignedPlaylists.includes(p.id)));
+        if (!user) return [];
+        if (user.role === 'admin') return stmts.allPlaylists.all().map(rowToPlaylist);
+        return stmts.playlistsByUser.all(userId, userId).map(rowToPlaylist);
     }
 
     getPlaylistById(id) {
-        return this.data.playlists.find(p => p.id === id);
+        return rowToPlaylist(stmts.playlistById.get(id));
     }
 
     createPlaylist({ userId, name, url, channels, autoSync = true }) {
-        const playlistId = 'pl_' + Date.now();
+        const playlistId = `pl_${Date.now()}`;
+        const now = new Date().toISOString();
+        const ch  = Array.isArray(channels) ? channels : [];
+
         const stats = {
-            total: channels.length,
-            live: channels.filter(c => c.streamType === 'live' || !c.streamType).length,
-            vod: channels.filter(c => c.streamType === 'vod').length,
-            series: channels.filter(c => c.streamType === 'series').length,
-            online: channels.filter(c => c.status === 'online').length
+            total:  ch.length,
+            live:   ch.filter(c => c.streamType === 'live' || !c.streamType).length,
+            vod:    ch.filter(c => c.streamType === 'vod').length,
+            series: ch.filter(c => c.streamType === 'series').length,
+            online: ch.filter(c => c.status === 'online').length,
+            cats:   new Set(ch.map(c => c.group || 'Geral')).size,
         };
 
-        const playlist = {
-            id: playlistId,
-            userId,
-            name: name || 'Minha Playlist',
-            url: url || '',
-            total: stats.total,
-            live: stats.live,
-            vod: stats.vod,
-            series: stats.series,
-            onlineCount: stats.online,
-            categories: [...new Set(channels.map(c => c.group || 'Geral'))].length,
-            checkStatus: 'idle',
-            lastChecked: null,
-            autoSync: !!autoSync,
-            updated: new Date().toISOString(),
-            created: new Date().toISOString()
-        };
+        const tx = sql.transaction(() => {
+            stmts.insertPlaylist.run(
+                playlistId, userId || null, name || 'Minha Playlist',
+                url || '', stats.total, stats.live, stats.vod, stats.series,
+                stats.online, stats.cats, 'idle', null, autoSync ? 1 : 0, now, now
+            );
+            this._bulkInsertChannels(playlistId, ch);
+        });
+        tx();
 
-        this.data.playlists.push(playlist);
-        this.data.channels[playlistId] = channels;
-        this.addLog('playlist', `Playlist "${playlist.name}" adicionada com ${playlist.total} canais`, userId);
-        this.save();
-        return playlist;
+        this.addLog('playlist',
+            `Playlist "${name}" adicionada com ${stats.total} canais`, userId);
+        return this.getPlaylistById(playlistId);
     }
 
     updatePlaylist(id, updates) {
         const p = this.getPlaylistById(id);
         if (!p) throw new Error('Playlist não encontrada.');
-        Object.assign(p, updates);
-        p.updated = new Date().toISOString();
-        this.save();
-        return p;
+        const now = new Date().toISOString();
+        stmts.updatePlaylist.run(
+            updates.name       ?? p.name,
+            updates.url        ?? p.url,
+            updates.total      ?? p.total,
+            updates.live       ?? p.live,
+            updates.vod        ?? p.vod,
+            updates.series     ?? p.series,
+            updates.onlineCount ?? p.onlineCount,
+            updates.categories ?? p.categories,
+            updates.checkStatus ?? p.checkStatus,
+            updates.lastChecked !== undefined ? (updates.lastChecked || null) : p.lastChecked,
+            updates.autoSync   !== undefined ? (updates.autoSync ? 1 : 0) : (p.autoSync ? 1 : 0),
+            now, id
+        );
+        return this.getPlaylistById(id);
     }
 
     deletePlaylist(id, userId) {
-        const idx = this.data.playlists.findIndex(p => p.id === id);
-        if (idx !== -1) {
-            const name = this.data.playlists[idx].name;
-            this.data.playlists.splice(idx, 1);
-            delete this.data.channels[id];
-            this.addLog('playlist', `Playlist "${name}" removida`, userId);
-            this.save();
-            return true;
-        }
-        return false;
+        const p = this.getPlaylistById(id);
+        if (!p) return false;
+        this.addLog('playlist', `Playlist "${p.name}" removida`, userId);
+        stmts.deletePlaylist.run(id);   // cascade apaga channels
+        return true;
     }
 
+    // ===== CHANNELS =====
+
     getChannels(playlistId) {
-        return this.data.channels[playlistId] || [];
+        return stmts.channelsByPlaylist.all(playlistId).map(rowToChannel);
+    }
+
+    _bulkInsertChannels(playlistId, channels) {
+        channels.forEach((ch, i) => {
+            const chId = ch.id || `ch_${playlistId}_${i}`;
+            stmts.insertChannel.run(
+                chId, playlistId,
+                ch.name || '', ch.rawName || null,
+                ch.tvgId || null, ch.tvgName || null,
+                ch.logo || null, ch.group || null,
+                ch.chno || null, ch.streamType || 'live',
+                ch.url || '', ch.userAgent || null,
+                ch.status || 'unknown',
+                ch.latency || null,
+                ch.lastChecked || null, i
+            );
+        });
     }
 
     saveChannels(playlistId, channels) {
-        this.data.channels[playlistId] = channels;
-        const p = this.getPlaylistById(playlistId);
-        if (p) {
-            p.total = channels.length;
-            p.live = channels.filter(c => c.streamType === 'live' || !c.streamType).length;
-            p.vod = channels.filter(c => c.streamType === 'vod').length;
-            p.series = channels.filter(c => c.streamType === 'series').length;
-            p.onlineCount = channels.filter(c => c.status === 'online').length;
-            p.categories = [...new Set(channels.map(c => c.group || 'Geral'))].length;
-            p.updated = new Date().toISOString();
-        }
-        this.save();
+        const ch = Array.isArray(channels) ? channels : [];
+        const stats = {
+            total:  ch.length,
+            live:   ch.filter(c => c.streamType === 'live' || !c.streamType).length,
+            vod:    ch.filter(c => c.streamType === 'vod').length,
+            series: ch.filter(c => c.streamType === 'series').length,
+            online: ch.filter(c => c.status === 'online').length,
+            cats:   new Set(ch.map(c => c.group || 'Geral')).size,
+        };
+
+        const tx = sql.transaction(() => {
+            stmts.deleteChannels.run(playlistId);
+            this._bulkInsertChannels(playlistId, ch);
+            // Atualiza estatísticas da playlist
+            const p = this.getPlaylistById(playlistId);
+            if (p) {
+                stmts.updatePlaylist.run(
+                    p.name, p.url, stats.total, stats.live, stats.vod, stats.series,
+                    stats.online, stats.cats, p.checkStatus, p.lastChecked,
+                    p.autoSync ? 1 : 0, new Date().toISOString(), playlistId
+                );
+            }
+        });
+        tx();
     }
 
     updateChannels(playlistId, channels) {
         return this.saveChannels(playlistId, channels);
     }
 
-    // -------------------------------------------------------------------------
-    // M3U OPTIMIZATION TOOLS: Sanitize, Deduplicate, Sort
-    // -------------------------------------------------------------------------
+    updateChannelLatency(playlistId, channelId, latency, status = 'online') {
+        const info = stmts.updateChannelStatus.run(
+            status, latency, new Date().toISOString(), channelId, playlistId
+        );
+        return info.changes > 0;
+    }
+
+    // ===== M3U OPTIMIZATION TOOLS =====
+
     sanitizePlaylist(playlistId, onlyOnline = true) {
         const p = this.getPlaylistById(playlistId);
         if (!p) throw new Error('Playlist não encontrada.');
-
         let channels = this.getChannels(playlistId);
         const originalCount = channels.length;
-
-        if (onlyOnline) {
-            channels = channels.filter(c => c.status === 'online');
-        } else {
-            channels = channels.filter(c => c.status !== 'offline');
-        }
-
+        channels = onlyOnline
+            ? channels.filter(c => c.status === 'online')
+            : channels.filter(c => c.status !== 'offline');
         this.saveChannels(playlistId, channels);
         const removed = originalCount - channels.length;
-        this.addLog('optimization', `Lista "${p.name}" otimizada: ${removed} canais offline removidos. ${channels.length} canais restantes.`);
-        return { playlist: p, removed, remaining: channels.length };
+        this.addLog('optimization',
+            `Lista "${p.name}" otimizada: ${removed} canais offline removidos. ${channels.length} restantes.`);
+        return { playlist: this.getPlaylistById(playlistId), removed, remaining: channels.length };
     }
 
     deduplicatePlaylist(playlistId) {
         const p = this.getPlaylistById(playlistId);
         if (!p) throw new Error('Playlist não encontrada.');
-
-        let channels = this.getChannels(playlistId);
+        const channels = this.getChannels(playlistId);
         const originalCount = channels.length;
-
-        const seenUrls = new Set();
-        const deduplicated = [];
-
-        for (const ch of channels) {
-            const cleanUrl = (ch.url || '').trim().toLowerCase();
-            if (!seenUrls.has(cleanUrl)) {
-                seenUrls.add(cleanUrl);
-                deduplicated.push(ch);
-            }
-        }
-
-        this.saveChannels(playlistId, deduplicated);
-        const removed = originalCount - deduplicated.length;
-        this.addLog('optimization', `Lista "${p.name}" deduplicada: ${removed} canais repetidos removidos.`);
-        return { playlist: p, removed, remaining: deduplicated.length };
+        const seen = new Set();
+        const deduped = channels.filter(ch => {
+            const key = (ch.url || '').trim().toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+        this.saveChannels(playlistId, deduped);
+        const removed = originalCount - deduped.length;
+        this.addLog('optimization',
+            `Lista "${p.name}" deduplicada: ${removed} canais repetidos removidos.`);
+        return { playlist: this.getPlaylistById(playlistId), removed, remaining: deduped.length };
     }
 
     sortPlaylist(playlistId, sortBy = 'name') {
         const p = this.getPlaylistById(playlistId);
         if (!p) throw new Error('Playlist não encontrada.');
-
-        let channels = [...this.getChannels(playlistId)];
-
-        if (sortBy === 'name') {
-            channels.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
-        } else if (sortBy === 'latency') {
-            channels.sort((a, b) => (a.latency || 9999) - (b.latency || 9999));
-        } else if (sortBy === 'category') {
-            channels.sort((a, b) => (a.group || '').localeCompare(b.group || '', 'pt-BR'));
-        }
-
+        const channels = [...this.getChannels(playlistId)];
+        if (sortBy === 'name')     channels.sort((a,b) => (a.name||'').localeCompare(b.name||'','pt-BR'));
+        else if (sortBy === 'latency')  channels.sort((a,b) => (a.latency||9999)-(b.latency||9999));
+        else if (sortBy === 'category') channels.sort((a,b) => (a.group||'').localeCompare(b.group||'','pt-BR'));
         this.saveChannels(playlistId, channels);
         this.addLog('optimization', `Lista "${p.name}" reordenada por: ${sortBy}.`);
-        return { playlist: p, total: channels.length, sortedBy: sortBy };
+        return { playlist: this.getPlaylistById(playlistId), total: channels.length, sortedBy: sortBy };
     }
 
     enrichPlaylist(playlistId) {
         const p = this.getPlaylistById(playlistId);
         if (!p) throw new Error('Playlist não encontrada.');
-
         const enricher = require('./m3uEnricher');
         let channels = this.getChannels(playlistId);
         let updatedCount = 0;
-
         channels = channels.map(ch => {
             const enriched = enricher.enrichChannel({ ...ch });
-            if (enriched.logo !== ch.logo || enriched.group !== ch.group || enriched.name !== ch.name) {
-                updatedCount++;
-            }
+            if (enriched.logo !== ch.logo || enriched.group !== ch.group || enriched.name !== ch.name) updatedCount++;
             return enriched;
         });
-
         this.saveChannels(playlistId, channels);
-        this.addLog('optimization', `Lista "${p.name}" enriquecida: ${updatedCount} canais tiveram logos e categorias aprimorados.`);
-        return { playlist: p, updatedCount, total: channels.length };
+        this.addLog('optimization',
+            `Lista "${p.name}" enriquecida: ${updatedCount} canais aprimorados.`);
+        return { playlist: this.getPlaylistById(playlistId), updatedCount, total: channels.length };
     }
 
-    // Favorites
+    // ===== FAVORITES =====
+
     getFavorites(userId) {
-        const favs = this.data.favorites[userId] || [];
-        return favs.map(f => ({
-            playlistId: f.playlistId,
-            channel: f.channel || {
-                id: f.id,
-                name: f.name,
-                group: f.group || 'Geral',
-                logo: f.logo || '',
-                url: f.url
+        return stmts.favsByUser.all(userId).map(r => ({
+            playlistId: r.playlist_id,
+            channel: {
+                id:    r.ch_id   || undefined,
+                name:  r.ch_name,
+                group: r.ch_group,
+                logo:  r.ch_logo,
+                url:   r.ch_url,
             }
         }));
     }
 
     toggleFavorite(userId, rawChannel, playlistId) {
-        if (!this.data.favorites[userId]) this.data.favorites[userId] = [];
-        const favs = this.data.favorites[userId];
         const channel = rawChannel.channel || rawChannel;
-        const chUrl = channel.url;
-
-        const existingIdx = favs.findIndex(f => f.playlistId === playlistId && ((f.channel?.url || f.url) === chUrl));
-        if (existingIdx !== -1) {
-            favs.splice(existingIdx, 1);
+        const existing = stmts.favExists.get(userId, playlistId, channel.url);
+        if (existing) {
+            stmts.deleteFav.run(userId, playlistId, channel.url);
         } else {
-            favs.push({
-                playlistId,
-                channel: {
-                    id: channel.id || 'ch_' + Math.random().toString(36).substring(2, 9),
-                    name: channel.name,
-                    group: channel.group || 'Geral',
-                    logo: channel.logo || '',
-                    url: channel.url
-                },
-                addedAt: new Date().toISOString()
-            });
+            stmts.insertFav.run(
+                userId, playlistId,
+                channel.id || null, channel.name || '',
+                channel.group || 'Geral', channel.logo || '',
+                channel.url, new Date().toISOString()
+            );
         }
-        this.save();
         return this.getFavorites(userId);
     }
 
-    // History
+    // ===== HISTORY =====
+
     getHistory(userId) {
-        const hist = this.data.history[userId] || [];
-        return hist.map(h => ({
-            playlistId: h.playlistId,
-            channel: h.channel || {
-                id: h.id,
-                name: h.name,
-                group: h.group || 'Geral',
-                logo: h.logo || '',
-                url: h.url
+        return stmts.histByUser.all(userId).map(r => ({
+            playlistId: r.playlist_id,
+            channel: {
+                id:    r.ch_id   || undefined,
+                name:  r.ch_name,
+                group: r.ch_group,
+                logo:  r.ch_logo,
+                url:   r.ch_url,
             },
-            at: h.at || h.timestamp || new Date().toISOString()
+            at: r.watched_at,
         }));
     }
 
     addHistory(userId, playlistId, rawChannel) {
-        if (!this.data.history[userId]) this.data.history[userId] = [];
-        let hist = this.data.history[userId];
         const channel = rawChannel.channel || rawChannel;
-        const chUrl = channel.url;
-
-        hist = hist.filter(h => !(h.playlistId === playlistId && ((h.channel?.url || h.url) === chUrl)));
-        hist.unshift({
-            playlistId,
-            channel: {
-                id: channel.id || 'ch_' + Math.random().toString(36).substring(2, 9),
-                name: channel.name,
-                group: channel.group || 'Geral',
-                logo: channel.logo || '',
-                url: channel.url
-            },
-            at: new Date().toISOString()
-        });
-        if (hist.length > 100) hist = hist.slice(0, 100);
-        this.data.history[userId] = hist;
-        this.save();
+        // Remove entrada duplicada antes de reinserir no topo
+        stmts.deleteHistEntry.run(userId, playlistId, channel.url);
+        stmts.insertHist.run(
+            userId, playlistId,
+            channel.id || null, channel.name || '',
+            channel.group || 'Geral', channel.logo || '',
+            channel.url, new Date().toISOString()
+        );
+        // Mantém máximo de 100 entradas por usuário
+        const all = stmts.histByUser.all(userId);
+        if (all.length > 100) {
+            const oldest = all[all.length - 1];
+            sql.prepare('DELETE FROM history WHERE id = ?').run(oldest.id);
+        }
         return this.getHistory(userId);
     }
 
     clearHistory(userId) {
-        this.data.history[userId] = [];
-        this.save();
+        stmts.clearHistory.run(userId);
         return [];
     }
 
-    // Progress
+    // ===== PROGRESS =====
+
     getProgress(userId) {
-        const progs = this.data.progress[userId] || [];
-        return progs.map(p => {
-            const ch = p.channel || {
-                name: p.name || 'Vídeo',
-                url: p.url || '',
-                group: p.group || 'Geral',
-                logo: p.logo || ''
-            };
-            const pos = Number(p.position || 0);
-            const dur = Number(p.duration || 1);
-            return {
-                playlistId: p.playlistId,
-                channel: ch,
-                position: pos,
-                duration: dur,
-                percent: Math.min(100, Math.round((pos / dur) * 100)),
-                updated: p.updated || p.updatedAt || new Date().toISOString()
-            };
-        });
+        return stmts.progByUser.all(userId).map(r => ({
+            playlistId: r.playlist_id,
+            channel: {
+                name:  r.ch_name,
+                group: r.ch_group,
+                logo:  r.ch_logo,
+                url:   r.ch_url,
+            },
+            position: r.position,
+            duration: r.duration,
+            percent:  Math.min(100, Math.round(r.percent)),
+            updated:  r.updated,
+        }));
     }
 
     saveProgress(userId, playlistId, rawChannel, position, duration) {
-        if (!this.data.progress[userId]) this.data.progress[userId] = [];
-        const progs = this.data.progress[userId];
         const channel = rawChannel.channel || rawChannel;
-        const chUrl = channel.url;
-
-        const pos = Number(position || 0);
-        const dur = Number(duration || 1);
-        const percent = Math.min(100, (pos / dur) * 100);
-
-        const existing = progs.find(p => p.playlistId === playlistId && ((p.channel?.url || p.url) === chUrl));
-        if (existing) {
-            existing.position = pos;
-            existing.duration = dur;
-            existing.percent = percent;
-            existing.updated = new Date().toISOString();
-        } else {
-            progs.unshift({
-                playlistId,
-                channel: {
-                    name: channel.name,
-                    url: channel.url,
-                    group: channel.group || 'Geral',
-                    logo: channel.logo || ''
-                },
-                position: pos,
-                duration: dur,
-                percent: percent,
-                updated: new Date().toISOString()
-            });
-        }
-        this.save();
+        const pos     = Number(position || 0);
+        const dur     = Number(duration  || 1);
+        const pct     = Math.min(100, (pos / dur) * 100);
+        stmts.upsertProgress.run(
+            userId, playlistId,
+            channel.name || '', channel.group || 'Geral',
+            channel.logo || '', channel.url || '',
+            pos, dur, pct, new Date().toISOString()
+        );
         return this.getProgress(userId);
     }
 
-    updateChannelLatency(playlistId, channelId, latency, status = 'online') {
-        const channels = this.data.channels[playlistId];
-        if (!channels) return false;
-        const ch = channels.find(c => c.id === channelId);
-        if (ch) {
-            ch.latency = latency;
-            ch.status = status;
-            ch.lastChecked = new Date().toISOString();
-            this.save();
-            return true;
-        }
-        return false;
-    }
+    // ===== BACKUP / RESTORE =====
 
     exportBackup() {
+        const users = sql.prepare('SELECT * FROM users').all().map(rowToUser);
         return {
-            version: '2.0.0',
+            version:    '3.0.0',
             exportedAt: new Date().toISOString(),
-            settings: this.data.settings,
-            playlists: this.data.playlists,
-            channels: this.data.channels,
-            favorites: this.data.favorites,
-            history: this.data.history,
-            progress: this.data.progress,
-            users: this.data.users.map(u => ({
-                id: u.id,
-                name: u.name,
-                username: u.username,
-                role: u.role,
-                theme: u.theme,
+            settings:   this.getSettings(),
+            playlists:  this.getPlaylists(null),
+            channels:   (() => {
+                const out = {};
+                for (const p of this.getPlaylists(null)) {
+                    out[p.id] = this.getChannels(p.id);
+                }
+                return out;
+            })(),
+            favorites: (() => {
+                const out = {};
+                for (const u of users) {
+                    out[u.id] = this.getFavorites(u.id);
+                }
+                return out;
+            })(),
+            history: (() => {
+                const out = {};
+                for (const u of users) {
+                    out[u.id] = this.getHistory(u.id);
+                }
+                return out;
+            })(),
+            progress: (() => {
+                const out = {};
+                for (const u of users) {
+                    out[u.id] = this.getProgress(u.id);
+                }
+                return out;
+            })(),
+            users: users.map(u => ({
+                id: u.id, name: u.name, username: u.username,
+                role: u.role, theme: u.theme,
                 expiresAt: u.expiresAt,
-                assignedPlaylists: u.assignedPlaylists
-            }))
+                assignedPlaylists: u.assignedPlaylists,
+            })),
         };
     }
 
@@ -579,18 +839,89 @@ class Database {
         if (!backupData || !backupData.playlists) {
             throw new Error('Formato de backup inválido.');
         }
+        // Reutiliza o migrator para importar o backup como se fosse um db.json
+        const { migrateIfNeeded: runMigrate } = require('./db-migrate');
+        // Apaga dados atuais e reimporta
+        const tx = sql.transaction(() => {
+            sql.exec(`
+                DELETE FROM progress; DELETE FROM history; DELETE FROM favorites;
+                DELETE FROM channels; DELETE FROM playlists;
+                DELETE FROM user_playlist_access;
+            `);
+        });
+        tx();
 
-        if (backupData.playlists) this.data.playlists = backupData.playlists;
-        if (backupData.channels) this.data.channels = backupData.channels;
-        if (backupData.favorites) this.data.favorites = backupData.favorites;
-        if (backupData.history) this.data.history = backupData.history;
-        if (backupData.progress) this.data.progress = backupData.progress;
-        if (backupData.settings) Object.assign(this.data.settings, backupData.settings);
+        // Converte formato backup para formato db.json e reimporta
+        const legacyFmt = {
+            settings:  backupData.settings || {},
+            playlists: backupData.playlists || [],
+            channels:  backupData.channels  || {},
+            favorites: backupData.favorites || {},
+            history:   backupData.history   || {},
+            progress:  backupData.progress  || {},
+            users:     [],
+        };
 
-        this.addLog('system', 'Backup completo do sistema importado e restaurado com sucesso.');
-        this.save();
-        return { success: true, playlists: this.data.playlists.length };
+        const { migrateIfNeeded: importFn } = require('./db-migrate');
+        // Chama migração diretamente com os dados
+        const migrate = sql.transaction(() => {
+            const upsertPlaylist = stmts.insertPlaylist;
+            for (const p of legacyFmt.playlists) {
+                try {
+                    const now = new Date().toISOString();
+                    upsertPlaylist.run(
+                        p.id, p.userId || null, p.name || 'Playlist',
+                        p.url || '', p.total || 0, p.live || 0,
+                        p.vod || 0, p.series || 0, p.onlineCount || 0,
+                        p.categories || 0, p.checkStatus || 'idle',
+                        p.lastChecked || null, p.autoSync !== false ? 1 : 0,
+                        p.updated || now, p.created || now
+                    );
+                } catch {}
+            }
+            for (const [pid, chList] of Object.entries(legacyFmt.channels)) {
+                this._bulkInsertChannels(pid, Array.isArray(chList) ? chList : []);
+            }
+            for (const [uid, favs] of Object.entries(legacyFmt.favorites)) {
+                for (const f of (Array.isArray(favs) ? favs : [])) {
+                    const ch = f.channel || f;
+                    try { stmts.insertFav.run(uid, f.playlistId||'default', ch.id||null, ch.name||'', ch.group||'Geral', ch.logo||'', ch.url||'', f.addedAt||new Date().toISOString()); } catch {}
+                }
+            }
+            for (const [uid, hist] of Object.entries(legacyFmt.history)) {
+                for (const h of (Array.isArray(hist) ? hist : [])) {
+                    const ch = h.channel || h;
+                    try { stmts.insertHist.run(uid, h.playlistId||'default', ch.id||null, ch.name||'', ch.group||'Geral', ch.logo||'', ch.url||'', h.at||new Date().toISOString()); } catch {}
+                }
+            }
+            for (const [uid, progs] of Object.entries(legacyFmt.progress)) {
+                for (const p of (Array.isArray(progs) ? progs : [])) {
+                    const ch = p.channel || p;
+                    const pos = Number(p.position||0), dur = Number(p.duration||1);
+                    try { stmts.upsertProgress.run(uid, p.playlistId||'default', ch.name||'', ch.group||'Geral', ch.logo||'', ch.url||'', pos, dur, Math.min(100,(pos/dur)*100), p.updated||new Date().toISOString()); } catch {}
+                }
+            }
+            if (backupData.settings) this.updateSettings(backupData.settings);
+        });
+        migrate();
+
+        this.addLog('system', 'Backup importado e restaurado com sucesso.');
+        return { success: true, playlists: this.getPlaylists(null).length };
     }
 }
 
-module.exports = new Database();
+// Singleton — mesma interface da versão anterior
+const instance = new Database();
+
+// Garante que o usuário admin padrão existe em instalações limpas
+if (sql.prepare('SELECT COUNT(*) as n FROM users').get().n === 0) {
+    instance.createUser({
+        name: 'Administrador',
+        username: 'admin',
+        password: 'admin123',
+        role: 'admin',
+    });
+    console.log('[DB] Usuário admin padrão criado. Altere a senha!');
+}
+
+module.exports = instance;

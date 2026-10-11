@@ -25,7 +25,7 @@ class CronManager {
         this.isSyncing = true;
 
         try {
-            const playlists = db.data.playlists.filter(p => p.url && p.autoSync !== false);
+            const playlists = db.getPlaylists(null).filter(p => p.url && p.autoSync !== false);
             console.log(`[Cron] Sincronizando ${playlists.length} playlists remotas...`);
 
             for (const p of playlists) {

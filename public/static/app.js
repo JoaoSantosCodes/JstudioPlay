@@ -149,8 +149,8 @@ function toggleSidebar(){
 }
 matchMedia('(max-width:760px)').addEventListener('change',()=>setMenu(false));
 function empty(title,text,button='',symbol='playlist'){return `<div class="empty"><div class="empty-icon">${icon(symbol)}</div><h3>${esc(title)}</h3><p>${esc(text)}</p>${button}</div>`;}
-const maxPlaylistsPerAccount=2;
-function addButton(){return state.playlists.length>=maxPlaylistsPerAccount?'<small>Limite de 2 playlists atingido</small>':`<button class="btn small" data-action="add-playlist">${icon('plus')}Adicionar playlist</button>`;}
+const maxPlaylistsPerAccount=50;
+function addButton(){return state.playlists.length>=maxPlaylistsPerAccount?'<small>Limite de playlists atingido</small>':`<button class="btn small" data-action="add-playlist">${icon('plus')}Adicionar playlist</button>`;}
 function heading(title,subtitle,extra=''){return `<div class="page-heading"><div><h1>${title}</h1><p>${subtitle}</p></div>${extra}</div>`;}
 function initials(name){return String(name||'U').split(/\s+/).slice(0,2).map(v=>v[0]||'').join('').toUpperCase();}
 function dateTime(value){return !value||String(value).startsWith('0001')?'Ainda não acessou':new Date(value).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});}
@@ -259,29 +259,15 @@ function loginPage(){
         </div>
       </div>
 
-      <!-- Coluna Direita: Card de Login -->
+      <!-- Coluna Direita: Card de Login JstudioPlay -->
       <div class="iptv-login-card">
         <div class="iptv-card-header">
           <h2>Login</h2>
-          <p>${setup?'Configure o administrador da plataforma.':'Digite os dados da sua conta Xtream Codes API'}</p>
-        </div>
-
-        <div class="iptv-auth-tabs">
-          <button type="button" class="iptv-auth-tab active" data-action="iptv-tab" data-tab="xtream">Xtream Codes API</button>
-          <button type="button" class="iptv-auth-tab" data-action="iptv-tab" data-tab="m3u">M3U URL</button>
+          <p>${setup?'Configure o administrador da plataforma.':'Acesse sua conta JstudioPlay para assistir.'}</p>
         </div>
 
         ${allowed?`
         <form id="login-form" class="iptv-field-group">
-          <!-- Campo Server URL (Xtream) -->
-          <div class="iptv-input-wrap" id="wrap-server-url">
-            <span class="iptv-input-icon">${icon('globe')}</span>
-            <div class="iptv-input-inner">
-              <label for="server-url">Server URL</label>
-              <input id="server-url" name="serverUrl" placeholder="Ex: http://seu-servidor.com:8080" autocomplete="url" spellcheck="false">
-            </div>
-          </div>
-
           <!-- Campo Username -->
           <div class="iptv-input-wrap">
             <span class="iptv-input-icon">${icon('user')}</span>
@@ -1478,7 +1464,44 @@ const barName=document.getElementById('now-bar-name');const barMeta=document.get
 async function toggleFavorite(ch,id=state.activePlaylist){state.favorites=await api('/favorites','PUT',{playlistId:id,channel:ch})||[];if(state.page==='player'){renderChannels();updateNowFavorite();}else if(state.page==='favorites')$('#content').innerHTML=savedPage('favorites');}
 
 function openModal(title,content){const modal=$('#modal');modal.innerHTML=`<div class="dialog-heading"><h2 id="modal-title">${title}</h2><button class="icon-btn" data-action="close-modal" aria-label="Fechar">${icon('close')}</button></div>${content}`;if(!modal.open)modal.showModal();}
-function playlistModal(){openModal('Adicionar playlist',`<form id="playlist-form" class="stack"><div><label for="playlist-name">Nome da playlist</label><input id="playlist-name" name="name" placeholder="Ex.: Minha Playlist" maxlength="80" required autofocus></div><div class="input-tabs"><button type="button" data-action="source-tab" data-source="url" class="active">${icon('globe')} Por URL</button><button type="button" data-action="source-tab" data-source="file">${icon('playlist')} Arquivo M3U</button></div><div id="url-field"><label for="playlist-url">URL da playlist M3U</label><input id="playlist-url" name="url" type="url" placeholder="https://…" required autocomplete="off" spellcheck="false"></div><div id="file-field" hidden><label for="playlist-file">Arquivo da playlist</label><input id="playlist-file" name="file" type="file" accept=".m3u,.m3u8,audio/x-mpegurl,application/vnd.apple.mpegurl" class="file-input" disabled><p class="help-text">M3U ou M3U8 · até 100 MiB</p></div><div class="info">${icon('info')}Você deve possuir autorização para utilizar a playlist informada.</div><label class="check"><input name="organize" type="checkbox" checked>Organizar categorias automaticamente</label><div class="form-error" role="alert"></div><div class="dialog-actions"><button type="button" class="btn secondary" data-action="close-modal">Cancelar</button><button type="submit" class="btn">Adicionar</button></div></form>`);}
+function playlistModal(){openModal('Adicionar playlist',`
+  <div class="iptv-auth-tabs" style="margin-bottom:1.25rem;">
+    <button type="button" class="iptv-auth-tab active" data-action="playlist-tab" data-tab="m3u">${icon('playlist')} Lista M3U / Arquivo</button>
+    <button type="button" class="iptv-auth-tab" data-action="playlist-tab" data-tab="xtream">${icon('tv')} Servidor Xtream Codes (IPTV Pago)</button>
+  </div>
+
+  <div id="wrap-form-m3u">
+    <form id="playlist-form" class="stack">
+      <div><label for="playlist-name">Nome da playlist</label><input id="playlist-name" name="name" placeholder="Ex.: Minha Playlist" maxlength="80" required autofocus></div>
+      <div class="input-tabs"><button type="button" data-action="source-tab" data-source="url" class="active">${icon('globe')} Por URL</button><button type="button" data-action="source-tab" data-source="file">${icon('playlist')} Arquivo M3U</button></div>
+      <div id="url-field"><label for="playlist-url">URL da playlist M3U</label><input id="playlist-url" name="url" type="url" placeholder="https://…" required autocomplete="off" spellcheck="false"></div>
+      <div id="file-field" hidden><label for="playlist-file">Arquivo da playlist</label><input id="playlist-file" name="file" type="file" accept=".m3u,.m3u8,audio/x-mpegurl,application/vnd.apple.mpegurl" class="file-input" disabled><p class="help-text">M3U ou M3U8 · até 100 MiB</p></div>
+      <div class="info">${icon('shield')} Seus links são salvos de forma privada na sua conta.</div>
+      <label class="check"><input name="organize" type="checkbox" checked>Organizar categorias automaticamente</label>
+      <div class="form-error" role="alert"></div>
+      <div class="dialog-actions"><button type="button" class="btn secondary" data-action="close-modal">Cancelar</button><button type="submit" class="btn">Adicionar</button></div>
+    </form>
+  </div>
+
+  <div id="wrap-form-xtream" style="display:none;">
+    <form id="xtream-playlist-form" class="stack">
+      <div><label for="xtream-name">Nome da Conexão</label><input id="xtream-name" name="name" placeholder="Ex.: Meu IPTV Pago" maxlength="80" required></div>
+      <div><label for="xtream-server">Server URL (Endereço do Provedor)</label><input id="xtream-server" name="serverUrl" placeholder="Ex.: http://servidor.xyz:8080" autocomplete="url" spellcheck="false" required></div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+        <div><label for="xtream-username">Usuário</label><input id="xtream-username" name="username" placeholder="Seu usuário" required autocomplete="username"></div>
+        <div><label for="xtream-password">Senha</label><input id="xtream-password" name="password" type="password" placeholder="Sua senha" required autocomplete="current-password"></div>
+      </div>
+      <div id="xtream-test-result" style="display:none; padding:0.75rem 1rem; border-radius:8px; font-size:0.88rem;"></div>
+      <div class="info">${icon('tv')} Compatível com servidores Xtream Codes, Smarters e TiviMate. Canais ao vivo, filmes e séries serão categorizados automaticamente.</div>
+      <div class="form-error" role="alert"></div>
+      <div class="dialog-actions">
+        <button type="button" class="btn secondary" data-action="close-modal">Cancelar</button>
+        <button type="button" class="btn secondary" data-action="test-xtream">${icon('refresh')} Testar Conexão</button>
+        <button type="submit" class="btn">${icon('right')} Conectar e Importar</button>
+      </div>
+    </form>
+  </div>
+`);}
 function userModal(){openModal('Novo usuário',`<form id="user-form" class="stack"><div><label for="new-user-name">Nome</label><input name="name" id="new-user-name" required maxlength="80" autofocus autocomplete="off"></div><div><label for="new-user-username">Usuário</label><input name="username" id="new-user-username" required minlength="3" maxlength="40" pattern="[a-zA-Z0-9_.\\x2d]+" autocomplete="off"><p class="help-text">Letras, números, ponto, hífen ou sublinhado.</p></div><div><label for="new-user-password">Senha inicial</label><input id="new-user-password" name="password" type="password" minlength="10" maxlength="256" required autocomplete="new-password"><p class="help-text">Mínimo de 10 caracteres. O cliente poderá alterá-la em Configurações.</p></div>${state.user.role==='admin'?'<div><label for="new-user-role">Perfil</label><select name="role" id="new-user-role"><option value="client">Usuário do player</option><option value="manager">Gestor (até 10 usuários)</option></select></div>':''}<div class="form-error" role="alert"></div><div class="dialog-actions"><button type="button" class="btn secondary" data-action="close-modal">Cancelar</button><button type="submit" class="btn">Criar usuário</button></div></form>`);}
 function userOptions(id){const u=state.users.find(v=>v.user.id===id)?.user;if(!u)return;openModal(`Gerenciar ${esc(u.username)}`,`<div class="stack"><p>${u.blocked?'A conta está bloqueada. Reative para permitir novos acessos.':'Ao bloquear a conta, as sessões do cliente serão encerradas.'}</p><button class="btn ${u.blocked?'':'danger'}" data-action="block-user" data-id="${id}">${u.blocked?'Reativar conta':'Bloquear conta'}</button><div class="divider"></div><form id="reset-form" class="stack" data-id="${id}"><div><label for="reset-password">Redefinir senha</label><input id="reset-password" name="password" type="password" minlength="10" maxlength="256" placeholder="Nova senha (mínimo de 10 caracteres)" autocomplete="new-password" required></div><div class="form-error" role="alert"></div><button class="btn secondary" type="submit">Salvar nova senha</button></form></div>`);}
 
@@ -1593,7 +1616,45 @@ document.addEventListener('click',async event=>{
       navigate('login');
       return;
     }
-    if(action==='add-playlist'){if(state.playlists.length>=maxPlaylistsPerAccount){toast('Limite de 2 playlists por conta.',true);return;}playlistModal();return;}
+    if(action==='playlist-tab'){
+      const isM3U=b.dataset.tab==='m3u';
+      document.querySelectorAll('[data-action="playlist-tab"]').forEach(tab=>tab.classList.toggle('active',tab===b));
+      const wrapM3u=$('#wrap-form-m3u'),wrapXtream=$('#wrap-form-xtream');
+      if(wrapM3u)wrapM3u.style.display=isM3U?'block':'none';
+      if(wrapXtream)wrapXtream.style.display=isM3U?'none':'block';
+      return;
+    }
+    if(action==='test-xtream'){
+      const srv=$('#xtream-server')?.value?.trim();
+      const usr=$('#xtream-username')?.value?.trim();
+      const pwd=$('#xtream-password')?.value?.trim();
+      const resEl=$('#xtream-test-result'),errEl=$('#xtream-playlist-form .form-error');
+      if(!srv||!usr||!pwd){if(errEl)errEl.textContent='Preencha Server URL, Usuário e Senha para testar a conexão.';return;}
+      b.disabled=true;const orig=b.innerHTML;b.innerHTML=`${icon('refresh')} Testando…`;
+      if(errEl)errEl.textContent='';
+      try{
+        const r=await api('/playlists/xtream/validate','POST',{serverUrl:srv,username:usr,password:pwd});
+        if(resEl){
+          resEl.style.display='block';
+          resEl.style.background='rgba(34,197,94,0.15)';
+          resEl.style.border='1px solid rgba(34,197,94,0.3)';
+          resEl.style.color='#4ade80';
+          resEl.innerHTML=`<strong>✅ Conexão bem-sucedida!</strong><br>Status: ${esc(r.userInfo.status)} · Validade: ${esc(r.userInfo.expDate)} · Conexões: ${esc(r.userInfo.activeCons)}/${esc(r.userInfo.maxConnections)}`;
+        }
+      }catch(e){
+        if(resEl){
+          resEl.style.display='block';
+          resEl.style.background='rgba(239,68,68,0.15)';
+          resEl.style.border='1px solid rgba(239,68,68,0.3)';
+          resEl.style.color='#f87171';
+          resEl.innerHTML=`<strong>❌ Falha na conexão:</strong><br>${esc(e.message)}`;
+        }
+      }finally{
+        b.disabled=false;b.innerHTML=orig;
+      }
+      return;
+    }
+    if(action==='add-playlist'){if(state.playlists.length>=maxPlaylistsPerAccount){toast('Limite de playlists atingido.',true);return;}playlistModal();return;}
     if(action==='source-tab'){const file=b.dataset.source==='file';$('#url-field').hidden=file;$('#file-field').hidden=!file;$('#playlist-url').disabled=file;$('#playlist-url').required=!file;$('#playlist-file').disabled=!file;$('#playlist-file').required=file;document.querySelectorAll('[data-action="source-tab"]').forEach(x=>x.classList.toggle('active',x===b));return;}
     if(action==='open-playlist'){state.activePlaylist=b.dataset.id;pendingChannel=null;navigate('player');return;}
     if(action==='playlist-options'){const p=state.playlists.find(x=>x.id===b.dataset.id);openModal(esc(p.name),`<p>${number(p.total)} canais · ${number(p.categories)} categorias<br>Adicionada em ${dateTime(p.created)}<br>Última atualização: ${p.updated?dateTime(p.updated):'data indisponível'}</p><div class="stack"><button class="btn" data-action="open-playlist" data-id="${p.id}">${icon('play')}Abrir no player</button>${p.sourceKind!=='file'?`<button class="btn secondary" data-action="refresh-playlist" data-id="${p.id}">${icon('refresh')}Atualizar playlist</button>`:''}<button class="btn ghost" data-action="confirm-delete-playlist" data-id="${p.id}">${icon('trash')}Remover playlist</button></div>`);return;}
@@ -1785,9 +1846,9 @@ document.addEventListener('keydown',event=>{
 });
 document.addEventListener('error',event=>{if(event.target.matches?.('.channel-logo img')){const parent=event.target.parentElement;parent.textContent='▶';}},true);
 document.addEventListener('submit',async event=>{
-  const form=event.target;if(!['login-form','playlist-form','refresh-form','settings-form','user-form','reset-form'].includes(form.id))return;
+  const form=event.target;if(!['login-form','playlist-form','xtream-playlist-form','refresh-form','settings-form','user-form','reset-form'].includes(form.id))return;
   event.preventDefault();const button=$('[type="submit"]',form),errorEl=$('.form-error',form),original=button.textContent;
-  if(button.disabled)return;button.disabled=true;button.textContent=form.id==='playlist-form'?'Importando…':form.id==='refresh-form'?'Atualizando…':'Salvando…';errorEl.textContent='';
+  if(button.disabled)return;button.disabled=true;button.textContent=form.id==='playlist-form'?'Importando…':form.id==='xtream-playlist-form'?'Conectando e Importando…':form.id==='refresh-form'?'Atualizando…':'Salvando…';errorEl.textContent='';
   const fields=new FormData(form),value=Object.fromEntries(fields.entries());
   try{
     if(form.id==='login-form'){
@@ -1804,6 +1865,13 @@ document.addEventListener('submit',async event=>{
     if(form.id==='playlist-form'){
       let text='';if(!$('#playlist-file').disabled){const file=fields.get('file');if(!file?.size)throw new Error('Escolha um arquivo M3U.');if(file.size>100*1024*1024)throw new Error('O arquivo excede o limite de 100 MiB.');text=await file.text();}
       const p=await api('/playlists','POST',{name:value.name,url:value.url||'',text,organize:fields.has('organize')});state.activePlaylist=p.id;$('#modal').close();await renderRoute();toast(`${number(p.total)} canais adicionados à sua conta.`);
+    }
+    if(form.id==='xtream-playlist-form'){
+      const r=await api('/playlists/xtream','POST',value);
+      state.activePlaylist=r.playlist.id;
+      $('#modal').close();
+      await renderRoute();
+      toast(`✅ IPTV conectado! ${number(r.totalChannels)} canais e títulos importados.`);
     }
     if(form.id==='refresh-form'){await api(`/playlists/${form.dataset.id}/refresh`,'POST',{url:value.url});$('#modal').close();await renderRoute();toast('Playlist atualizada.');}
     if(form.id==='settings-form'){state.user=await api('/account','PATCH',value);applyTheme(state.user.theme);await renderRoute();toast('Configurações salvas.');}

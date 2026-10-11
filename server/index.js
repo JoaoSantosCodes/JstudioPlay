@@ -22,6 +22,7 @@ const security = require('./security');
 const opsEngine = require('./infra/opsEngine');
 const m3uScraper      = require('./services/m3uScraper');
 const integrationHub  = require('./services/integrationHub');
+const xtreamClient    = require('./services/xtreamClient');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -405,6 +406,51 @@ apiRouter.post('/playlists', requireAuth, async (req, res) => {
     } catch (err) {
         console.error('Error creating playlist:', err);
         res.status(500).json({ error: err.message || 'Erro ao processar playlist M3U.' });
+    }
+});
+
+// Validação prévia de credenciais Xtream Codes (Host, User, Pass)
+apiRouter.post('/playlists/xtream/validate', requireAuth, async (req, res) => {
+    try {
+        const { serverUrl, username, password } = req.body;
+        if (!serverUrl || !username || !password) {
+            return res.status(400).json({ error: 'Informe a URL do servidor, usuário e senha.' });
+        }
+        const result = await xtreamClient.validateCredentials(serverUrl, username, password);
+        res.json(result);
+    } catch (err) {
+        res.status(400).json({ error: err.message || 'Falha ao validar servidor Xtream Codes.' });
+    }
+});
+
+// Importação completa de servidor Xtream Codes (Canais, VOD, Séries)
+apiRouter.post('/playlists/xtream', requireAuth, async (req, res) => {
+    try {
+        const { name, serverUrl, username, password } = req.body;
+        if (!serverUrl || !username || !password) {
+            return res.status(400).json({ error: 'Informe a URL do servidor, usuário e senha do provedor IPTV.' });
+        }
+
+        const data = await xtreamClient.importContent(serverUrl, username, password);
+        const user = req.user;
+        const hostName = new URL(xtreamClient.normalizeUrl(serverUrl)).hostname;
+
+        const playlist = db.createPlaylist({
+            userId: user.id,
+            name: name || `IPTV Pro (${hostName})`,
+            url: data.m3uUrl,
+            epgUrl: data.epgUrl,
+            channels: data.channels
+        });
+
+        res.json({
+            playlist,
+            userInfo: data.userInfo,
+            totalChannels: data.total
+        });
+    } catch (err) {
+        console.error('Error importing Xtream playlist:', err);
+        res.status(500).json({ error: err.message || 'Falha ao importar conteúdos do servidor Xtream Codes.' });
     }
 });
 

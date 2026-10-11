@@ -180,25 +180,19 @@ function iptvTopBar(active='dashboard'){
   const time = getIptvClock();
   return `<header class="iptv-dash-topbar">
     <div class="iptv-topbar-left">
-      <a class="iptv-main-logo" href="#/dashboard" style="text-decoration:none;">
-        <div class="iptv-play-icon" style="width:36px; height:36px; border-radius:8px;">
-          <svg viewBox="0 0 24 24" style="width:16px; height:16px;"><path d="M8 5v14l11-7z"/></svg>
-        </div>
-        <span class="iptv-logo-title" style="font-size:1.45rem;">IPTV</span>
-      </a>
       <nav class="iptv-nav-pills" aria-label="Navegação IPTV">
-        <a class="iptv-nav-pill ${active==='dashboard'?'active':''}" href="#/dashboard">Início</a>
-        <a class="iptv-nav-pill ${active==='player'?'active':''}" href="#/player">TV Ao Vivo</a>
-        <a class="iptv-nav-pill" href="#/player" data-action="filter-cat" data-group="Filmes">Filmes</a>
-        <a class="iptv-nav-pill" href="#/player" data-action="filter-cat" data-group="Séries">Séries</a>
-        <a class="iptv-nav-pill ${active==='epg'?'active':''}" href="#/epg">Guia EPG</a>
+        <a class="iptv-nav-pill ${active==='dashboard'?'active':''}" href="#/dashboard" tabindex="0">Início</a>
+        <a class="iptv-nav-pill ${active==='live'||active==='channels'?'active':''}" href="#/live" tabindex="0">TV Ao Vivo</a>
+        <a class="iptv-nav-pill ${active==='movies'?'active':''}" href="#/movies" tabindex="0">Filmes</a>
+        <a class="iptv-nav-pill ${active==='series'?'active':''}" href="#/series" tabindex="0">Séries</a>
+        <a class="iptv-nav-pill ${active==='epg'?'active':''}" href="#/epg" tabindex="0">Guia EPG</a>
       </nav>
     </div>
     <div class="iptv-topbar-right">
       <span class="iptv-clock" id="iptv-live-clock">${time}</span>
-      <a class="iptv-icon-action" href="#/player" title="Buscar canais">${icon('search')}</a>
-      <a class="iptv-icon-action" href="#/settings" title="Configurações">${icon('settings')}</a>
-      <a class="iptv-icon-action" href="#/settings" title="Perfil da conta">${icon('user')}</a>
+      <a class="iptv-icon-action" href="#/search" title="Buscar canais" tabindex="0">${icon('search')}</a>
+      <a class="iptv-icon-action" href="#/settings" title="Configurações" tabindex="0">${icon('settings')}</a>
+      <a class="iptv-icon-action" href="#/settings" title="Perfil da conta" tabindex="0">${icon('user')}</a>
     </div>
   </header>`;
 }
@@ -380,8 +374,6 @@ function dashboard(){
   ];
 
   return `<div class="iptv-dashboard-page">
-    ${iptvTopBar('dashboard')}
-
     <!-- Hero Banner: Campeonato Brasileiro (Live) -->
     <div class="iptv-hero-wrap">
       <div class="iptv-hero-bg"></div>
@@ -392,7 +384,7 @@ function dashboard(){
         <div class="iptv-hero-schedule">
           ${icon('clock')} Ao vivo agora • 21:30 - 23:30
         </div>
-        <button class="iptv-hero-btn-play" data-action="open-first-live">
+        <button class="iptv-hero-btn-play" data-action="open-first-live" tabindex="0">
           ${icon('play')} Assistir Agora
         </button>
       </div>
@@ -413,7 +405,7 @@ function dashboard(){
       <section class="iptv-rail-section">
         <div class="iptv-rail-header">
           <div class="iptv-rail-title">${icon('tv')} TV Ao Vivo</div>
-          <a class="iptv-rail-arrow" href="#/player" title="Ver todos os canais">${icon('right')}</a>
+          <a class="iptv-rail-arrow" href="#/live" title="Ver todos os canais" tabindex="0">${icon('right')}</a>
         </div>
         <div class="iptv-rail-track">
           ${liveChannels.map((c, i) => `
@@ -435,11 +427,11 @@ function dashboard(){
       <section class="iptv-rail-section">
         <div class="iptv-rail-header">
           <div class="iptv-rail-title">${icon('film')} Filmes</div>
-          <a class="iptv-rail-arrow" href="#/player" title="Ver filmes">${icon('right')}</a>
+          <a class="iptv-rail-arrow" href="#/movies" title="Ver filmes" tabindex="0">${icon('right')}</a>
         </div>
         <div class="iptv-rail-track">
           ${movies.map(m => `
-            <div class="iptv-poster-card" data-action="open-first-live" tabindex="0">
+            <div class="iptv-poster-card" data-action="open-movie-detail" data-id="${m.id}" tabindex="0">
               <img class="iptv-poster-img" src="${m.img}" alt="${esc(m.title)}" loading="lazy">
               <div class="iptv-poster-overlay">
                 <strong class="iptv-poster-title">${esc(m.title)}</strong>
@@ -454,7 +446,7 @@ function dashboard(){
       <section class="iptv-rail-section">
         <div class="iptv-rail-header">
           <div class="iptv-rail-title">${icon('grid')} Séries</div>
-          <a class="iptv-rail-arrow" href="#/player" title="Ver séries">${icon('right')}</a>
+          <a class="iptv-rail-arrow" href="#/series" title="Ver séries" tabindex="0">${icon('right')}</a>
         </div>
         <div class="iptv-rail-track">
           ${series.map(s => `
@@ -1602,8 +1594,7 @@ document.addEventListener('click',async event=>{
     if(action==='new-user'){userModal();return;}
     if(action==='user-options'){userOptions(b.dataset.id);return;}
     if(action==='open-first-live'){
-      if(state.playlists.length){navigate('player');}
-      else{toast('Iniciando transmissão de demonstração...');navigate('player');}
+      navigate('live');
       return;
     }
     if(action==='iptv-tab'){
@@ -1633,8 +1624,10 @@ document.addEventListener('click',async event=>{
       return;
     }
     if(action==='filter-cat'){
-      state.category=b.dataset.group;
-      navigate('player');
+      const grp=b.dataset.group;
+      if(grp==='Filmes') navigate('movies');
+      else if(grp==='Séries') navigate('series');
+      else { state.category=grp; navigate('live'); }
       return;
     }
     if(action==='vkey-press'){

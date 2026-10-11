@@ -22,6 +22,9 @@ Thumbs.db
 # Banco de dados SQLite e artefatos de migração
 data/*.db
 data/.migrated_to_sqlite
+# db.json: arquivo legado de migração JSON→SQLite (grande porte, não versionável)
+data/db.json
+data/db.json.migrated
 
 # Cache de IDEs
 .vscode/

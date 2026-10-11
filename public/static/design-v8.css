@@ -4259,4 +4259,239 @@ input:focus-visible {
   transform: scale(1.08);
 }
 
+/* --------------------------------------------------------------------------
+   15.7 UNIFICAÇÃO DE TELAS INTERNAS (PLAYLISTS, USUÁRIOS, LOGS, HISTÓRICO)
+   -------------------------------------------------------------------------- */
+
+.iptv-main-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-x: hidden;
+  background: var(--iptv-bg);
+  color: #ffffff;
+  font-family: var(--iptv-font);
+}
+
+.iptv-page-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.75rem 2.5rem;
+}
+
+.iptv-page-body .page-heading {
+  margin-bottom: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.iptv-page-body .page-heading h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 0.25rem;
+  letter-spacing: -0.5px;
+}
+
+.iptv-page-body .page-heading p {
+  color: var(--iptv-text-sec);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.iptv-page-body .section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.iptv-page-body .section-heading h2 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.iptv-page-body .card {
+  background: var(--iptv-surface-card);
+  border: 1px solid var(--iptv-border);
+  border-radius: var(--iptv-radius-md);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+.iptv-page-body .playlist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
+.iptv-page-body .playlist-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.iptv-page-body .playlist-row:hover,
+.iptv-page-body .playlist-row:focus-within {
+  border-color: var(--iptv-red);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 12px rgba(229, 9, 20, 0.2);
+}
+
+.iptv-page-body .playlist-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--iptv-elevated);
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.iptv-page-body .playlist-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.iptv-page-body .playlist-info h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.iptv-page-body .playlist-info p {
+  font-size: 0.82rem;
+  color: var(--iptv-text-sec);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.iptv-page-body .table-wrap {
+  overflow: hidden;
+  margin-top: 1.5rem;
+}
+
+.iptv-page-body .data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.iptv-page-body .data-table th {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.85rem 1.25rem;
+  text-align: left;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--iptv-text-sec);
+  border-bottom: 1px solid var(--iptv-border);
+}
+
+.iptv-page-body .data-table td {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--iptv-border);
+  color: #ffffff;
+  font-size: 0.92rem;
+}
+
+.iptv-page-body .table-foot {
+  padding: 0.85rem 1.25rem;
+  font-size: 0.82rem;
+  color: var(--iptv-text-sec);
+  background: rgba(255, 255, 255, 0.02);
+  border-top: 1px solid var(--iptv-border);
+}
+
+.iptv-page-body .toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.iptv-page-body .toolbar .field.search {
+  display: flex;
+  align-items: center;
+  background: var(--iptv-surface-card);
+  border: 1px solid var(--iptv-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.85rem;
+  gap: 0.5rem;
+  flex: 1;
+  max-width: 400px;
+}
+
+.iptv-page-body .toolbar .field.search input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.iptv-page-body .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--iptv-red);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 1.2rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.iptv-page-body .btn:hover {
+  background: var(--iptv-red-hover);
+  box-shadow: 0 0 12px var(--iptv-red-glow);
+  transform: translateY(-1px);
+}
+
+.iptv-page-body .btn.secondary,
+.iptv-page-body .btn.ghost {
+  background: var(--iptv-elevated);
+  border: 1px solid var(--iptv-border);
+  color: #ffffff;
+}
+
+.iptv-page-body .btn.secondary:hover,
+.iptv-page-body .btn.ghost:hover {
+  background: var(--iptv-surface-hover);
+  border-color: var(--iptv-text-muted);
+}
+
+.iptv-page-body .badge {
+  display: inline-block;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--iptv-success);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.iptv-page-body .badge.blocked {
+  background: rgba(229, 9, 20, 0.15);
+  color: #ff4d4f;
+  border-color: rgba(229, 9, 20, 0.3);
+}
+
+
 

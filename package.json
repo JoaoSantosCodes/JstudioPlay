@@ -18,7 +18,8 @@
     "cors": "^2.8.5",
     "dotenv": "^18.0.5",
     "express": "^4.21.2",
-    "node-cron": "^3.0.3"
+    "node-cron": "^3.0.3",
+    "pg": "^8.13.3"
   },
   "allowScripts": {
     "bcrypt@5.1.1": true,

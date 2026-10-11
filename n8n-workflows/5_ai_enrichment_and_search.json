@@ -1,0 +1,149 @@
+{
+  "name": "JstudioPlay - AI Enrichment, Busca Semântica & Descoberta de Fontes",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 4 * * *" }] }
+      },
+      "id": "node-cron-enrich",
+      "name": "Cron: Enriquecimento AI (04:00)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 200]
+    },
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 5 * * 1" }] }
+      },
+      "id": "node-cron-discover",
+      "name": "Cron: Descoberta Semanal (seg 05:00)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 400]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-search",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node-webhook-search",
+      "name": "Webhook: Busca Semântica",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 600],
+      "webhookId": "ai-semantic-search"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.JSTUDIOPLAY_INTERNAL_URL }}/api/playlists",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "X-API-Key", "value": "={{ $env.JSTUDIOPLAY_API_KEY }}" }]
+        },
+        "options": {}
+      },
+      "id": "node-get-playlists-enrich",
+      "name": "Buscar Playlists para Enriquecer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pegar apenas playlists com canais (total > 0), máx 3 por execução\nconst playlists = $input.all().map(i => i.json).filter(p => p.total > 0).slice(0, 3);\nreturn playlists.map(p => ({ json: p }));"
+      },
+      "id": "node-filter-enrich",
+      "name": "Filtrar Playlists (max 3)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.JSTUDIOPLAY_INTERNAL_URL }}/api/integrations/enrich/{{ $json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "X-API-Key", "value": "={{ $env.JSTUDIOPLAY_API_KEY }}" }]
+        },
+        "options": {}
+      },
+      "id": "node-trigger-enrich",
+      "name": "Disparar Enriquecimento AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [940, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.JSTUDIOPLAY_INTERNAL_URL }}/api/integrations/discover",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "X-API-Key", "value": "={{ $env.JSTUDIOPLAY_API_KEY }}" }]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"limit\": 15 }",
+        "options": {}
+      },
+      "id": "node-discover",
+      "name": "Descoberta Dinâmica de Fontes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.JSTUDIOPLAY_INTERNAL_URL }}/api/integrations/search?q={{ encodeURIComponent($json.body.q || $json.q || 'canais ao vivo') }}&limit={{ $json.body.limit || $json.limit || 20 }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "X-API-Key", "value": "={{ $env.JSTUDIOPLAY_API_KEY }}" }]
+        },
+        "options": {}
+      },
+      "id": "node-semantic-search",
+      "name": "Busca Semântica (pgvector)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 600]
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.JSTUDIOPLAY_INTERNAL_URL }}/api/integrations/status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "X-API-Key", "value": "={{ $env.JSTUDIOPLAY_API_KEY }}" }]
+        },
+        "options": {}
+      },
+      "id": "node-infra-status",
+      "name": "Status da Infra AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $input.first().json;\nconst ollama  = s.ollama?.ok  ? '✅ Ollama'  : `❌ Ollama: ${s.ollama?.error}`;\nconst pgvec   = s.pgvector?.ok ? `✅ pgvector (${s.pgvector?.indexedChannels} canais)` : `❌ pgvector: ${s.pgvector?.error}`;\nconst searxng = s.searxng?.ok ? '✅ SearXNG' : `❌ SearXNG: ${s.searxng?.error}`;\nreturn [{ json: {\n  report: `🤖 *Status AI — JstudioPlay*\\n${ollama}\\n${pgvec}\\n${searxng}\\n⏰ ${new Date().toLocaleString('pt-BR')}`,\n  allOk: s.ollama?.ok && s.pgvector?.ok && s.searxng?.ok\n}}];"
+      },
+      "id": "node-format-status",
+      "name": "Formatar Status AI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [940, 400]
+    }
+  ],
+  "connections": {
+    "Cron: Enriquecimento AI (04:00)": { "main": [[{ "node": "Buscar Playlists para Enriquecer", "type": "main", "index": 0 }]] },
+    "Buscar Playlists para Enriquecer": { "main": [[{ "node": "Filtrar Playlists (max 3)", "type": "main", "index": 0 }]] },
+    "Filtrar Playlists (max 3)": { "main": [[{ "node": "Disparar Enriquecimento AI", "type": "main", "index": 0 }]] },
+    "Cron: Descoberta Semanal (seg 05:00)": { "main": [[{ "node": "Descoberta Dinâmica de Fontes", "type": "main", "index": 0 }]] },
+    "Descoberta Dinâmica de Fontes": { "main": [[{ "node": "Status da Infra AI", "type": "main", "index": 0 }]] },
+    "Status da Infra AI": { "main": [[{ "node": "Formatar Status AI", "type": "main", "index": 0 }]] },
+    "Webhook: Busca Semântica": { "main": [[{ "node": "Busca Semântica (pgvector)", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

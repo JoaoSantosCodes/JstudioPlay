@@ -20,7 +20,8 @@ const m3uHub = require('./services/m3uHub');
 const m3uEnricher = require('./services/m3uEnricher');
 const security = require('./security');
 const opsEngine = require('./infra/opsEngine');
-const m3uScraper = require('./services/m3uScraper');
+const m3uScraper      = require('./services/m3uScraper');
+const integrationHub  = require('./services/integrationHub');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1089,6 +1090,70 @@ apiRouter.post('/scraper/run', requireAuth, security.requireAdmin(), async (req,
         await m3uScraper.run({ validateSample, sourceIds });
     } catch (err) {
         db.addLog('scraper', `Erro no scrape manual: ${err.message}`);
+    }
+});
+
+// -----------------------------------------------------------------------------
+// 8. AI & Integrations — Ollama · pgvector · SearXNG
+// -----------------------------------------------------------------------------
+
+// Status de toda a infra integrada (Ollama, pgvector, SearXNG)
+apiRouter.get('/integrations/status', requireAuth, async (req, res) => {
+    const status = await integrationHub.getInfraStatus();
+    res.json(status);
+});
+
+// Enriquecimento AI de uma playlist (Ollama classifica + pgvector indexa)
+// Responde imediatamente e processa em background
+apiRouter.post('/integrations/enrich/:playlistId', requireAuth, async (req, res) => {
+    const { playlistId } = req.params;
+    const playlist = db.getPlaylistById(playlistId);
+    if (!playlist) return res.status(404).json({ error: 'Playlist não encontrada.' });
+
+    res.json({ success: true, message: `Enriquecimento AI iniciado para "${playlist.name}". Acompanhe nos logs.` });
+
+    integrationHub.enrichPlaylistWithAI(playlistId).catch(e =>
+        db.addLog('ai', `Erro no enriquecimento AI de ${playlistId}: ${e.message}`)
+    );
+});
+
+// Busca semântica de canais via pgvector + Ollama embeddings
+// GET /api/integrations/search?q=canais+de+esportes+HD&limit=20&streamType=live&status=online
+apiRouter.get('/integrations/search', requireAuth, async (req, res) => {
+    const { q, limit = 20, streamType, status } = req.query;
+    if (!q) return res.status(400).json({ error: 'Parâmetro "q" obrigatório.' });
+
+    try {
+        const results = await integrationHub.semanticChannelSearch(q, {
+            limit:      parseInt(limit),
+            streamType: streamType || null,
+            status:     status     || null,
+        });
+        res.json({ query: q, total: results.length, results });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Descoberta dinâmica de novas fontes M3U via SearXNG
+// Body opcional: { query: "...", limit: 10 }
+apiRouter.post('/integrations/discover', requireAuth, security.requireAdmin(), async (req, res) => {
+    const { query = null, limit = 10 } = req.body || {};
+
+    res.json({ success: true, message: 'Descoberta de fontes iniciada em background.' });
+
+    integrationHub.discoverAndImport({ query, limit }).catch(e =>
+        db.addLog('scraper', `Erro na descoberta dinâmica: ${e.message}`)
+    );
+});
+
+// Análise do último relatório de scraping via Ollama (linguagem natural)
+apiRouter.get('/integrations/scraper-analysis', requireAuth, async (req, res) => {
+    try {
+        const result = await integrationHub.analyzeLastScraperReport();
+        res.json(result);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
 });
 

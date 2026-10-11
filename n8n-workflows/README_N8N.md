@@ -67,6 +67,7 @@ No painel do n8n (`http://localhost:5678`):
 | `2_automated_playlist_cleaner_bot.json` | Recebe URL M3U, testa e entrega lista limpa | Webhook POST |
 | `3_client_provisioning_and_delivery.json` | Cria clientes após vendas e entrega credenciais | Webhook POST |
 | `4_daily_scraper_orchestrator.json` | Orquestra raspagem diária de fontes públicas | Cron 03:00 / Webhook |
+| `5_ai_enrichment_and_search.json` | Enriquecimento AI (Ollama), busca semântica (pgvector) e descoberta (SearXNG) | Cron 04:00 + Webhook |
 | `m3u_play_ops_orchestrator.json` | Sync M3U/EPG + Health Check com alertas | Cron múltiplo |
 
 ---

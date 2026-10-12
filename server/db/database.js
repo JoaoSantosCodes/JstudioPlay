@@ -520,6 +520,111 @@ class Database {
     }
 
     // -----------------------------------------------------------------------
+    // Transferência de Créditos & Renovação de Assinatura
+    // -----------------------------------------------------------------------
+
+    transferCredits(fromUserId, toUserId, amount) {
+        const fromUser = this.findUserById(fromUserId);
+        const toUser = this.findUserById(toUserId);
+        if (!fromUser) throw new Error('Usuário remetente não encontrado.');
+        if (!toUser) throw new Error('Usuário destinatário não encontrado.');
+        if (fromUser.id === toUser.id) throw new Error('Não é possível transferir créditos para si mesmo.');
+
+        const qty = parseInt(amount, 10);
+        if (isNaN(qty) || qty <= 0) throw new Error('Quantidade de créditos inválida.');
+
+        if (fromUser.role !== 'master' && (fromUser.credits || 0) < qty) {
+            throw new Error(`Saldo insuficiente (${fromUser.credits || 0} créditos disponíveis, necessário ${qty}).`);
+        }
+
+        const tx = sql.transaction(() => {
+            if (fromUser.role !== 'master') {
+                const newFromCredits = (fromUser.credits || 0) - qty;
+                sql.prepare('UPDATE users SET credits = ? WHERE id = ?').run(newFromCredits, fromUser.id);
+            }
+            const newToCredits = (toUser.credits || 0) + qty;
+            sql.prepare('UPDATE users SET credits = ? WHERE id = ?').run(newToCredits, toUser.id);
+
+            const transferId = `tr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+            sql.prepare(`
+                INSERT INTO credit_transfers (id, from_user_id, to_user_id, amount, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            `).run(transferId, fromUser.id, toUser.id, qty, new Date().toISOString());
+
+            this.addLog('credits', `Transferência de ${qty} crédito(s) de ${fromUser.username} para ${toUser.username}.`);
+        });
+
+        tx();
+        return {
+            fromUser: this.findUserById(fromUserId),
+            toUser: this.findUserById(toUserId),
+            amount: qty
+        };
+    }
+
+    renewUserSubscription(userId, days = 30) {
+        const user = this.findUserById(userId);
+        if (!user) throw new Error('Usuário não encontrado.');
+
+        const now = Date.now();
+        let baseDate = now;
+        if (user.expiresAt) {
+            const expTime = new Date(user.expiresAt).getTime();
+            if (expTime > now) {
+                baseDate = expTime;
+            }
+        }
+        const newExpiry = new Date(baseDate + days * 24 * 60 * 60 * 1000).toISOString();
+        sql.prepare('UPDATE users SET expires_at = ?, blocked = 0 WHERE id = ?').run(newExpiry, userId);
+        this.addLog('users', `Assinatura de ${user.username} renovada por ${days} dias (expira em ${newExpiry}).`);
+        return this.findUserById(userId);
+    }
+
+    // -----------------------------------------------------------------------
+    // Solicitações de Upgrade para Revendedor
+    // -----------------------------------------------------------------------
+
+    createResellerRequest({ userId, name, username, email, phone, notes }) {
+        const id = `req_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        const now = new Date().toISOString();
+        sql.prepare(`
+            INSERT INTO reseller_requests (id, user_id, name, username, email, phone, notes, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)
+        `).run(id, userId, name, username, email || null, phone || null, notes || null, now);
+        this.addLog('users', `Nova solicitação para se tornar Revendedor: ${username} (${name}).`);
+        return this.getResellerRequestById(id);
+    }
+
+    getResellerRequests(status = null) {
+        if (status) {
+            return sql.prepare('SELECT * FROM reseller_requests WHERE status = ? ORDER BY created_at DESC').all(status);
+        }
+        return sql.prepare('SELECT * FROM reseller_requests ORDER BY created_at DESC').all();
+    }
+
+    getResellerRequestById(id) {
+        return sql.prepare('SELECT * FROM reseller_requests WHERE id = ?').get(id) || null;
+    }
+
+    reviewResellerRequest(id, status, reviewerUsername) {
+        const req = this.getResellerRequestById(id);
+        if (!req) throw new Error('Solicitação não encontrada.');
+        const now = new Date().toISOString();
+        sql.prepare(`
+            UPDATE reseller_requests SET status = ?, reviewed_at = ?, reviewed_by = ? WHERE id = ?
+        `).run(status, now, reviewerUsername, id);
+
+        if (status === 'approved') {
+            this.updateUser(req.user_id, { role: 'reseller' });
+            this.addLog('users', `Solicitação de revenda de ${req.username} aprovada por ${reviewerUsername}. Usuário promovido para Revendedor.`);
+        } else {
+            this.addLog('users', `Solicitação de revenda de ${req.username} rejeitada por ${reviewerUsername}.`);
+        }
+        return this.getResellerRequestById(id);
+    }
+
+
+    // -----------------------------------------------------------------------
     // Push Subscriptions — Web Push API
     // -----------------------------------------------------------------------
 

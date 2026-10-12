@@ -876,7 +876,16 @@ function iptvSmartSidebar(active='dashboard'){
           <span style="font-size:1.15rem; font-weight:800; color:#fff;">${state.user.credits || 0}</span>
           <span style="font-size:0.8rem; color:rgba(255,255,255,0.7);">créditos</span>
         </div>
-        <a href="#/credits" class="iptv-sidebar-buy-link">+ Comprar créditos</a>
+        <div style="display:flex; gap:0.35rem; margin-top:0.45rem;">
+          <a href="#/credits" class="iptv-sidebar-buy-link" style="flex:1; text-align:center; padding:0.35rem 0.2rem;">+ Comprar</a>
+          <button type="button" class="iptv-sidebar-buy-link" data-action="transfer-credits-modal" style="flex:1; text-align:center; padding:0.35rem 0.2rem; background:rgba(168,85,247,0.25); border:none; cursor:pointer;">⇄ Enviar</button>
+        </div>
+      </div>
+    ` : ['user', 'pro'].includes(role) ? `
+      <div style="padding:0 0.5rem 0.75rem;">
+        <button type="button" data-action="request-reseller-modal" style="width:100%; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:0.4rem; background:linear-gradient(135deg, #a855f7, #6366f1); border:none; color:#fff; font-size:0.8rem; font-weight:700; padding:0.55rem 0.4rem; cursor:pointer; box-shadow:0 2px 8px rgba(99,102,241,0.25);">
+          💼 Seja um Revendedor
+        </button>
       </div>
     ` : ''}
     <nav style="display:flex; flex-direction:column; gap:0.35rem;">
@@ -1417,9 +1426,10 @@ function creditsPage(){
 function usersPage(){
   const isMaster = state.user?.role === 'master';
   const isReseller = state.user?.role === 'reseller';
-  return `${heading('Gestão de Usuários', isMaster?'Administre todos os perfis e acessos globais da plataforma.':isReseller?'Cadastre e acompanhe seus clientes. Cada novo usuário consome 1 crédito.':'Gerencie os usuários e assinantes sob sua supervisão.')}
+  return `${heading('Gestão de Usuários', isMaster?'Administre todos os perfis e acessos globais da plataforma.':isReseller?'Cadastre e acompanhe seus clientes. Cada novo usuário ou renovação consome 1 crédito.':'Gerencie os usuários e assinantes sob sua supervisão.')}
   <div class="toolbar">
     <div class="field search">${icon('search')}<input id="user-search" type="search" placeholder="Buscar usuário…" aria-label="Buscar usuário"></div>
+    ${(isReseller || isMaster) ? `<button class="btn secondary small" data-action="transfer-credits-modal">⇄ Enviar Créditos</button>` : ''}
     <button class="btn small" data-action="new-user">${icon('plus')}Novo usuário</button>
   </div>
   <section class="card table-wrap">
@@ -1442,6 +1452,8 @@ function usersPage(){
 }
 
 function userRows(query){
+  const isMaster = state.user?.role === 'master';
+  const isReseller = state.user?.role === 'reseller';
   return state.users.filter(({user:u})=>(u.name+' '+u.username).toLowerCase().includes(query.toLowerCase())).map(({user:u,playlists})=>`
     <tr>
       <td>
@@ -1456,7 +1468,14 @@ function userRows(query){
       <td>${playlists}</td>
       <td><small>${dateTime(u.lastLogin)}</small></td>
       <td>
-        <button class="icon-btn" data-action="user-options" data-id="${u.id}" aria-label="Gerenciar ${esc(u.username)}">${icon('more')}</button>
+        <div style="display:flex; align-items:center; gap:0.35rem;">
+          ${(isReseller || isMaster) && ['user', 'pro'].includes(u.role) ? `
+            <button class="btn secondary" style="padding:0.25rem 0.55rem; font-size:0.75rem; height:28px; white-space:nowrap;" data-action="renew-user" data-id="${u.id}" data-username="${esc(u.username)}" title="Renovar +30 dias (consome 1 crédito)">
+              ⚡ Renovar (+30d)
+            </button>
+          ` : ''}
+          <button class="icon-btn" data-action="user-options" data-id="${u.id}" aria-label="Gerenciar ${esc(u.username)}">${icon('more')}</button>
+        </div>
       </td>
     </tr>
   `).join('') || '<tr><td colspan="7">Nenhum usuário encontrado.</td></tr>';
@@ -2063,6 +2082,56 @@ function playlistModal(){openModal('Adicionar playlist',`
     </form>
   </div>
 `);}
+function openTransferCreditsModal(){
+  const myCredits = state.user?.credits || 0;
+  openModal('Transferir Créditos', `
+    <form id="transfer-credits-form" class="stack">
+      <div class="info" style="border-color:rgba(168,85,247,0.4); background:rgba(168,85,247,0.12);">
+        ${icon('credits')}
+        <span>Seu saldo disponível: <strong>${myCredits} créditos</strong>.</span>
+      </div>
+      <div>
+        <label for="transfer-to">Nome de Usuário do Destinatário (@username)</label>
+        <input id="transfer-to" name="toUsername" placeholder="Ex: joao_revenda" required autocomplete="off" autofocus>
+        <p class="help-text">O destinatário deve ser outro revendedor cadastrado na plataforma.</p>
+      </div>
+      <div>
+        <label for="transfer-amount">Quantidade de Créditos a Enviar</label>
+        <input id="transfer-amount" name="amount" type="number" min="1" max="${state.user?.role==='master'?9999:myCredits}" value="1" required>
+      </div>
+      <div class="form-error" role="alert"></div>
+      <div class="dialog-actions">
+        <button type="button" class="btn secondary" data-action="close-modal">Cancelar</button>
+        <button type="submit" class="btn" style="background:linear-gradient(135deg,#a855f7,#6366f1); border:none;">Confirmar Envio</button>
+      </div>
+    </form>
+  `);
+}
+
+function openRequestResellerModal(){
+  openModal('Solicitar Acesso de Revendedor', `
+    <form id="request-reseller-form" class="stack">
+      <div class="info" style="border-color:rgba(168,85,247,0.4); background:rgba(168,85,247,0.12);">
+        ${icon('shield')}
+        <span>Torne-se um parceiro <strong>JstudioPlay</strong>! Tenha acesso a créditos de atacado com margens de até 300% e painel exclusivo para gerenciar seus clientes.</span>
+      </div>
+      <div>
+        <label for="reseller-phone">WhatsApp / Telefone para Contato</label>
+        <input id="reseller-phone" name="phone" placeholder="Ex: (11) 98765-4321" required autocomplete="tel" autofocus>
+      </div>
+      <div>
+        <label for="reseller-notes">Conte um pouco sobre sua atuação (Opcional)</label>
+        <textarea id="reseller-notes" name="notes" placeholder="Ex: Já tenho clientes na minha região / Gostaria de revender pacotes…" rows="3" style="width:100%; border-radius:8px; padding:0.6rem; background:rgba(0,0,0,0.2); border:1px solid var(--iptv-border); color:#fff; resize:vertical;"></textarea>
+      </div>
+      <div class="form-error" role="alert"></div>
+      <div class="dialog-actions">
+        <button type="button" class="btn secondary" data-action="close-modal">Cancelar</button>
+        <button type="submit" class="btn primary" style="background:linear-gradient(135deg,#a855f7,#6366f1); border:none;">Enviar Solicitação</button>
+      </div>
+    </form>
+  `);
+}
+
 function userModal(){
   const isMaster = state.user?.role === 'master';
   const isReseller = state.user?.role === 'reseller';
@@ -2410,6 +2479,24 @@ document.addEventListener('click',async event=>{
       b.disabled=false;b.innerHTML=orig;
       return;
     }
+    if(action==='transfer-credits-modal'){openTransferCreditsModal();return;}
+    if(action==='request-reseller-modal'){openRequestResellerModal();return;}
+    if(action==='renew-user'){
+      const id=b.dataset.id, username=b.dataset.username;
+      if(confirm(`Deseja renovar o cliente @${username} por mais 30 dias (consumirá 1 crédito)?`)){
+        b.disabled=true;
+        try{
+          const res=await api(`/admin/users/${id}/renew`,'POST',{days:30});
+          if(res.myCredits!==undefined && state.user) state.user.credits=res.myCredits;
+          await renderRoute();
+          toast(res.message);
+        }catch(err){
+          toast(err.message,true);
+          b.disabled=false;
+        }
+      }
+      return;
+    }
     if(action==='user-options'){userOptions(b.dataset.id);return;}
     if(action==='open-first-live'){
       navigate('live');
@@ -2607,6 +2694,18 @@ document.addEventListener('submit',async event=>{
     if(form.id==='refresh-form'){await api(`/playlists/${form.dataset.id}/refresh`,'POST',{url:value.url});$('#modal').close();await renderRoute();toast('Playlist atualizada.');}
     if(form.id==='settings-form'){state.user=await api('/account','PATCH',value);applyTheme(state.user.theme);await renderRoute();toast('Configurações salvas.');}
     if(form.id==='user-form'){await api('/admin/users','POST',value);$('#modal').close();await renderRoute();toast('Usuário criado.');}
+    if(form.id==='transfer-credits-form'){
+      const res=await api('/reseller/transfer','POST',{toUsername:value.toUsername,amount:Number(value.amount)});
+      if(state.user)state.user.credits=res.myCredits;
+      $('#modal').close();
+      await renderRoute();
+      toast(res.message);
+    }
+    if(form.id==='request-reseller-form'){
+      const res=await api('/account/request-reseller','POST',{phone:value.phone,notes:value.notes});
+      $('#modal').close();
+      toast(res.message);
+    }
     if(form.id==='edit-role-form'){await api(`/admin/users/${form.dataset.id}`,'PATCH',{role:value.role});$('#modal').close();await renderRoute();toast('Perfil de acesso atualizado.');}
     if(form.id==='reset-form'){await api(`/admin/users/${form.dataset.id}`,'PATCH',{password:value.password});$('#modal').close();toast('Senha redefinida. As sessões anteriores foram encerradas.');}
   }catch(error){errorEl.textContent=error.message;}

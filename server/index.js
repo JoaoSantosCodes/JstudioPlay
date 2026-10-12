@@ -852,6 +852,113 @@ apiRouter.post('/credits/checkout', requireAuth, security.requireReseller(), (re
     }
 });
 
+// Transferência de créditos entre revendedores
+apiRouter.post('/reseller/transfer', requireAuth, security.requireReseller(), (req, res) => {
+    try {
+        const { toUsername, amount } = req.body;
+        if (!toUsername || !amount) {
+            return res.status(400).json({ error: 'Informe o usuário de destino e a quantidade de créditos.' });
+        }
+        const toUser = db.findUserByUsername(String(toUsername).trim());
+        if (!toUser) {
+            return res.status(404).json({ error: 'Usuário destinatário não encontrado.' });
+        }
+        if (req.user.role === 'reseller' && toUser.role !== 'reseller') {
+            return res.status(403).json({ error: 'Revendedores só podem transferir créditos para outros Revendedores.' });
+        }
+        const result = db.transferCredits(req.user.id, toUser.id, amount);
+        res.json({
+            success: true,
+            amount: result.amount,
+            myCredits: result.fromUser.credits,
+            toUsername: result.toUser.username,
+            message: `${result.amount} crédito(s) transferido(s) com sucesso para @${result.toUser.username}!`
+        });
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
+});
+
+// Renovar cliente consumindo 1 crédito (+30 dias)
+apiRouter.post('/admin/users/:id/renew', requireAuth, security.requireReseller(), (req, res) => {
+    try {
+        const targetUser = db.findUserById(req.params.id);
+        if (!targetUser) return res.status(404).json({ error: 'Usuário não encontrado.' });
+
+        if (req.user.role === 'reseller') {
+            if (!['user', 'pro'].includes(targetUser.role)) {
+                return res.status(403).json({ error: 'Você só pode renovar contas de Usuário ou Pro.' });
+            }
+            db.deductCredit(req.user.id, 1);
+        }
+
+        const days = Number(req.body.days) || 30;
+        const updatedUser = db.renewUserSubscription(targetUser.id, days);
+        const myUser = db.findUserById(req.user.id);
+        res.json({
+            success: true,
+            user: updatedUser,
+            myCredits: myUser.credits,
+            message: `Cliente @${targetUser.username} renovado por +${days} dias com sucesso!`
+        });
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
+});
+
+// Solicitação de Upgrade para Revendedor (User / Pro)
+apiRouter.post('/account/request-reseller', requireAuth, (req, res) => {
+    try {
+        if (['reseller', 'admin', 'master'].includes(req.user.role)) {
+            return res.status(400).json({ error: 'Você já possui perfil de Revendedor ou superior.' });
+        }
+        const { phone, notes } = req.body;
+        const request = db.createResellerRequest({
+            userId: req.user.id,
+            name: req.user.name,
+            username: req.user.username,
+            email: req.user.email,
+            phone: phone || '',
+            notes: notes || ''
+        });
+        res.json({
+            success: true,
+            request,
+            message: 'Sua solicitação para se tornar Revendedor foi enviada com sucesso! O administrador analisará seu pedido.'
+        });
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
+});
+
+// Listagem e Avaliação de Solicitações de Revenda (Master)
+apiRouter.get('/admin/reseller-requests', requireAuth, security.requireMaster(), (req, res) => {
+    try {
+        const requests = db.getResellerRequests();
+        res.json(requests);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+apiRouter.post('/admin/reseller-requests/:id/review', requireAuth, security.requireMaster(), (req, res) => {
+    try {
+        const { status } = req.body;
+        if (!['approved', 'rejected'].includes(status)) {
+            return res.status(400).json({ error: 'Status deve ser "approved" ou "rejected".' });
+        }
+        const updated = db.reviewResellerRequest(req.params.id, status, req.user.username);
+        res.json({
+            success: true,
+            request: updated,
+            message: `Solicitação ${status === 'approved' ? 'aprovada' : 'rejeitada'} com sucesso!`
+        });
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
+});
+
+
 // -----------------------------------------------------------------------------
 // PIX Webhook — recebe confirmação de pagamento de qualquer gateway
 // POST /api/credits/pix-webhook

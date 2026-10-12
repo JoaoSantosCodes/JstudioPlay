@@ -188,6 +188,38 @@ const MIGRATIONS = {
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         );
         CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id);
+    `,
+    4: `
+        -- Solicitações de Upgrade para Revendedor
+        CREATE TABLE IF NOT EXISTS reseller_requests (
+            id          TEXT PRIMARY KEY,
+            user_id     TEXT NOT NULL,
+            name        TEXT NOT NULL,
+            username    TEXT NOT NULL,
+            email       TEXT,
+            phone       TEXT,
+            notes       TEXT,
+            status      TEXT NOT NULL DEFAULT 'pending',
+            created_at  TEXT NOT NULL,
+            reviewed_at TEXT,
+            reviewed_by TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_reseller_req_user ON reseller_requests(user_id);
+        CREATE INDEX IF NOT EXISTS idx_reseller_req_status ON reseller_requests(status);
+
+        -- Histórico de Transferências de Créditos
+        CREATE TABLE IF NOT EXISTS credit_transfers (
+            id           TEXT PRIMARY KEY,
+            from_user_id TEXT NOT NULL,
+            to_user_id   TEXT NOT NULL,
+            amount       INTEGER NOT NULL,
+            created_at   TEXT NOT NULL,
+            FOREIGN KEY (from_user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (to_user_id)   REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_credit_tr_from ON credit_transfers(from_user_id);
+        CREATE INDEX IF NOT EXISTS idx_credit_tr_to   ON credit_transfers(to_user_id);
     `
 };
 

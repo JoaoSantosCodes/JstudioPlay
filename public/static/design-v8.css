@@ -4970,6 +4970,304 @@ input:focus-visible {
   }
 }
 
+/* =============================================================================
+   MÓDULO DE REVENDA & COMPRA DE CRÉDITOS (PREMIUM IPTV)
+   ============================================================================= */
 
+.credits-page-wrapper {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 4rem;
+}
 
+.credits-header-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--iptv-border);
+}
 
+.credits-title-area h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 0.4rem;
+  letter-spacing: -0.5px;
+}
+
+.credits-title-area p {
+  font-size: 0.98rem;
+  color: var(--iptv-text-sec);
+  margin: 0;
+}
+
+.credits-balance-card {
+  background: linear-gradient(135deg, rgba(30,30,30,0.9), rgba(20,20,20,0.95));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+.credits-balance-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #c084fc;
+}
+
+.credits-balance-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.credits-balance-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.credits-balance-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--iptv-text-dim);
+}
+
+.credits-balance-val {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.credits-balance-val small {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: #4ade80;
+  margin-left: 0.35rem;
+}
+
+/* Grade 3x3 dos Pacotes de Crédito */
+.credits-grid-3x3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+@media (max-width: 980px) {
+  .credits-grid-3x3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .credits-grid-3x3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.credit-package-card {
+  background: #181818;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 2.25rem 1.5rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.credit-package-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(229, 9, 20, 0.45);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 20px rgba(229, 9, 20, 0.15);
+}
+
+.credit-pkg-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(168, 85, 247, 0.18);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.3px;
+}
+
+.credit-pkg-icon-wrap {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(229,9,20,0.18) 0%, rgba(229,9,20,0.05) 100%);
+  border: 1px solid rgba(229, 9, 20, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ff4d4f;
+  margin-bottom: 1.1rem;
+}
+
+.credit-pkg-icon-wrap svg {
+  width: 26px;
+  height: 26px;
+}
+
+.credit-pkg-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 0.5rem;
+}
+
+.credit-pkg-price {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 0.2rem;
+  letter-spacing: -0.5px;
+}
+
+.credit-pkg-unit {
+  font-size: 0.88rem;
+  color: var(--iptv-text-sec);
+  margin: 0 0 1.5rem;
+}
+
+.credit-pkg-btn {
+  width: 100%;
+  padding: 0.85rem 1.25rem;
+  background: #22c55e;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.credit-pkg-btn:hover {
+  background: #16a34a;
+  transform: scale(1.02);
+  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.4);
+}
+
+.credit-pkg-btn:active {
+  transform: scale(0.98);
+}
+
+/* Sidebar Reseller Badge */
+.iptv-sidebar-credit-badge {
+  margin: 0 0.5rem 1.25rem;
+  padding: 0.75rem 0.85rem;
+  background: rgba(168, 85, 247, 0.1);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  border-radius: 10px;
+}
+
+.iptv-sidebar-buy-link {
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  color: #c084fc;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.15s ease;
+}
+
+.iptv-sidebar-buy-link:hover {
+  color: #e9d5ff;
+  text-decoration: underline;
+}
+
+/* Topbar Credit Pill */
+.credit-balance-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.85rem;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  border-radius: 20px;
+  color: #4ade80;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.credit-balance-pill:hover {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.6);
+  transform: translateY(-1px);
+}
+
+.credit-balance-pill svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Modal de Checkout PIX & WhatsApp */
+.checkout-pix-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--iptv-border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin: 1rem 0;
+  text-align: center;
+}
+
+.checkout-pix-code {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem;
+  font-family: monospace;
+  font-size: 0.82rem;
+  color: #4ade80;
+  word-break: break-all;
+  user-select: all;
+  margin: 0.75rem 0;
+}
+
+.btn-whatsapp-confirm {
+  background: #25d366 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  text-decoration: none !important;
+  padding: 0.85rem 1.25rem !important;
+  border-radius: 10px !important;
+  transition: transform 0.15s ease !important;
+}
+
+.btn-whatsapp-confirm:hover {
+  background: #1ebc59 !important;
+  transform: scale(1.02) !important;
+}

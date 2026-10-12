@@ -213,6 +213,13 @@ class SecurityManager {
     }
 
     /**
+     * Middleware requiring Reseller, Admin or Master Role
+     */
+    requireReseller() {
+        return this.requireRole(['reseller', 'admin', 'master']);
+    }
+
+    /**
      * Rotate API Secret Key dynamically and persist to .env
      */
     rotateApiKey() {

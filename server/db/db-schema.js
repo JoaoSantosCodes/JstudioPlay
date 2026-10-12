@@ -156,6 +156,10 @@ const MIGRATIONS = {
             version    INTEGER PRIMARY KEY,
             applied_at TEXT NOT NULL
         );
+    `,
+    2: `
+        -- Suporte a Revendedor e Saldo de Créditos
+        ALTER TABLE users ADD COLUMN credits INTEGER NOT NULL DEFAULT 0;
     `
 };
 

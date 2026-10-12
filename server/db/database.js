@@ -82,6 +82,7 @@ function rowToUser(r) {
         passwordHash:     r.password_hash,
         passwordHashAlgo: r.password_algo || 'bcrypt',
         role:             r.role,
+        credits:          r.credits !== undefined && r.credits !== null ? Number(r.credits) : 0,
         theme:            r.theme    || 'dark',
         blocked:          !!r.blocked,
         expiresAt:        r.expires_at   || null,
@@ -135,19 +136,19 @@ const stmts = {
     userByGoogle:  sql.prepare('SELECT * FROM users WHERE google_id = ?'),
     insertUser:    sql.prepare(`
         INSERT INTO users (id,name,username,email,google_id,avatar,
-            password_hash,password_algo,role,theme,blocked,expires_at,created_at,last_login_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            password_hash,password_algo,role,credits,theme,blocked,expires_at,created_at,last_login_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `),
     updateUser:    sql.prepare(`
-        UPDATE users SET name=?,theme=?,role=?,expires_at=?,blocked=?,
+        UPDATE users SET name=?,theme=?,role=?,credits=?,expires_at=?,blocked=?,
             password_hash=?,password_algo=?,email=?,google_id=?,avatar=?,last_login_at=?
         WHERE id=?
     `),
     deleteUser:    sql.prepare('DELETE FROM users WHERE id = ? AND role != ?'),
     saveUser:      sql.prepare(`
         INSERT OR REPLACE INTO users (id,name,username,email,google_id,avatar,
-            password_hash,password_algo,role,theme,blocked,expires_at,created_at,last_login_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            password_hash,password_algo,role,credits,theme,blocked,expires_at,created_at,last_login_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `),
 
     // user_playlist_access
@@ -381,7 +382,7 @@ class Database {
         return rowToUser(stmts.userByGoogle.get(googleId));
     }
 
-    createUser({ name, username, password, role = 'user', expiresAt = null,
+    createUser({ name, username, password, role = 'user', credits = 0, expiresAt = null,
                   playlists = [], googleId = null, email = null, avatar = null }) {
         if (username && this.findUserByUsername(username)) {
             throw new Error('Nome de usuário já está em uso.');
@@ -390,7 +391,7 @@ class Database {
         const id  = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
         const now = new Date().toISOString();
 
-        const validRoles = ['user', 'pro', 'admin', 'master'];
+        const validRoles = ['user', 'pro', 'reseller', 'admin', 'master'];
         const normalizedRole = validRoles.includes(role) ? role : 'user';
 
         const tx = sql.transaction(() => {
@@ -404,6 +405,7 @@ class Database {
                 bcrypt.hashSync(pwd, BCRYPT_COST),
                 'bcrypt',
                 normalizedRole,
+                Number(credits) || 0,
                 'dark',
                 0,
                 expiresAt || null,
@@ -418,6 +420,7 @@ class Database {
         this.addLog('user',
             `Novo usuário cadastrado (${normalizedRole}): ${username || email} ` +
             `${googleId ? '(via Google OAuth)' : ''} ` +
+            `(Créditos: ${Number(credits) || 0}) ` +
             `(Expira: ${expiresAt || 'Nunca'})`
         );
 
@@ -436,13 +439,15 @@ class Database {
             ? updates.lastLoginAt
             : user.lastLoginAt;
 
-        const validRoles = ['user', 'pro', 'admin', 'master'];
+        const validRoles = ['user', 'pro', 'reseller', 'admin', 'master'];
         const targetRole = updates.role && validRoles.includes(updates.role) ? updates.role : user.role;
+        const targetCredits = updates.credits !== undefined ? Number(updates.credits) : (user.credits || 0);
 
         stmts.updateUser.run(
             updates.name       ?? user.name,
             updates.theme      ?? user.theme,
             targetRole,
+            targetCredits,
             updates.expiresAt  !== undefined ? (updates.expiresAt || null) : user.expiresAt,
             updates.blocked    !== undefined ? (updates.blocked ? 1 : 0) : (user.blocked ? 1 : 0),
             newHash,
@@ -465,6 +470,29 @@ class Database {
         }
 
         return this.findUserById(id);
+    }
+
+    addCredits(userId, amount) {
+        const user = this.findUserById(userId);
+        if (!user) throw new Error('Usuário não encontrado.');
+        const qty = Number(amount) || 0;
+        const newCredits = (user.credits || 0) + qty;
+        sql.prepare('UPDATE users SET credits = ? WHERE id = ?').run(newCredits, userId);
+        this.addLog('credits', `Adicionados ${qty} créditos para o usuário ${user.username}. Novo saldo: ${newCredits}.`);
+        return this.findUserById(userId);
+    }
+
+    deductCredit(userId, amount = 1) {
+        const user = this.findUserById(userId);
+        if (!user) throw new Error('Usuário não encontrado.');
+        const qty = Number(amount) || 1;
+        if ((user.credits || 0) < qty) {
+            throw new Error(`Saldo insuficiente (${user.credits || 0} créditos disponíveis, necessário ${qty}).`);
+        }
+        const newCredits = (user.credits || 0) - qty;
+        sql.prepare('UPDATE users SET credits = ? WHERE id = ?').run(newCredits, userId);
+        this.addLog('credits', `Consumido(s) ${qty} crédito(s) pelo usuário ${user.username}. Novo saldo: ${newCredits}.`);
+        return this.findUserById(userId);
     }
 
     /** Retorna o primeiro usuário master/admin ou qualquer usuário como fallback */
@@ -502,7 +530,7 @@ class Database {
         if (!userId) return stmts.allPlaylists.all().map(rowToPlaylist);
         const user = this.findUserById(userId);
         if (!user) return [];
-        if (user.role === 'admin' || user.role === 'master') return stmts.allPlaylists.all().map(rowToPlaylist);
+        if (user.role === 'admin' || user.role === 'master' || user.role === 'reseller') return stmts.allPlaylists.all().map(rowToPlaylist);
         return stmts.playlistsByUser.all(userId, userId).map(rowToPlaylist);
     }
 

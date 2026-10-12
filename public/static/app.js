@@ -71,6 +71,7 @@ const paths = {
   trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',
   refresh:'M21 3v6h-6M3 21v-6h6M4 9a8 8 0 0 1 14-4l3 4M3 15l3 4a8 8 0 0 0 14-4',
   globe:'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0M2 12h20M12 2c5 5 5 15 0 20-5-5-5-15 0-20',
+  credits:'M2 7h20M2 12h20M7 17h4M2 5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5Z',
 };
 function icon(name) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name] || paths.tv}"/></svg>`; }
 function brand(route = 'login') { return `<a class="brand" href="#/${state.user ? 'dashboard' : 'login'}" aria-label="JstudioPlay — Início"><img src="/static/logo.svg" alt="JstudioPlay"><span>Jstudio<span>Play</span></span></a>`; }
@@ -425,6 +426,7 @@ function getIptvClock(){
 
 function iptvTopBar(active='dashboard'){
   const time = getIptvClock();
+  const isReseller = state.user?.role === 'reseller';
   return `<header class="iptv-dash-topbar">
     <div class="iptv-topbar-left">
       <nav class="iptv-nav-pills" aria-label="Navegação IPTV">
@@ -436,6 +438,7 @@ function iptvTopBar(active='dashboard'){
       </nav>
     </div>
     <div class="iptv-topbar-right">
+      ${isReseller ? `<a class="credit-balance-pill" href="#/credits" title="Saldo de Créditos">${icon('credits')} <strong>${state.user.credits || 0}</strong> créditos</a>` : ''}
       <span class="iptv-clock" id="iptv-live-clock">${time}</span>
       <a class="iptv-icon-action" href="#/search" title="Buscar canais" tabindex="0">${icon('search')}</a>
       <a class="iptv-icon-action" href="#/settings" title="Configurações" tabindex="0">${icon('settings')}</a>
@@ -575,6 +578,7 @@ const pageNames={
   player:'Player',
   automation:'M3U Hub & Automação',
   users:'Usuários',
+  credits:'Comprar Crédito',
   logs:'Logs'
 };
 
@@ -814,23 +818,32 @@ function iptvSmartSidebar(active='dashboard'){
     { id: 'series', label: 'Séries', icon: 'grid' }
   ];
 
-  // Playlists: Pro, Adm e Master
-  if(['pro','admin','master'].includes(role)){
+  // Playlists: Pro, Revendedor, Adm e Master
+  if(['pro','reseller','admin','master'].includes(role)){
     items.push({ id: 'playlists', label: 'Playlists', icon: 'playlist' });
   }
 
-  // Gravações: Pro, Adm e Master
-  if(['pro','admin','master'].includes(role)){
+  // Gravações: Pro, Revendedor, Adm e Master
+  if(['pro','reseller','admin','master'].includes(role)){
     items.push({ id: 'recordings', label: 'Gravações', icon: 'clock' });
   }
 
   items.push({ id: 'epg', label: 'EPG', icon: 'refresh' });
   items.push({ id: 'favorites', label: 'Favoritos', icon: 'heart' });
 
-  // M3U Hub e Usuários: Adm e Master
+  // M3U Hub: Adm e Master
   if(['admin','master'].includes(role)){
     items.push({ id: 'automation', label: 'M3U Hub', icon: 'globe' });
+  }
+
+  // Gestão de Clientes / Usuários: Revendedor, Adm e Master
+  if(['reseller','admin','master'].includes(role)){
     items.push({ id: 'users', label: 'Usuários', icon: 'users' });
+  }
+
+  // Comprar Créditos: Revendedor, Adm e Master
+  if(['reseller','admin','master'].includes(role)){
+    items.push({ id: 'credits', label: 'Comprar Crédito', icon: 'credits' });
   }
 
   // Logs do Sistema: Exclusivo Master
@@ -846,6 +859,20 @@ function iptvSmartSidebar(active='dashboard'){
       </div>
       <span class="iptv-logo-title" style="font-size:1.35rem;">IPTV</span>
     </div>
+    ${role === 'reseller' ? `
+      <div class="iptv-sidebar-credit-badge">
+        <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
+          <span style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px; color:rgba(255,255,255,0.6);">Saldo</span>
+          <span style="font-size:0.72rem; color:#4ade80; font-weight:700;">Ativo</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.4rem; margin-top:0.25rem;">
+          ${icon('credits')}
+          <span style="font-size:1.15rem; font-weight:800; color:#fff;">${state.user.credits || 0}</span>
+          <span style="font-size:0.8rem; color:rgba(255,255,255,0.7);">créditos</span>
+        </div>
+        <a href="#/credits" class="iptv-sidebar-buy-link">+ Comprar créditos</a>
+      </div>
+    ` : ''}
     <nav style="display:flex; flex-direction:column; gap:0.35rem;">
       ${items.map(it => `
         <a class="iptv-smart-nav-item ${(active===it.id || (it.id==='playlists'&&active==='channels') || (it.id==='live'&&active==='channels'))?'active':''}" href="#/${it.id}" tabindex="0">
@@ -1260,13 +1287,66 @@ function savedPage(kind){const items=state[kind],isFav=kind==='favorites';return
 function roleBadge(role){
   if(role==='master') return `<span class="badge" style="background:rgba(229,9,20,0.2); color:#ff4d4f; border:1px solid rgba(229,9,20,0.5); font-weight:700;">👑 Master</span>`;
   if(role==='admin') return `<span class="badge" style="background:rgba(59,130,246,0.2); color:#60a5fa; border:1px solid rgba(59,130,246,0.5); font-weight:600;">🛡️ Adm</span>`;
+  if(role==='reseller') return `<span class="badge" style="background:rgba(168,85,247,0.2); color:#c084fc; border:1px solid rgba(168,85,247,0.5); font-weight:600;">💎 Revendedor</span>`;
   if(role==='pro') return `<span class="badge" style="background:rgba(234,179,8,0.2); color:#facc15; border:1px solid rgba(234,179,8,0.5); font-weight:600;">⭐ Pro</span>`;
   return `<span class="badge" style="background:rgba(34,197,94,0.15); color:#4ade80; border:1px solid rgba(34,197,94,0.4);">👤 Usuário</span>`;
 }
 
+const CREDIT_PACKAGES_DATA = [
+  { id: 'cred_10', credits: 10, price: 60.00, unitPrice: '6,00', tag: null },
+  { id: 'cred_20', credits: 20, price: 120.00, unitPrice: '6,00', tag: null },
+  { id: 'cred_30', credits: 30, price: 180.00, unitPrice: '6,00', tag: null },
+  { id: 'cred_40', credits: 40, price: 200.00, unitPrice: '5,00', tag: 'Economize R$ 40' },
+  { id: 'cred_50', credits: 50, price: 250.00, unitPrice: '5,00', tag: 'Economize R$ 50' },
+  { id: 'cred_60', credits: 60, price: 300.00, unitPrice: '5,00', tag: 'Economize R$ 60' },
+  { id: 'cred_70', credits: 70, price: 280.00, unitPrice: '4,00', tag: 'Super Desconto' },
+  { id: 'cred_80', credits: 80, price: 320.00, unitPrice: '4,00', tag: 'Super Desconto' },
+  { id: 'cred_90', credits: 90, price: 360.00, unitPrice: '4,00', tag: 'Melhor Custo' }
+];
+
+function creditsPage(){
+  const myCredits = state.user?.credits || 0;
+  return `
+  <div class="credits-page-wrapper">
+    <div class="credits-header-box">
+      <div class="credits-title-area">
+        <h1>Comprar Crédito</h1>
+        <p>Para comprar créditos selecione a quantidade desejada:</p>
+      </div>
+      <div class="credits-balance-card">
+        <div class="credits-balance-icon">
+          ${icon('credits')}
+        </div>
+        <div class="credits-balance-meta">
+          <span class="credits-balance-label">Seu Saldo Atual</span>
+          <span class="credits-balance-val">${myCredits} <small>créditos</small></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="credits-grid-3x3">
+      ${CREDIT_PACKAGES_DATA.map(pkg => `
+        <article class="credit-package-card">
+          ${pkg.tag ? `<span class="credit-pkg-badge">${pkg.tag}</span>` : ''}
+          <div class="credit-pkg-icon-wrap">
+            ${icon('credits')}
+          </div>
+          <h2 class="credit-pkg-title">${pkg.credits} Créditos</h2>
+          <div class="credit-pkg-price">R$ ${pkg.price.toFixed(2).replace('.', ',')}</div>
+          <div class="credit-pkg-unit">(R$ ${pkg.unitPrice} cada)</div>
+          <button class="credit-pkg-btn" data-action="buy-credits" data-package="${pkg.credits}" data-price="${pkg.price}" data-id="${pkg.id}">
+            Comprar
+          </button>
+        </article>
+      `).join('')}
+    </div>
+  </div>`;
+}
+
 function usersPage(){
   const isMaster = state.user?.role === 'master';
-  return `${heading('Gestão de Usuários', isMaster?'Administre todos os perfis e acessos globais da plataforma.':'Gerencie os usuários e assinantes sob sua supervisão.')}
+  const isReseller = state.user?.role === 'reseller';
+  return `${heading('Gestão de Usuários', isMaster?'Administre todos os perfis e acessos globais da plataforma.':isReseller?'Cadastre e acompanhe seus clientes. Cada novo usuário consome 1 crédito.':'Gerencie os usuários e assinantes sob sua supervisão.')}
   <div class="toolbar">
     <div class="field search">${icon('search')}<input id="user-search" type="search" placeholder="Buscar usuário…" aria-label="Buscar usuário"></div>
     <button class="btn small" data-action="new-user">${icon('plus')}Novo usuário</button>
@@ -1278,6 +1358,7 @@ function usersPage(){
           <th>Usuário</th>
           <th>Perfil</th>
           <th>Status</th>
+          <th>Créditos</th>
           <th>Playlists</th>
           <th>Último acesso</th>
           <th>Ações</th>
@@ -1300,13 +1381,14 @@ function userRows(query){
       </td>
       <td>${roleBadge(u.role)}</td>
       <td><span class="badge ${u.blocked?'blocked':''}">${u.blocked?'Bloqueado':'Ativo'}</span></td>
+      <td>${u.role==='reseller' ? `<span class="badge" style="background:rgba(168,85,247,0.18); color:#c084fc; font-weight:700;">💳 ${u.credits || 0}</span>` : `<small style="color:var(--iptv-text-sec);">${u.credits || 0}</small>`}</td>
       <td>${playlists}</td>
       <td><small>${dateTime(u.lastLogin)}</small></td>
       <td>
         <button class="icon-btn" data-action="user-options" data-id="${u.id}" aria-label="Gerenciar ${esc(u.username)}">${icon('more')}</button>
       </td>
     </tr>
-  `).join('') || '<tr><td colspan="6">Nenhum usuário encontrado.</td></tr>';
+  `).join('') || '<tr><td colspan="7">Nenhum usuário encontrado.</td></tr>';
 }
 
 function logsPage(){return `${heading('Logs de Auditoria do Sistema','Acompanhe em tempo real todos os acessos, erros e atividades administrativas do servidor.')}<section class="card table-wrap"><table class="data-table"><thead><tr><th>Data e hora</th><th>Usuário</th><th>Atividade</th></tr></thead><tbody>${state.logs.map(l=>`<tr><td><small>${dateTime(l.at)}</small></td><td>${esc(l.user)}</td><td>${esc(l.action)}</td></tr>`).join('')||'<tr><td colspan="3">Nenhuma atividade registrada.</td></tr>'}</tbody></table><div class="table-foot">Até 500 atividades mais recentes. Endereços das playlists e senhas não são registrados.</div></section>`;}
@@ -1323,7 +1405,8 @@ async function renderRoute(){
   if(state.user && (page==='login'||page==='landing')){navigate('dashboard');return;}
   const userRole = state.user?.role || 'user';
   if(page==='logs' && userRole !== 'master'){navigate('dashboard');return;}
-  if(page==='users' && !['admin','master'].includes(userRole)){navigate('dashboard');return;}
+  if(page==='users' && !['reseller','admin','master'].includes(userRole)){navigate('dashboard');return;}
+  if(page==='credits' && !['reseller','admin','master'].includes(userRole)){navigate('dashboard');return;}
   if(page==='automation' && !['admin','master'].includes(userRole)){navigate('dashboard');return;}
   if(page==='recordings' && userRole === 'user'){navigate('dashboard');return;}
   if(page==='playlists' && userRole === 'user' && !state.playlists.length){navigate('live');return;}
@@ -1343,7 +1426,7 @@ async function renderRoute(){
       await loadChannels(state.activePlaylist||state.playlists[0].id, generation);
       if(generation!==routeGeneration)return;
     }
-    const content=page==='dashboard'?dashboard():page==='live'||page==='channels'?livePage():page==='movies'?moviesPage():page==='series'?seriesPage():page==='search'?searchPage():page==='favorites'?favoritesPage():page==='recordings'?recordingsPage():page==='epg'?epgPage():page==='playlists'?heading('Minhas playlists','Todas as suas listas, organizadas em um só lugar.')+playlistSection():page==='settings'?settings():page==='users'?usersPage():page==='logs'?logsPage():page==='player'?playerPage():page==='automation'?'<div class="loading-state">Carregando M3U Hub…<div class="loading-line"></div></div>':savedPage(page);
+    const content=page==='dashboard'?dashboard():page==='live'||page==='channels'?livePage():page==='movies'?moviesPage():page==='series'?seriesPage():page==='search'?searchPage():page==='favorites'?favoritesPage():page==='recordings'?recordingsPage():page==='epg'?epgPage():page==='playlists'?heading('Minhas playlists','Todas as suas listas, organizadas em um só lugar.')+playlistSection():page==='settings'?settings():page==='users'?usersPage():page==='credits'?creditsPage():page==='logs'?logsPage():page==='player'?playerPage():page==='automation'?'<div class="loading-state">Carregando M3U Hub…<div class="loading-line"></div></div>':savedPage(page);
     // Estrutura Unificada de TV com Sidebar Oficial para todas as telas autenticadas
     const isFullBleed = ['live','channels','player'].includes(page);
     $('#app').innerHTML=`
@@ -1836,7 +1919,14 @@ function playlistModal(){openModal('Adicionar playlist',`
 `);}
 function userModal(){
   const isMaster = state.user?.role === 'master';
+  const isReseller = state.user?.role === 'reseller';
   openModal('Novo Usuário',`<form id="user-form" class="stack">
+    ${isReseller ? `
+      <div class="info" style="margin-bottom:0.5rem; border-color:rgba(168,85,247,0.3); background:rgba(168,85,247,0.1);">
+        ${icon('credits')}
+        <span>Criar um novo usuário consumirá <strong>1 crédito</strong> do seu saldo. Saldo atual: <strong>${state.user.credits || 0} créditos</strong>.</span>
+      </div>
+    ` : ''}
     <div>
       <label for="new-user-name">Nome Completo</label>
       <input name="name" id="new-user-name" required maxlength="80" autofocus autocomplete="off" placeholder="Ex: Maria Silva">
@@ -1856,10 +1946,17 @@ function userModal(){
       <select name="role" id="new-user-role">
         <option value="user">👤 Usuário (Acesso Básico ao Player)</option>
         <option value="pro">⭐ Pro (Playlists Privadas + DVR Gravações)</option>
+        ${['admin','master'].includes(state.user?.role)?`<option value="reseller">💎 Revendedor (Gestão de Clientes & Saldo de Créditos)</option>`:''}
         ${['admin','master'].includes(state.user?.role)?`<option value="admin">🛡️ Adm (Gestão de Usuários & M3U Hub)</option>`:''}
         ${isMaster?`<option value="master">👑 Master (Acesso Total & Logs do Sistema)</option>`:''}
       </select>
     </div>
+    ${isMaster?`
+    <div>
+      <label for="new-user-credits">Créditos Iniciais</label>
+      <input id="new-user-credits" name="credits" type="number" min="0" value="0" placeholder="0">
+      <p class="help-text">Saldo inicial de créditos (para perfil Revendedor).</p>
+    </div>`:''}
     <div class="form-error" role="alert"></div>
     <div class="dialog-actions">
       <button type="button" class="btn secondary" data-action="close-modal">Cancelar</button>
@@ -1878,6 +1975,10 @@ function userOptions(id){
       <span>Perfil Atual:</span>
       ${roleBadge(u.role)}
     </div>
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:0.5rem 0; border-bottom:1px solid var(--iptv-border);">
+      <span>Saldo de Créditos:</span>
+      <span style="font-weight:700; color:#4ade80;">💳 ${u.credits || 0} créditos</span>
+    </div>
     ${canEditRole?`
     <form id="edit-role-form" class="stack" data-id="${id}" style="margin:0.75rem 0;">
       <label for="edit-role-select">Alterar Perfil de Acesso</label>
@@ -1885,12 +1986,21 @@ function userOptions(id){
         <select id="edit-role-select" name="role" style="flex:1;">
           <option value="user" ${u.role==='user'?'selected':''}>👤 Usuário</option>
           <option value="pro" ${u.role==='pro'?'selected':''}>⭐ Pro</option>
+          ${isMaster||state.user?.role==='admin'?`<option value="reseller" ${u.role==='reseller'?'selected':''}>💎 Revendedor</option>`:''}
           ${isMaster?`<option value="admin" ${u.role==='admin'?'selected':''}>🛡️ Adm</option>`:''}
           ${isMaster?`<option value="master" ${u.role==='master'?'selected':''}>👑 Master</option>`:''}
         </select>
         <button class="btn small" type="submit">Salvar Perfil</button>
       </div>
     </form>`:''}
+    ${isMaster?`
+    <div style="background:rgba(255,255,255,0.03); border:1px solid var(--iptv-border); border-radius:10px; padding:0.85rem; margin-bottom:0.5rem;">
+      <label style="font-size:0.88rem; font-weight:700; display:block; margin-bottom:0.25rem; color:#fff;">💳 Ajuste de Créditos (Master)</label>
+      <div style="display:flex; gap:0.5rem; margin-top:0.4rem;">
+        <input type="number" id="adjust-credits-amount" placeholder="Qtd (+ ou -)" style="flex:1;" value="10">
+        <button class="btn small" type="button" data-action="adjust-user-credits" data-id="${id}">Aplicar</button>
+      </div>
+    </div>`:''}
     <p style="font-size:0.9rem; color:var(--iptv-text-sec);">${u.blocked?'A conta está bloqueada. Reative para permitir novos acessos.':'Ao bloquear a conta, as sessões do cliente serão encerradas.'}</p>
     <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
       <button class="btn ${u.blocked?'':'danger'}" data-action="block-user" data-id="${id}" style="flex:1;">${u.blocked?'Reativar conta':'Bloquear conta'}</button>

@@ -107,6 +107,7 @@ apiRouter.get('/session', (req, res) => {
             email: user.email || null,
             avatar: user.avatar || null,
             role: user.role,
+            credits: user.credits !== undefined ? Number(user.credits) : 0,
             theme: user.theme || 'dark',
             blocked: !!user.blocked,
             expiresAt: user.expiresAt,
@@ -173,6 +174,7 @@ apiRouter.post('/login', (req, res) => {
         email: user.email || null,
         avatar: user.avatar || null,
         role: user.role,
+        credits: user.credits !== undefined ? Number(user.credits) : 0,
         theme: user.theme || 'dark',
         blocked: false
     });
@@ -208,6 +210,7 @@ apiRouter.post('/auth/google', async (req, res) => {
             username: user.username,
             email: user.email,
             role: user.role,
+            credits: user.credits !== undefined ? Number(user.credits) : 0,
             theme: user.theme || 'dark',
             avatar: user.avatar,
             blocked: false
@@ -286,6 +289,7 @@ apiRouter.post('/auth/google', async (req, res) => {
             username: user.username,
             email: user.email,
             role: user.role,
+            credits: user.credits !== undefined ? Number(user.credits) : 0,
             theme: user.theme || 'dark',
             avatar: user.avatar,
             blocked: false
@@ -798,14 +802,62 @@ app.get('/proxy/stream', (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// 5. Admin & Users
-// ST-02: RBAC — rotas admin restritas a Administradores e Master
+// 5. Admin & Users & Credits
+// RBAC: Master (tudo), Adm (gestão), Reseller (créditos & clientes), Pro, User
 // -----------------------------------------------------------------------------
-apiRouter.get('/admin/users', requireAuth, security.requireAdmin(), (req, res) => {
-    // Master vê todos os usuários; Adm vê todos exceto perfis Master
+
+// Catálogo Oficial de Créditos para Revenda (Matriz de 9 pacotes)
+const CREDIT_PACKAGES = [
+    { id: 'cred_10', credits: 10, price: 60.00, unitPrice: 6.00, title: '10 Créditos', discount: null },
+    { id: 'cred_20', credits: 20, price: 120.00, unitPrice: 6.00, title: '20 Créditos', discount: null },
+    { id: 'cred_30', credits: 30, price: 180.00, unitPrice: 6.00, title: '30 Créditos', discount: null },
+    { id: 'cred_40', credits: 40, price: 200.00, unitPrice: 5.00, title: '40 Créditos', discount: 'Economize R$ 40' },
+    { id: 'cred_50', credits: 50, price: 250.00, unitPrice: 5.00, title: '50 Créditos', discount: 'Economize R$ 50' },
+    { id: 'cred_60', credits: 60, price: 300.00, unitPrice: 5.00, title: '60 Créditos', discount: 'Economize R$ 60' },
+    { id: 'cred_70', credits: 70, price: 280.00, unitPrice: 4.00, title: '70 Créditos', discount: 'Super Desconto - R$ 4,00 cada' },
+    { id: 'cred_80', credits: 80, price: 320.00, unitPrice: 4.00, title: '80 Créditos', discount: 'Super Desconto - R$ 4,00 cada' },
+    { id: 'cred_90', credits: 90, price: 360.00, unitPrice: 4.00, title: '90 Créditos', discount: 'Melhor Custo-Benefício' }
+];
+
+apiRouter.get('/credits/packages', requireAuth, (req, res) => {
+    res.json(CREDIT_PACKAGES);
+});
+
+apiRouter.post('/credits/checkout', requireAuth, security.requireReseller(), (req, res) => {
+    try {
+        const { packageId } = req.body;
+        const pkg = CREDIT_PACKAGES.find(p => p.id === packageId || p.credits === Number(packageId));
+        if (!pkg) return res.status(400).json({ error: 'Pacote de créditos inválido.' });
+
+        // Chave PIX (configurada em CREDENCIAIS/.env ou fallback)
+        const pixKey = process.env.PIX_KEY || 'pix@jstudioplay.com.br';
+        const pixPayload = `00020126580014BR.GOV.BCB.PIX0136${pixKey}520400005303986540${pkg.price.toFixed(2)}5802BR5916JSTUDIOPLAY PRO6009SAO PAULO62070503***6304`;
+        const whatsappNumber = process.env.WHATSAPP_SUPPORT || '5511999999999';
+        const whatsappMsg = encodeURIComponent(`Olá! Acabei de gerar o pedido de ${pkg.credits} créditos (R$ ${pkg.price.toFixed(2)}) no JstudioPlay Pro para o usuário @${req.user.username}. Segue o comprovante.`);
+        const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${whatsappMsg}`;
+
+        db.addLog('credits', `Pedido de créditos iniciado: ${pkg.credits} créditos (R$ ${pkg.price.toFixed(2)}) por ${req.user.username}`);
+
+        res.json({
+            package: pkg,
+            pixPayload,
+            pixKey,
+            whatsappUrl,
+            expiresInSeconds: 1800,
+            userCredits: req.user.credits || 0
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+apiRouter.get('/admin/users', requireAuth, security.requireReseller(), (req, res) => {
+    // Master vê todos; Adm vê todos exceto Master; Reseller vê clientes (user e pro)
     const filteredUsers = db.data.users.filter(u => {
         if (req.user.role === 'master') return true;
-        return u.role !== 'master';
+        if (req.user.role === 'admin') return u.role !== 'master';
+        if (req.user.role === 'reseller') return ['user', 'pro'].includes(u.role);
+        return false;
     });
     const usersWithStats = filteredUsers.map(u => ({
         user: {
@@ -813,6 +865,7 @@ apiRouter.get('/admin/users', requireAuth, security.requireAdmin(), (req, res) =
             name: u.name,
             username: u.username,
             role: u.role,
+            credits: u.credits !== undefined ? Number(u.credits) : 0,
             blocked: !!u.blocked,
             lastLogin: u.lastLoginAt,
             createdAt: u.createdAt
@@ -823,19 +876,35 @@ apiRouter.get('/admin/users', requireAuth, security.requireAdmin(), (req, res) =
     res.json(usersWithStats);
 });
 
-apiRouter.post('/admin/users', requireAuth, security.requireAdmin(), (req, res) => {
+apiRouter.post('/admin/users', requireAuth, security.requireReseller(), (req, res) => {
     try {
-        const { name, username, password, role = 'user', expiresAt, playlists } = req.body;
-        // Adm só pode criar papéis 'user' ou 'pro'
-        if (req.user.role === 'admin' && ['admin', 'master'].includes(role)) {
-            return res.status(403).json({ error: 'Apenas usuários com perfil Master podem criar Administradores ou Masters.' });
+        const { name, username, password, role = 'user', expiresAt, playlists, credits = 0 } = req.body;
+        
+        // Validação de permissões por perfil
+        if (req.user.role === 'reseller') {
+            if (!['user', 'pro'].includes(role)) {
+                return res.status(403).json({ error: 'Revendedores só podem cadastrar clientes com perfil Usuário ou Pro.' });
+            }
+            const currentCredits = Number(req.user.credits) || 0;
+            if (currentCredits < 1) {
+                return res.status(403).json({ error: 'Saldo de créditos insuficiente. Você precisa de pelo menos 1 crédito para criar um usuário. Adquira créditos em "Comprar Créditos".' });
+            }
+            // Consome 1 crédito
+            db.deductCredit(req.user.id, 1);
+        } else if (req.user.role === 'admin') {
+            if (['admin', 'master'].includes(role)) {
+                return res.status(403).json({ error: 'Apenas usuários com perfil Master podem criar Administradores ou Masters.' });
+            }
         }
-        const user = db.createUser({ name, username, password, role, expiresAt, playlists });
+
+        const initialCredits = req.user.role === 'master' ? (Number(credits) || 0) : 0;
+        const user = db.createUser({ name, username, password, role, credits: initialCredits, expiresAt, playlists });
         res.json({
             id: user.id,
             name: user.name,
             username: user.username,
             role: user.role,
+            credits: user.credits,
             expiresAt: user.expiresAt,
             blocked: user.blocked
         });
@@ -844,12 +913,15 @@ apiRouter.post('/admin/users', requireAuth, security.requireAdmin(), (req, res) 
     }
 });
 
-apiRouter.patch('/admin/users/:id', requireAuth, security.requireAdmin(), (req, res) => {
+apiRouter.patch('/admin/users/:id', requireAuth, security.requireReseller(), (req, res) => {
     try {
         const target = db.findUserById(req.params.id);
         if (!target) return res.status(404).json({ error: 'Usuário não encontrado.' });
         if (target.role === 'master' && req.user.role !== 'master') {
             return res.status(403).json({ error: 'Apenas Master pode editar outro usuário Master.' });
+        }
+        if (req.user.role === 'reseller' && !['user', 'pro'].includes(target.role)) {
+            return res.status(403).json({ error: 'Revendedor só pode gerenciar clientes com perfil Usuário ou Pro.' });
         }
         if (req.user.role === 'admin' && req.body.role && ['admin', 'master'].includes(req.body.role)) {
             return res.status(403).json({ error: 'Apenas Master pode promover usuários a Adm ou Master.' });
@@ -860,6 +932,7 @@ apiRouter.patch('/admin/users/:id', requireAuth, security.requireAdmin(), (req, 
             name: updated.name,
             username: updated.username,
             role: updated.role,
+            credits: updated.credits,
             expiresAt: updated.expiresAt,
             blocked: updated.blocked
         });
@@ -868,16 +941,32 @@ apiRouter.patch('/admin/users/:id', requireAuth, security.requireAdmin(), (req, 
     }
 });
 
-apiRouter.delete('/admin/users/:id', requireAuth, security.requireAdmin(), (req, res) => {
+apiRouter.delete('/admin/users/:id', requireAuth, security.requireReseller(), (req, res) => {
     const target = db.findUserById(req.params.id);
     if (!target) return res.status(404).json({ error: 'Usuário não encontrado.' });
     if (target.role === 'master') return res.status(403).json({ error: 'Usuários Master não podem ser excluídos.' });
     if (target.role === 'admin' && req.user.role !== 'master') {
         return res.status(403).json({ error: 'Apenas Master pode excluir Administradores.' });
     }
+    if (req.user.role === 'reseller' && !['user', 'pro'].includes(target.role)) {
+        return res.status(403).json({ error: 'Revendedores só podem excluir clientes Usuário ou Pro.' });
+    }
     const success = db.deleteUser(req.params.id);
     if (success) res.json({ success: true });
     else res.status(400).json({ error: 'Não foi possível excluir o usuário.' });
+});
+
+apiRouter.post('/admin/users/:id/credits', requireAuth, security.requireMaster(), (req, res) => {
+    try {
+        const amount = Number(req.body.amount);
+        if (isNaN(amount) || amount === 0) {
+            return res.status(400).json({ error: 'Informe uma quantidade válida de créditos (positiva para adicionar ou negativa para retirar).' });
+        }
+        const user = db.addCredits(req.params.id, amount);
+        res.json({ success: true, credits: user.credits, user });
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
 });
 
 apiRouter.get('/admin/logs', requireAuth, security.requireMaster(), (req, res) => {

@@ -1,9 +1,9 @@
 {
   "version": 2,
 
-  "buildCommand": null,
+  "buildCommand": "echo 'Static build — no compilation needed'",
   "outputDirectory": "public",
-  "installCommand": "echo 'no install needed'",
+  "installCommand": "npm install --ignore-scripts --omit=optional",
   "framework": null,
 
   "rewrites": [

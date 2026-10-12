@@ -77,7 +77,7 @@ function icon(name) { return `<svg viewBox="0 0 24 24" fill="none" stroke="curre
 function brand(route = 'login') { return `<a class="brand" href="#/${state.user ? 'dashboard' : 'login'}" aria-label="JstudioPlay — Início"><img src="/static/logo.svg" alt="JstudioPlay"><span>Jstudio<span>Play</span></span></a>`; }
 let initialToken=null;
 try { initialToken = localStorage.getItem('m3u-token'); } catch {}
-const state = {user:null,token:initialToken,setupRequired:false,setupAllowed:false,relayEnabled:false,relayMode:false,page:'',playlists:[],favorites:[],history:[],progress:[],users:[],logs:[],channels:[],activePlaylist:'',category:'',query:'',channelPage:1,selected:null,groups:[],loading:false};
+const state = {user:null,token:initialToken,setupRequired:false,setupAllowed:false,relayEnabled:false,relayMode:false,page:'',playlists:[],favorites:[],history:[],progress:[],users:[],logs:[],aiStatus:null,channels:[],activePlaylist:'',category:'',query:'',channelPage:1,selected:null,groups:[],loading:false};
 let hls = null, playbackGeneration = 0, routeGeneration = 0, toastTimer, searchTimer, playbackTimer;
 let theme = 'dark';
 try { theme = localStorage.getItem('m3u-theme') === 'light' ? 'light' : 'dark'; } catch {}
@@ -579,7 +579,8 @@ const pageNames={
   automation:'M3U Hub & Automação',
   users:'Usuários',
   credits:'Comprar Crédito',
-  logs:'Logs'
+  logs:'Logs',
+  'ai-status':'Status da IA'
 };
 
 function navLink(page,symbol,label,count){return `<a class="nav-link ${state.page===page?'active':''}" href="#/${page}" title="${esc(label)}" aria-label="${esc(label)}" ${state.page===page?'aria-current="page"':''}>${icon(symbol)}<span class="nav-label">${label}</span>${count!==undefined?`<span class="nav-count">${count}</span>`:''}</a>`;}
@@ -834,6 +835,11 @@ function iptvSmartSidebar(active='dashboard'){
   // M3U Hub: Adm e Master
   if(['admin','master'].includes(role)){
     items.push({ id: 'automation', label: 'M3U Hub', icon: 'globe' });
+  }
+
+  // Status da IA: Adm e Master
+  if(['admin','master'].includes(role)){
+    items.push({ id: 'ai-status', label: 'Status da IA', icon: 'refresh' });
   }
 
   // Gestão de Clientes / Usuários: Revendedor, Adm e Master
@@ -1304,6 +1310,71 @@ const CREDIT_PACKAGES_DATA = [
   { id: 'cred_90', credits: 90, price: 360.00, unitPrice: '4,00', tag: 'Melhor Custo' }
 ];
 
+function aiStatusPage(){
+  const s = state.aiStatus;
+  if(!s) return `<div class="iptv-page-body"><div class="loading-state">Carregando status da IA…<div class="loading-line"></div></div></div>`;
+
+  function svcCard(label, emoji, data, detailKey){
+    const ok = data?.ok === true;
+    const badge = ok
+      ? `<span class="ai-status-badge ai-ok">● Online</span>`
+      : `<span class="ai-status-badge ai-err">● Offline</span>`;
+    const detail = data?.[detailKey] || (ok ? (data?.model || data?.version || '') : (data?.error || 'Sem resposta'));
+    return `
+      <div class="ai-svc-card ${ok?'ai-svc-ok':'ai-svc-err'}">
+        <div class="ai-svc-header">
+          <span class="ai-svc-emoji">${emoji}</span>
+          <span class="ai-svc-name">${label}</span>
+          ${badge}
+        </div>
+        ${detail?`<p class="ai-svc-detail">${esc(String(detail))}</p>`:''}
+      </div>`;
+  }
+
+  const scraper = s.scraper || {};
+  const ts = s.timestamp ? new Date(s.timestamp).toLocaleString('pt-BR') : '—';
+
+  const scrapBadge = scraper.isRunning
+    ? `<span class="ai-status-badge ai-run">● Rodando</span>`
+    : `<span class="ai-status-badge ai-idle">● Ocioso</span>`;
+
+  return `
+  <div class="ai-status-wrapper">
+    <div class="ai-status-header">
+      <div>
+        <h1 class="ai-status-title">Status da IA & Integrações</h1>
+        <p class="ai-status-sub">Última verificação: ${ts}</p>
+      </div>
+      <button class="btn small" data-action="refresh-ai-status">${icon('refresh')} Atualizar</button>
+    </div>
+
+    <div class="ai-svc-grid">
+      ${svcCard('Ollama LLM', '🤖', s.ollama, 'model')}
+      ${svcCard('pgvector', '🗄️', s.pgvector, 'version')}
+      ${svcCard('SearXNG', '🔍', s.searxng, 'version')}
+    </div>
+
+    <div class="ai-scraper-card">
+      <div class="ai-svc-header">
+        <span class="ai-svc-emoji">📡</span>
+        <span class="ai-svc-name">Scraper M3U</span>
+        ${scrapBadge}
+      </div>
+      <div class="ai-scraper-grid">
+        <div class="ai-scraper-stat"><span>${scraper.totalChannels ?? '—'}</span><small>Canais</small></div>
+        <div class="ai-scraper-stat"><span>${scraper.totalPlaylists ?? '—'}</span><small>Playlists</small></div>
+        <div class="ai-scraper-stat"><span>${scraper.lastRunAt ? new Date(scraper.lastRunAt).toLocaleDateString('pt-BR') : '—'}</span><small>Última execução</small></div>
+        <div class="ai-scraper-stat"><span>${scraper.errors ?? '—'}</span><small>Erros</small></div>
+      </div>
+    </div>
+
+    <div class="ai-actions-row">
+      <button class="btn small" data-action="ai-discover">🔍 Descobrir fontes M3U</button>
+      <a href="#/logs" class="btn small secondary">📋 Ver logs do sistema</a>
+    </div>
+  </div>`;
+}
+
 function creditsPage(){
   const myCredits = state.user?.credits || 0;
   return `
@@ -1407,6 +1478,7 @@ async function renderRoute(){
   if(page==='logs' && userRole !== 'master'){navigate('dashboard');return;}
   if(page==='users' && !['reseller','admin','master'].includes(userRole)){navigate('dashboard');return;}
   if(page==='credits' && !['reseller','admin','master'].includes(userRole)){navigate('dashboard');return;}
+  if(page==='ai-status' && !['admin','master'].includes(userRole)){navigate('dashboard');return;}
   if(page==='automation' && !['admin','master'].includes(userRole)){navigate('dashboard');return;}
   if(page==='recordings' && userRole === 'user'){navigate('dashboard');return;}
   if(page==='playlists' && userRole === 'user' && !state.playlists.length){navigate('live');return;}
@@ -1421,12 +1493,13 @@ async function renderRoute(){
     if(generation!==routeGeneration)return;
     if(page==='users')state.users=await api('/admin/users');
     if(page==='logs')state.logs=await api('/admin/logs')||[];
+    if(page==='ai-status')state.aiStatus=await api('/integrations/status');
     if(generation!==routeGeneration)return;
     if(['live','channels','player','dashboard'].includes(page) && state.playlists.length && !state.channels.length){
       await loadChannels(state.activePlaylist||state.playlists[0].id, generation);
       if(generation!==routeGeneration)return;
     }
-    const content=page==='dashboard'?dashboard():page==='live'||page==='channels'?livePage():page==='movies'?moviesPage():page==='series'?seriesPage():page==='search'?searchPage():page==='favorites'?favoritesPage():page==='recordings'?recordingsPage():page==='epg'?epgPage():page==='playlists'?heading('Minhas playlists','Todas as suas listas, organizadas em um só lugar.')+playlistSection():page==='settings'?settings():page==='users'?usersPage():page==='credits'?creditsPage():page==='logs'?logsPage():page==='player'?playerPage():page==='automation'?'<div class="loading-state">Carregando M3U Hub…<div class="loading-line"></div></div>':savedPage(page);
+    const content=page==='dashboard'?dashboard():page==='live'||page==='channels'?livePage():page==='movies'?moviesPage():page==='series'?seriesPage():page==='search'?searchPage():page==='favorites'?favoritesPage():page==='recordings'?recordingsPage():page==='epg'?epgPage():page==='playlists'?heading('Minhas playlists','Todas as suas listas, organizadas em um só lugar.')+playlistSection():page==='settings'?settings():page==='users'?usersPage():page==='credits'?creditsPage():page==='ai-status'?aiStatusPage():page==='logs'?logsPage():page==='player'?playerPage():page==='automation'?'<div class="loading-state">Carregando M3U Hub…<div class="loading-line"></div></div>':savedPage(page);
     // Estrutura Unificada de TV com Sidebar Oficial para todas as telas autenticadas
     const isFullBleed = ['live','channels','player'].includes(page);
     $('#app').innerHTML=`
@@ -1843,10 +1916,33 @@ function playChannel(ch){
     return;
   }
   if(useHls){
-     const instance=new Hls({enableWorker:true,backBufferLength:90,enableSoftwareAES:true});hls=instance;window.currentHlsInstance=instance;instance.loadSource(ch.url);instance.attachMedia(v);instance.on(Hls.Events.MANIFEST_PARSED,start);instance.on(Hls.Events.ERROR,(_,data)=>{if(generation!==playbackGeneration||!data.fatal)return;instance.destroy();if(hls===instance){hls=null;window.currentHlsInstance=null;}clearTimeout(playbackTimer);playbackTimer=null;playerMessage('Não foi possível reproduzir','A transmissão HLS falhou ou não é compatível. Confira a disponibilidade no provedor, sem alterar suas proteções de acesso.',true);});
+     const instance=new Hls({enableWorker:true,backBufferLength:90,enableSoftwareAES:true});hls=instance;window.currentHlsInstance=instance;instance.loadSource(ch.url);instance.attachMedia(v);instance.on(Hls.Events.MANIFEST_PARSED,()=>{start();updateHlsQualityBadge(instance);});instance.on(Hls.Events.LEVEL_SWITCHED,()=>updateHlsQualityBadge(instance));instance.on(Hls.Events.ERROR,(_,data)=>{if(generation!==playbackGeneration||!data.fatal)return;instance.destroy();if(hls===instance){hls=null;window.currentHlsInstance=null;}clearTimeout(playbackTimer);playbackTimer=null;playerMessage('Não foi possível reproduzir','A transmissão HLS falhou ou não é compatível. Confira a disponibilidade no provedor, sem alterar suas proteções de acesso.',true);});
   }else direct();
 }
 function updateNowFavorite(){const b=$('#now-favorite');if(!b||!state.selected)return;const on=isFavorite(state.selected);b.classList.toggle('is-favorite',on);b.style.color=on?'#fc6382':'';b.setAttribute('aria-pressed',String(on));b.setAttribute('aria-label',on?'Remover canal dos favoritos':'Favoritar canal atual');}
+
+function updateHlsQualityBadge(instance){
+  try{
+    const lvl=instance?.levels?.[instance.currentLevel];
+    if(!lvl)return;
+    const h=lvl.height||0;
+    const bw=instance.bandwidthEstimate||0;
+    const res=h>=2160?'4K':h>=1080?'FHD':h>=720?'HD':h>=480?'SD':h?`${h}p`:'';
+    const mbps=bw>0?`${(bw/1000000).toFixed(1)} Mbps`:'';
+    const label=[res,mbps].filter(Boolean).join(' · ');
+    let badge=document.getElementById('hls-quality-badge');
+    if(!badge){
+      badge=document.createElement('span');
+      badge.id='hls-quality-badge';
+      badge.className='hls-quality-badge';
+      const liveBar=document.getElementById('video-live');
+      if(liveBar?.parentNode)liveBar.parentNode.insertBefore(badge,liveBar.nextSibling);
+      else document.getElementById('video')?.parentNode?.appendChild(badge);
+    }
+    badge.textContent=label||'HLS';
+    badge.hidden=!label;
+  }catch{}
+}
 
 // Atualiza o hero Netflix com o canal atual
 function updateStreamingHero(ch){
@@ -2203,6 +2299,49 @@ document.addEventListener('click',async event=>{
     if(action==='reload-channels'){await loadChannels(state.activePlaylist);return;}
     if(action==='retry-page'){await renderRoute();return;}
     if(action==='new-user'){userModal();return;}
+    if(action==='refresh-ai-status'){
+      state.aiStatus=await api('/integrations/status');
+      if(state.page==='ai-status')$('#content').innerHTML=aiStatusPage();
+      return;
+    }
+    if(action==='ai-discover'){
+      b.disabled=true;const orig=b.innerHTML;b.innerHTML=`${icon('refresh')} Iniciando…`;
+      try{
+        await api('/integrations/discover','POST',{});
+        toast('🔍 Descoberta de fontes M3U iniciada em background.');
+      }catch(e){toast('Erro ao iniciar descoberta: '+e.message);}
+      b.disabled=false;b.innerHTML=orig;
+      return;
+    }
+    if(action==='buy-credits'){
+      const pkgId=b.dataset.id;
+      b.disabled=true;const orig=b.innerHTML;b.innerHTML=`${icon('refresh')} Gerando…`;
+      try{
+        const r=await api('/credits/checkout','POST',{packageId:pkgId});
+        openModal('Pagamento via PIX',`
+          <div class="stack" style="gap:1rem;">
+            <div style="background:rgba(255,255,255,0.05);border:1px solid var(--iptv-border);border-radius:10px;padding:1rem;text-align:center;">
+              <p style="font-size:0.85rem;color:var(--iptv-text-sec);margin:0 0 0.5rem;">Copie a chave PIX abaixo e realize o pagamento de</p>
+              <p style="font-size:1.6rem;font-weight:800;color:#4ade80;margin:0;">R$ ${r.package.price.toFixed(2).replace('.',',')}</p>
+              <p style="font-size:0.8rem;color:var(--iptv-text-sec);margin:0.25rem 0 0;">${r.package.credits} créditos</p>
+            </div>
+            <div>
+              <label style="font-size:0.8rem;color:var(--iptv-text-sec);">Chave PIX</label>
+              <div style="display:flex;gap:0.5rem;margin-top:0.25rem;">
+                <input id="pix-key-val" type="text" readonly value="${esc(r.pixKey)}" style="flex:1;font-size:0.85rem;">
+                <button class="btn small" onclick="navigator.clipboard.writeText('${esc(r.pixKey)}').then(()=>window.toast?.('Chave PIX copiada!'))">Copiar</button>
+              </div>
+            </div>
+            <a href="${esc(r.whatsappUrl)}" target="_blank" rel="noopener" class="btn" style="text-align:center;">
+              💬 Enviar comprovante via WhatsApp
+            </a>
+            <p style="font-size:0.78rem;color:var(--iptv-text-sec);text-align:center;margin:0;">Após a confirmação do pagamento, os créditos serão adicionados pelo administrador.</p>
+          </div>
+        `);
+      }catch(e){toast('Erro ao gerar checkout: '+e.message);}
+      b.disabled=false;b.innerHTML=orig;
+      return;
+    }
     if(action==='user-options'){userOptions(b.dataset.id);return;}
     if(action==='open-first-live'){
       navigate('live');

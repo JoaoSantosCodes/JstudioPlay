@@ -5271,3 +5271,199 @@ input:focus-visible {
   background: #1ebc59 !important;
   transform: scale(1.02) !important;
 }
+
+/* =============================================================================
+   MÓDULO STATUS DA IA & INTEGRAÇÕES (v7.8.6)
+   ============================================================================= */
+
+.ai-status-wrapper {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 4rem;
+}
+
+.ai-status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--iptv-border);
+}
+
+.ai-status-title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 0.3rem;
+  letter-spacing: -0.4px;
+}
+
+.ai-status-sub {
+  font-size: 0.85rem;
+  color: var(--iptv-text-sec);
+  margin: 0;
+}
+
+/* Grid de cards de serviço (3 colunas) */
+.ai-svc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 720px) {
+  .ai-svc-grid { grid-template-columns: 1fr; }
+}
+
+.ai-svc-card {
+  background: var(--iptv-surface);
+  border-radius: 12px;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--iptv-border);
+  transition: border-color 200ms;
+}
+
+.ai-svc-card.ai-svc-ok  { border-color: rgba(74, 222, 128, 0.35); }
+.ai-svc-card.ai-svc-err { border-color: rgba(248, 113, 113, 0.35); }
+
+.ai-svc-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.ai-svc-emoji { font-size: 1.25rem; }
+
+.ai-svc-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  flex: 1;
+}
+
+.ai-status-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.ai-ok   { background: rgba(74,222,128,0.15); color: #4ade80; }
+.ai-err  { background: rgba(248,113,113,0.15); color: #f87171; }
+.ai-run  { background: rgba(250,204,21,0.15);  color: #facc15; }
+.ai-idle { background: rgba(148,163,184,0.12); color: #94a3b8; }
+
+.ai-svc-detail {
+  font-size: 0.8rem;
+  color: var(--iptv-text-sec);
+  margin: 0;
+  word-break: break-all;
+}
+
+/* Card do scraper com grid de stats */
+.ai-scraper-card {
+  background: var(--iptv-surface);
+  border: 1px solid var(--iptv-border);
+  border-radius: 12px;
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.ai-scraper-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+@media (max-width: 600px) {
+  .ai-scraper-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.ai-scraper-stat {
+  text-align: center;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--iptv-border);
+  border-radius: 8px;
+  padding: 0.65rem 0.5rem;
+}
+
+.ai-scraper-stat span {
+  display: block;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.ai-scraper-stat small {
+  font-size: 0.72rem;
+  color: var(--iptv-text-sec);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* Row de ações */
+.ai-actions-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+/* =============================================================================
+   INDICADOR DE QUALIDADE HLS (v7.8.6)
+   ============================================================================= */
+
+.hls-quality-badge {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  color: #4ade80;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: var(--iptv-font, 'Poppins', sans-serif);
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid rgba(74,222,128,0.3);
+  pointer-events: none;
+  z-index: 10;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+/* Badge de créditos na topbar */
+.credit-balance-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #c084fc;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.3rem 0.75rem;
+  border-radius: 20px;
+  text-decoration: none;
+  transition: background 150ms;
+  white-space: nowrap;
+}
+
+.credit-balance-pill:hover {
+  background: rgba(168, 85, 247, 0.25);
+  color: #d8b4fe;
+}
+
+.credit-balance-pill svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}

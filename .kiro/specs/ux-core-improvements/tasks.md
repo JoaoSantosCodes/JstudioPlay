@@ -24,7 +24,7 @@ Implementação das três melhorias UX core do JstudioPlay: busca em tempo real,
 
 ## Tasks
 
-- [ ] 1. Adicionar estilos CSS para Health Indicator e EPG Inline
+- [x] 1. Adicionar estilos CSS para Health Indicator e EPG Inline
 
   **Arquivo:** `public/static/design-v8.css`
 
@@ -42,13 +42,13 @@ Implementação das três melhorias UX core do JstudioPlay: busca em tempo real,
 
   _Requirement refs: 2.1, 3.1, 3.8, 4.3, 4.7_
 
-- [ ] 1.1 Adicionar bloco `.health-indicator` com os três estados e `prefers-reduced-motion`
+- [x] 1.1 Adicionar bloco `.health-indicator` com os três estados e `prefers-reduced-motion`
 
-- [ ] 1.2 Adicionar blocos `.epg-inline` e `.epg-next`
+- [x] 1.2 Adicionar blocos `.epg-inline` e `.epg-next`
 
 ---
 
-- [ ] 2. Atualizar `renderChannelRow()` com atributos data e Health Indicator
+- [x] 2. Atualizar `renderChannelRow()` com atributos data e Health Indicator
 
   **Arquivo:** `public/static/app.js` — função `renderChannelRow()` linha 312
 
@@ -62,13 +62,13 @@ Implementação das três melhorias UX core do JstudioPlay: busca em tempo real,
 
   _Requirement refs: 2.1, 2.2, 4.4_
 
-- [ ] 2.1 Adicionar `data-channel-id`, `data-channel-name`, `data-channel-url` na `div.channel-row`
+- [x] 2.1 Adicionar `data-channel-id`, `data-channel-name`, `data-channel-url` na `div.channel-row`
 
-- [ ] 2.2 Inserir `<span class="health-indicator" data-status="${ch.status||'unknown'}" aria-hidden="true"></span>`
+- [x] 2.2 Inserir `<span class="health-indicator" data-status="${ch.status||'unknown'}" aria-hidden="true"></span>`
 
 ---
 
-- [ ] 3. Implementar event listener de busca com debounce
+- [x] 3. Implementar event listener de busca com debounce
 
   **Arquivos:** `public/static/app.js`, `public/static/automation.js`
 
@@ -86,15 +86,15 @@ Implementação das três melhorias UX core do JstudioPlay: busca em tempo real,
 
   _Requirement refs: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 4.5_
 
-- [ ] 3.1 Adicionar handler de `input` para `#channel-search` com debounce 180ms em `app.js`
+- [x] 3.1 Adicionar handler de `input` para `#channel-search` com debounce 180ms em `app.js`
 
-- [ ] 3.2 Adicionar reset de `state.query` e `#channel-search` em `loadChannels()` ao trocar playlist
+- [x] 3.2 Adicionar reset de `state.query` e `#channel-search` em `loadChannels()` ao trocar playlist
 
-- [ ] 3.3 Adicionar guard `if (document.activeElement?.id === 'channel-search') return;` no handler de `numBuffer` em `automation.js`
+- [x] 3.3 Adicionar guard `if (document.activeElement?.id === 'channel-search') return;` no handler de `numBuffer` em `automation.js`
 
 ---
 
-- [ ] 4. Implementar `healthModule` em `automation.js` e botão Data Saver
+- [x] 4. Implementar `healthModule` em `automation.js` e botão Data Saver
 
   **Arquivos:** `public/static/automation.js`, `public/static/app.js`
 
@@ -111,17 +111,17 @@ Implementação das três melhorias UX core do JstudioPlay: busca em tempo real,
 
   _Requirement refs: 2.1–2.9_
 
-- [ ] 4.1 Implementar `healthModule` com `observe()`, `cancelPending()`, `toggleDataSaver()` em `automation.js`
+- [x] 4.1 Implementar `healthModule` com `observe()`, `cancelPending()`, `toggleDataSaver()` em `automation.js`
 
-- [ ] 4.2 Adicionar botão `#btn-data-saver` na `.player-tools` em `playerPage()` (`app.js`)
+- [x] 4.2 Adicionar botão `#btn-data-saver` na `.player-tools` em `playerPage()` (`app.js`)
 
-- [ ] 4.3 Adicionar handler `toggle-data-saver` no switch de ações em `app.js`
+- [x] 4.3 Adicionar handler `toggle-data-saver` no switch de ações em `app.js`
 
-- [ ] 4.4 Adicionar hook `healthModule.observe()` no final de `renderChannels()` em `app.js`
+- [x] 4.4 Adicionar hook `healthModule.observe()` no final de `renderChannels()` em `app.js`
 
 ---
 
-- [ ] 5. Implementar `epgModule` em `automation.js`
+- [x] 5. Implementar `epgModule` em `automation.js`
 
   **Arquivos:** `public/static/automation.js`, `public/static/app.js`
 
@@ -139,15 +139,15 @@ Implementação das três melhorias UX core do JstudioPlay: busca em tempo real,
 
   _Requirement refs: 3.1–3.11_
 
-- [ ] 5.1 Implementar `epgModule` com `cache`, `fetchEpg()`, `renderEpgInRow()`, `observeEpg()`, `updateSelectedEpg()` em `automation.js`
+- [x] 5.1 Implementar `epgModule` com `cache`, `fetchEpg()`, `renderEpgInRow()`, `observeEpg()`, `updateSelectedEpg()` em `automation.js`
 
-- [ ] 5.2 Adicionar hook `epgModule.observeEpg()` no final de `renderChannels()` em `app.js`
+- [x] 5.2 Adicionar hook `epgModule.observeEpg()` no final de `renderChannels()` em `app.js`
 
-- [ ] 5.3 Adicionar hook `epgModule.updateSelectedEpg()` no início de `playChannel()` em `app.js`
+- [x] 5.3 Adicionar hook `epgModule.updateSelectedEpg()` no início de `playChannel()` em `app.js`
 
 ---
 
-- [ ] 6. Verificação de integração, DoD final e registro de memória
+- [x] 6. Verificação de integração, DoD final e registro de memória
 
   **Arquivos:** todos os modificados + `MEMORIA/`
 
@@ -157,21 +157,21 @@ Implementação das três melhorias UX core do JstudioPlay: busca em tempo real,
   - `node --check app.js` e `node --check automation.js` com exit code 0
   - Sem regressão em: login, playlists, favoritos, histórico, relay, paginação, categorias, episódios, dark/light mode
   - Busca, Health Indicator e EPG funcionando conforme especificado
-  - Nota `MEMORIA/20261011-sprint-ux-core-v75.md` criada
-  - Commit `feat(ux): busca em tempo real, health indicator e EPG inline no player [sprint-v75]`
-  - Push para `origin/main`
+  - Nota `MEMORIA/20261011-sprint-ux-core-v75.md` criada ✅
+  - Commit `feat(ux): busca em tempo real, health indicator e EPG inline no player [sprint-v75]` ✅ (`1e5ba90`)
+  - Push para `origin/main` ✅
 
   _Requirement refs: todos_
 
-- [ ] 6.1 Executar `node --check` nos arquivos JS modificados e corrigir erros
+- [x] 6.1 Executar `node --check` nos arquivos JS modificados e corrigir erros
 
-- [ ] 6.2 Verificar checklist de regressão manual (login, playlists, favoritos, relay, paginação, episódios)
+- [x] 6.2 Verificar checklist de regressão manual (login, playlists, favoritos, relay, paginação, episódios)
 
-- [ ] 6.3 Verificar checklist das novas features (busca, dots, EPG inline)
+- [x] 6.3 Verificar checklist das novas features (busca, dots, EPG inline)
 
-- [ ] 6.4 Criar nota `MEMORIA/20261011-sprint-ux-core-v75.md` com registro Zettelkasten
+- [x] 6.4 Criar nota `MEMORIA/20261011-sprint-ux-core-v75.md` com registro Zettelkasten
 
-- [ ] 6.5 Fazer commit semântico e push para `origin/main`
+- [x] 6.5 Fazer commit semântico e push para `origin/main`
 
 ## Notes
 

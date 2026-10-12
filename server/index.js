@@ -23,6 +23,7 @@ const opsEngine = require('./infra/opsEngine');
 const m3uScraper      = require('./services/m3uScraper');
 const integrationHub  = require('./services/integrationHub');
 const xtreamClient    = require('./services/xtreamClient');
+const pushService     = require('./services/pushService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -846,6 +847,120 @@ apiRouter.post('/credits/checkout', requireAuth, security.requireReseller(), (re
             expiresInSeconds: 1800,
             userCredits: req.user.credits || 0
         });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------------------------------
+// PIX Webhook — recebe confirmação de pagamento de qualquer gateway
+// POST /api/credits/pix-webhook
+// Autenticação: HMAC-SHA256 via header X-Pix-Signature (opcional mas recomendado)
+// Body esperado: { transactionId, userId, credits, amount, event }
+// -----------------------------------------------------------------------------
+app.post('/api/credits/pix-webhook', express.raw({ type: '*/*' }), async (req, res) => {
+    try {
+        const rawBody = req.body;
+        const sig = req.headers['x-pix-signature'] || req.headers['x-webhook-signature'] || '';
+        const secret = process.env.PIX_WEBHOOK_SECRET || '';
+
+        // Valida HMAC se o secret estiver configurado
+        if (secret && sig) {
+            const expected = crypto
+                .createHmac('sha256', secret)
+                .update(rawBody)
+                .digest('hex');
+            const sigClean = sig.replace(/^sha256=/, '');
+            if (!crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(sigClean.padEnd(expected.length, '0').slice(0, expected.length), 'hex'))) {
+                db.addLog('credits', `[PIX Webhook] Assinatura inválida rejeitada.`);
+                return res.status(401).json({ error: 'Assinatura inválida.' });
+            }
+        }
+
+        const body = JSON.parse(rawBody.toString('utf8'));
+        const { transactionId, userId, credits, amount = 0, event = 'payment.confirmed' } = body;
+
+        if (!transactionId) return res.status(400).json({ error: 'transactionId obrigatório.' });
+        if (!['payment.confirmed', 'PAYMENT_CONFIRMED', 'completed'].includes(event)) {
+            return res.json({ ok: true, message: `Evento "${event}" ignorado.` });
+        }
+
+        // Idempotência — ignora transação já processada
+        const existing = db.getPixEvent(transactionId);
+        if (existing?.status === 'processed') {
+            return res.json({ ok: true, message: 'Transação já processada.' });
+        }
+
+        // Registra o evento
+        db.savePixEvent({ transactionId, userId, amount, credits: Number(credits) || 0, status: 'pending', payload: body });
+
+        // Credita o usuário se userId fornecido
+        let user = null;
+        if (userId && Number(credits) > 0) {
+            user = db.addCredits(userId, Number(credits));
+            db.markPixEventProcessed(transactionId);
+            db.addLog('credits', `[PIX Webhook] ${Number(credits)} créditos adicionados ao usuário ${user.username} (tx: ${transactionId})`);
+
+            // Notificação push ao revendedor
+            await pushService.notifyUser(db, userId, {
+                title: '✅ Pagamento confirmado!',
+                body: `${Number(credits)} créditos foram adicionados à sua conta.`,
+                icon: '/static/logo.svg',
+                data: { url: '/#/credits' },
+            });
+        }
+
+        res.json({ ok: true, credits: user?.credits ?? null });
+    } catch (e) {
+        console.error('[PIX Webhook] Erro:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// -----------------------------------------------------------------------------
+// Web Push — gerenciamento de subscriptions e chave VAPID pública
+// -----------------------------------------------------------------------------
+
+apiRouter.get('/push/vapid-public-key', requireAuth, (req, res) => {
+    const key = pushService.getVapidPublicKey();
+    if (!key) return res.status(503).json({ error: 'Web Push não configurado no servidor.' });
+    res.json({ publicKey: key });
+});
+
+apiRouter.post('/push/subscribe', requireAuth, (req, res) => {
+    try {
+        const { endpoint, keys } = req.body;
+        if (!endpoint || !keys?.p256dh || !keys?.auth) {
+            return res.status(400).json({ error: 'Subscription inválida.' });
+        }
+        db.savePushSubscription(req.user.id, { endpoint, keys });
+        res.json({ ok: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+apiRouter.delete('/push/subscribe', requireAuth, (req, res) => {
+    try {
+        const { endpoint } = req.body;
+        if (endpoint) db.deletePushSubscription(req.user.id, endpoint);
+        res.json({ ok: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Endpoint para Master enviar notificação manual a um usuário
+apiRouter.post('/push/notify/:userId', requireAuth, security.requireMaster(), async (req, res) => {
+    try {
+        const { title, body, icon, url } = req.body;
+        await pushService.notifyUser(db, req.params.userId, {
+            title: title || 'JstudioPlay',
+            body: body || '',
+            icon: icon || '/static/logo.svg',
+            data: { url: url || '/' },
+        });
+        res.json({ ok: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }

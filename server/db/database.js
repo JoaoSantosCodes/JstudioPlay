@@ -495,10 +495,59 @@ class Database {
         return this.findUserById(userId);
     }
 
+    // -----------------------------------------------------------------------
+    // PIX Events — idempotência de webhook
+    // -----------------------------------------------------------------------
+
+    savePixEvent({ transactionId, userId, amount, credits, status = 'pending', payload = null }) {
+        const id = `pix_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        const now = new Date().toISOString();
+        sql.prepare(`
+            INSERT OR IGNORE INTO pix_events
+                (id, transaction_id, user_id, amount, credits, status, payload, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(id, transactionId, userId || null, amount, credits, status, payload ? JSON.stringify(payload) : null, now);
+        return this.getPixEvent(transactionId);
+    }
+
+    getPixEvent(transactionId) {
+        return sql.prepare('SELECT * FROM pix_events WHERE transaction_id = ?').get(transactionId) || null;
+    }
+
+    markPixEventProcessed(transactionId) {
+        sql.prepare("UPDATE pix_events SET status = 'processed', processed_at = ? WHERE transaction_id = ?")
+            .run(new Date().toISOString(), transactionId);
+    }
+
+    // -----------------------------------------------------------------------
+    // Push Subscriptions — Web Push API
+    // -----------------------------------------------------------------------
+
+    savePushSubscription(userId, { endpoint, keys }) {
+        const now = new Date().toISOString();
+        sql.prepare(`
+            INSERT OR REPLACE INTO push_subscriptions
+                (user_id, endpoint, keys_p256, keys_auth, created_at)
+            VALUES (?, ?, ?, ?, ?)
+        `).run(userId, endpoint, keys?.p256dh || '', keys?.auth || '', now);
+    }
+
+    deletePushSubscription(userId, endpoint) {
+        sql.prepare('DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint = ?')
+            .run(userId, endpoint);
+    }
+
+    getPushSubscriptionsByUser(userId) {
+        return sql.prepare('SELECT * FROM push_subscriptions WHERE user_id = ?').all(userId);
+    }
+
+    getAllPushSubscriptions() {
+        return sql.prepare('SELECT * FROM push_subscriptions').all();
+    }
+
     /** Retorna o primeiro usuário master/admin ou qualquer usuário como fallback */
     findAdminUser() {
-        const row = sql.prepare("SELECT * FROM users WHERE role IN ('master', 'admin') ORDER BY created_at ASC LIMIT 1").get();
-        if (row) return rowToUser(row);
+        const row = sql.prepare("SELECT * FROM users WHERE role IN ('master', 'admin') ORDER BY created_at ASC LIMIT 1").get();        if (row) return rowToUser(row);
         const any = sql.prepare("SELECT * FROM users ORDER BY created_at ASC LIMIT 1").get();
         return any ? rowToUser(any) : null;
     }

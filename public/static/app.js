@@ -2164,6 +2164,23 @@ function userOptions(id){
   </div>`);
 }
 
+async function registerPushSubscription(){
+  // Só disponível em HTTPS ou localhost, com Service Worker registrado
+  if(!('serviceWorker' in navigator)||!('PushManager' in window))return;
+  try{
+    const {publicKey}=await api('/push/vapid-public-key');
+    if(!publicKey)return;
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub){
+      const appKey=Uint8Array.from(atob(publicKey.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
+      sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:appKey});
+    }
+    const j=sub.toJSON();
+    await api('/push/subscribe','POST',{endpoint:j.endpoint,keys:j.keys});
+  }catch{}
+}
+
 async function initGoogleAuth(){
   try{
     const config=await api('/auth/google/config');
@@ -2191,6 +2208,7 @@ async function handleGoogleCredentialResponse(response){
     applyTheme(state.user.theme||'dark');
     toast(`Bem-vindo, ${state.user.name}!`);
     navigate('dashboard');
+    registerPushSubscription().catch(()=>{});
   }catch(err){
     toast(err.message,true);
   }
@@ -2572,6 +2590,8 @@ document.addEventListener('submit',async event=>{
       state.setupRequired=false;
       applyTheme(state.user.theme);
       navigate('dashboard');
+      // Registra push subscription em background (sem bloquear navegação)
+      registerPushSubscription().catch(()=>{});
     }
     if(form.id==='playlist-form'){
       let text='';if(!$('#playlist-file').disabled){const file=fields.get('file');if(!file?.size)throw new Error('Escolha um arquivo M3U.');if(file.size>100*1024*1024)throw new Error('O arquivo excede o limite de 100 MiB.');text=await file.text();}

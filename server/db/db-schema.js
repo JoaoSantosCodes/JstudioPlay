@@ -160,6 +160,34 @@ const MIGRATIONS = {
     2: `
         -- Suporte a Revendedor e Saldo de Créditos
         ALTER TABLE users ADD COLUMN credits INTEGER NOT NULL DEFAULT 0;
+    `,
+    3: `
+        -- Eventos de webhook PIX (idempotência por transaction_id)
+        CREATE TABLE IF NOT EXISTS pix_events (
+            id             TEXT PRIMARY KEY,
+            transaction_id TEXT NOT NULL UNIQUE,
+            user_id        TEXT,
+            amount         REAL NOT NULL DEFAULT 0,
+            credits        INTEGER NOT NULL DEFAULT 0,
+            status         TEXT NOT NULL DEFAULT 'pending',
+            payload        TEXT,
+            processed_at   TEXT,
+            created_at     TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_pix_events_txid ON pix_events(transaction_id);
+        CREATE INDEX IF NOT EXISTS idx_pix_events_user ON pix_events(user_id);
+
+        -- Subscriptions de Web Push por usuário
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id    TEXT NOT NULL,
+            endpoint   TEXT NOT NULL UNIQUE,
+            keys_p256  TEXT NOT NULL,
+            keys_auth  TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id);
     `
 };
 

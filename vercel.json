@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "cleanUrls": false,
 
   "buildCommand": "echo 'Static build — no compilation needed'",
   "outputDirectory": "public",
@@ -9,26 +10,26 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/$1"
+      "destination": "/api/[...path]"
     },
     {
       "source": "/proxy/(.*)",
-      "destination": "/api/proxy/$1"
+      "destination": "/api/[...path]"
     },
     {
       "source": "/m3u/(.*)",
-      "destination": "/api/m3u/$1"
+      "destination": "/api/[...path]"
     },
     {
       "source": "/xtream/(.*)",
-      "destination": "/api/xtream/$1"
+      "destination": "/api/[...path]"
     },
     {
       "source": "/player_api.php",
-      "destination": "/api/player_api.php"
+      "destination": "/api/[...path]"
     },
     {
-      "source": "/((?!static|manifest\\.webmanifest|sw\\.js|privacy\\.html).*)",
+      "source": "/((?!api|proxy|m3u|xtream|player_api\\.php|static|manifest\\.webmanifest|sw\\.js|privacy\\.html|favicon\\.ico).*)",
       "destination": "/index.html"
     }
   ],

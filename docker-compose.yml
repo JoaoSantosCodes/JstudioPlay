@@ -49,6 +49,19 @@ services:
       jstudioplay:
         condition: service_healthy
 
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: mcp_cloudflared
+    restart: unless-stopped
+    command: tunnel --config /etc/cloudflared/config.yml run
+    volumes:
+      - ./CREDENCIAIS/cloudflare-tunnel:/etc/cloudflared:ro
+    networks:
+      - mcp-network
+    depends_on:
+      jstudioplay:
+        condition: service_healthy
+
 volumes:
   n8n_data:
     name: mcp_n8n_data

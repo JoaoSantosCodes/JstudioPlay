@@ -5467,3 +5467,74 @@ input:focus-visible {
   height: 14px;
   flex-shrink: 0;
 }
+
+/* =============================================================================
+   CROSSFADE HERO + BARRA EPG NOS CARDS + SELEÇÃO DE QUALIDADE HLS (v7.8.7)
+   ============================================================================= */
+
+/* Camada anterior do hero durante crossfade — criada dinamicamente via JS */
+.nf-hero-bg-prev {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  z-index: 1;
+  pointer-events: none;
+  will-change: opacity;
+}
+
+/* Garante que nf-hero-bg fique abaixo da camada de fade */
+.nf-hero-bg {
+  z-index: 0;
+}
+
+/* Barra de progresso EPG no rodapé do card */
+.nf-card-epg-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 0 0 12px 12px;
+  overflow: hidden;
+  z-index: 3;
+}
+
+.nf-card-epg-fill {
+  height: 100%;
+  background: var(--iptv-accent, #E50914);
+  border-radius: inherit;
+  transition: width 1s linear;
+}
+
+.nf-card-epg-title {
+  position: absolute;
+  bottom: 5px;
+  left: 0;
+  right: 0;
+  font-size: 0.62rem;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+  padding: 0 0.3rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 3;
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
+
+/* Dropdown de seleção de qualidade HLS nos controles do hero */
+#hls-level-select {
+  min-width: 80px;
+  max-width: 120px;
+  font-size: 0.78rem;
+  padding: 0.2rem 0.4rem;
+  cursor: pointer;
+}
+
+#hls-level-select option {
+  background: #1e1e1e;
+  color: #fff;
+}

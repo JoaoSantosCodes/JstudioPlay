@@ -1601,6 +1601,7 @@ function playerPage(){
         <button class="nf-btn-icon" data-action="episode-previous" disabled>${icon('episodePrevious')}</button>
         <button class="nf-btn-icon" data-action="episode-next" disabled>${icon('episodeNext')}</button>
         <button class="nf-btn-icon" data-action="reconnect" title="Reconectar">${icon('refresh')}</button>
+        <select id="hls-level-select" class="nf-audio-track" aria-label="Qualidade do stream" title="Qualidade" hidden><option value="-1">Auto</option></select>
         <button class="nf-btn-icon" data-action="fullscreen">${icon('fullscreen')}</button>
         <button class="nf-btn-icon" data-action="pip">${icon('monitor')}</button>
       </div>
@@ -1719,6 +1720,17 @@ function renderChannelCard(ch,i){
   const ini=String(ch.name||'?').split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?';
   const color=cardTileColors[i%cardTileColors.length];
   const isLive=ch.streamType!=='movie'&&ch.streamType!=='series';
+  // Barra de progresso EPG
+  const epgData=window.epgModule?.cache?.get(ch.name);
+  let epgBar='';
+  if(epgData?.start&&epgData?.end){
+    const now=Date.now();
+    const start=new Date(epgData.start).getTime();
+    const end=new Date(epgData.end).getTime();
+    const pct=Math.min(100,Math.max(0,Math.round((now-start)/(end-start)*100)));
+    const title=epgData.title?esc(epgData.title):'';
+    epgBar=`<div class="nf-card-epg-bar" aria-label="Progresso EPG: ${pct}%"><div class="nf-card-epg-fill" style="width:${pct}%"></div></div>${title?`<div class="nf-card-epg-title">${title}</div>`:''}`;
+  }
   return `<div class="nf-card ${state.selected?.url===ch.url?'nf-card--playing':''}" data-channel-id="${esc(ch.id||'')}" data-channel-name="${esc(ch.name)}" data-channel-url="${esc(ch.url||'')}">
   <div class="nf-card-thumb">
     ${logo?`<img src="${esc(logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`:'' }
@@ -1726,6 +1738,7 @@ function renderChannelCard(ch,i){
     <span class="health-indicator" data-status="${ch.status||'unknown'}" aria-hidden="true"></span>
     ${isLive?'<span class="nf-live-badge">AO VIVO</span>':''}
     ${state.selected?.url===ch.url?'<div class="nf-card-playing-bar"></div>':''}
+    ${epgBar}
   </div>
   <div class="nf-card-hover">
     <div class="nf-card-hover-thumb">
@@ -1941,6 +1954,24 @@ function updateHlsQualityBadge(instance){
     }
     badge.textContent=label||'HLS';
     badge.hidden=!label;
+
+    // Preenche dropdown de níveis se ainda não preenchido
+    const sel=document.getElementById('hls-level-select');
+    if(sel&&instance.levels?.length){
+      sel.hidden=false;
+      // Só reconstrói se a quantidade de níveis mudou
+      if(sel.options.length-1!==instance.levels.length){
+        sel.innerHTML='<option value="-1">🔄 Auto</option>'+instance.levels.map((l,i)=>{
+          const lh=l.height||0;
+          const lbw=l.bitrate?`${(l.bitrate/1000000).toFixed(1)}Mbps`:'';
+          const lr=lh>=2160?'4K':lh>=1080?'FHD':lh>=720?'HD':lh>=480?'SD':lh?`${lh}p`:lbw||`Nível ${i+1}`;
+          return `<option value="${i}">${lr}${lbw?' · '+lbw:''}</option>`;
+        }).join('');
+      }
+      sel.value=String(instance.currentLevel);
+      // Handler de mudança (idempotente — remove antes de re-adicionar)
+      sel.onchange=()=>{ if(instance)instance.currentLevel=Number(sel.value); };
+    }
   }catch{}
 }
 
@@ -1952,7 +1983,26 @@ function updateStreamingHero(ch){
   const colorIdx=Math.abs((ch.name||'').split('').reduce((a,c)=>a+c.charCodeAt(0),0))%tileColors.length;
   const color=tileColors[colorIdx];
   const bg=document.getElementById('nf-hero-bg');
-  if(bg){if(logo){bg.style.backgroundImage=`url('${logo.replace(/'/g,"%27")}')`;bg.style.backgroundColor='';}else{bg.style.backgroundImage='';bg.style.backgroundColor=color;}}
+  if(bg){
+    // Crossfade: fade out → swap → fade in
+    bg.style.transition='none';
+    bg.style.opacity='1';
+    // Cria camada temporária com o fundo atual para o fade out
+    const prev=document.createElement('div');
+    prev.className='nf-hero-bg-prev';
+    prev.style.cssText=`position:absolute;inset:0;background-image:${bg.style.backgroundImage||'none'};background-color:${bg.style.backgroundColor||'transparent'};background-size:cover;background-position:center;z-index:1;opacity:1;transition:opacity 350ms ease;pointer-events:none;`;
+    bg.parentNode.insertBefore(prev,bg);
+    // Aplica novo fundo imediatamente (por baixo do prev)
+    if(logo){bg.style.backgroundImage=`url('${logo.replace(/'/g,"%27")}')`;bg.style.backgroundColor='';}
+    else{bg.style.backgroundImage='';bg.style.backgroundColor=color;}
+    // Inicia fade out da camada anterior
+    requestAnimationFrame(()=>{
+      requestAnimationFrame(()=>{
+        prev.style.opacity='0';
+        setTimeout(()=>prev.remove(),380);
+      });
+    });
+  }
   const titleEl=document.getElementById('nf-hero-title');
   const metaEl=document.getElementById('nf-hero-meta');
   const badgeEl=document.getElementById('nf-hero-badge');

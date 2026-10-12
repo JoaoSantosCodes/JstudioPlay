@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jstudioplay-cache-v7.8.6';
+const CACHE_NAME = 'jstudioplay-cache-v7.8.7';
 const ASSETS_TO_CACHE = [
   '/',
   '/static/app.js?v=7.8.1',

@@ -98,7 +98,7 @@ function getBackendBase() {
   // Se estiver no aplicativo nativo Android (Capacitor), conecta automaticamente à nuvem
   const isNativeApp = window.Capacitor || location.protocol === 'capacitor:' || (location.hostname === 'localhost' && !location.port);
   if (isNativeApp) {
-    return 'https://jstudioplay.joaocarlosrh23.workers.dev';
+    return 'https://jstudio-play.vercel.app';
   }
   return '';
 }
@@ -458,7 +458,7 @@ function loginPage(){
           <div class="iptv-play-icon">
             <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
           </div>
-          <span class="iptv-logo-title">IPTV</span>
+          <span class="iptv-logo-title">JSTUDIO<span style="color:var(--iptv-red);">PLAY</span></span>
         </div>
         <div class="iptv-tagline-caps">
           TV, FILMES E SÉRIES
@@ -745,7 +745,7 @@ function epgPage(){
           <div class="iptv-play-icon" style="width:32px; height:32px; border-radius:6px;">
             <svg viewBox="0 0 24 24" style="width:14px; height:14px;"><path d="M8 5v14l11-7z"/></svg>
           </div>
-          <span class="iptv-logo-title" style="font-size:1.3rem;">IPTV</span>
+          <span class="iptv-logo-title" style="font-size:1.3rem;">JSTUDIO<span style="color:var(--iptv-red);">PLAY</span></span>
         </a>
         <span>TV Ao Vivo <small>| Guia de Programação (EPG)</small></span>
       </div>
@@ -863,7 +863,7 @@ function iptvSmartSidebar(active='dashboard'){
       <div class="iptv-play-icon" style="width:36px; height:36px; border-radius:8px;">
         <svg viewBox="0 0 24 24" style="width:16px; height:16px;"><path d="M8 5v14l11-7z"/></svg>
       </div>
-      <span class="iptv-logo-title" style="font-size:1.35rem;">IPTV</span>
+      <span class="iptv-logo-title" style="font-size:1.35rem;">JSTUDIO<span style="color:var(--iptv-red);">PLAY</span></span>
     </div>
     ${role === 'reseller' ? `
       <div class="iptv-sidebar-credit-badge">
@@ -1116,7 +1116,7 @@ function settings(activeSection='legendas'){
         <div class="iptv-play-icon" style="width:34px; height:34px; border-radius:8px;">
           <svg viewBox="0 0 24 24" style="width:16px; height:16px;"><path d="M8 5v14l11-7z"/></svg>
         </div>
-        <span class="iptv-logo-title" style="font-size:1.35rem;">IPTV</span>
+        <span class="iptv-logo-title" style="font-size:1.35rem;">JSTUDIO<span style="color:var(--iptv-red);">PLAY</span></span>
       </a>
       <div class="iptv-topbar-right">
         <span class="iptv-clock">${getIptvClock()}</span>

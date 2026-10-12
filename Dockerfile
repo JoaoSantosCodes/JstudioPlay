@@ -2,7 +2,7 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Instala ferramentas necessárias para compilação nativa (better-sqlite3)
+# Compiladores necessários para better-sqlite3 (módulo nativo C++)
 RUN apk add --no-cache python3 make g++
 
 # Instalação de dependências

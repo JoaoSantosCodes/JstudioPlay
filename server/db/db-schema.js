@@ -91,6 +91,9 @@ const MIGRATIONS = {
         CREATE INDEX IF NOT EXISTS idx_channels_playlist ON channels(playlist_id);
         CREATE INDEX IF NOT EXISTS idx_channels_status   ON channels(playlist_id, status);
         CREATE INDEX IF NOT EXISTS idx_channels_grp      ON channels(playlist_id, grp);
+        CREATE INDEX IF NOT EXISTS idx_channels_pl_type_sort ON channels(playlist_id, stream_type, sort_order);
+        CREATE INDEX IF NOT EXISTS idx_channels_pl_type_grp  ON channels(playlist_id, stream_type, grp);
+        CREATE INDEX IF NOT EXISTS idx_channels_pl_sort      ON channels(playlist_id, sort_order);
 
         -- Favoritos
         CREATE TABLE IF NOT EXISTS favorites (
@@ -220,7 +223,129 @@ const MIGRATIONS = {
         );
         CREATE INDEX IF NOT EXISTS idx_credit_tr_from ON credit_transfers(from_user_id);
         CREATE INDEX IF NOT EXISTS idx_credit_tr_to   ON credit_transfers(to_user_id);
-    `
+    `,
+    5: `
+        -- Índices otimizados para filtragem de mídia (TV, Filmes, Séries) em playlists de grande porte
+        CREATE INDEX IF NOT EXISTS idx_channels_playlist_stream_type ON channels(playlist_id, stream_type);
+        CREATE INDEX IF NOT EXISTS idx_channels_playlist_type_grp    ON channels(playlist_id, stream_type, grp);
+    `,
+    6: (sqliteDb) => {
+        // Evolução de Metadados Ricos (v8.0.0): capas HD, sinopse, avaliação, ano, gêneros e IDs canônicos
+        const cols = sqliteDb.prepare('PRAGMA table_info(channels)').all().map(c => c.name);
+        const addCol = (col, type) => {
+            if (!cols.includes(col)) {
+                sqliteDb.exec(`ALTER TABLE channels ADD COLUMN ${col} ${type}`);
+            }
+        };
+        addCol('poster_url', 'TEXT');
+        addCol('backdrop_url', 'TEXT');
+        addCol('overview', 'TEXT');
+        addCol('rating', 'REAL');
+        addCol('year', 'INTEGER');
+        addCol('genres', 'TEXT');
+        addCol('tmdb_id', 'TEXT');
+        addCol('enriched_at', 'TEXT');
+
+        sqliteDb.exec(`
+            CREATE INDEX IF NOT EXISTS idx_channels_enriched ON channels(playlist_id, stream_type, enriched_at);
+            CREATE INDEX IF NOT EXISTS idx_channels_year     ON channels(playlist_id, stream_type, year);
+            CREATE INDEX IF NOT EXISTS idx_channels_rating   ON channels(playlist_id, stream_type, rating);
+        `);
+    },
+    7: (sqliteDb) => {
+        // Sistema de Maratonas Narrativas & Sagas Cronológicas (v8.2.0)
+        sqliteDb.exec(`
+            CREATE TABLE IF NOT EXISTS marathons (
+                id          TEXT PRIMARY KEY,
+                title       TEXT NOT NULL,
+                description TEXT,
+                slug        TEXT UNIQUE NOT NULL,
+                badge       TEXT DEFAULT 'MARATONA',
+                cover_url   TEXT,
+                is_curated  INTEGER NOT NULL DEFAULT 1,
+                is_public   INTEGER NOT NULL DEFAULT 1,
+                created_by  TEXT NOT NULL DEFAULT 'curator_system',
+                created_at  TEXT NOT NULL,
+                updated_at  TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_marathons_slug ON marathons(slug);
+            CREATE INDEX IF NOT EXISTS idx_marathons_curated ON marathons(is_curated);
+
+            CREATE TABLE IF NOT EXISTS marathon_items (
+                id           TEXT PRIMARY KEY,
+                marathon_id  TEXT NOT NULL,
+                media_id     TEXT NOT NULL,
+                title        TEXT NOT NULL,
+                year         INTEGER,
+                duration     TEXT,
+                order_index  INTEGER NOT NULL CHECK (order_index > 0),
+                notes        TEXT,
+                stream_url   TEXT NOT NULL,
+                poster_url   TEXT,
+                backdrop_url TEXT,
+                rating       TEXT DEFAULT '14+',
+                created_at   TEXT NOT NULL,
+                FOREIGN KEY (marathon_id) REFERENCES marathons(id) ON DELETE CASCADE,
+                UNIQUE (marathon_id, order_index)
+            );
+            CREATE INDEX IF NOT EXISTS idx_marathon_items_order ON marathon_items(marathon_id, order_index ASC);
+        `);
+
+        // Seed de Maratonas Curadas Iniciais
+        const now = new Date().toISOString();
+        const insertMarathon = sqliteDb.prepare(`
+            INSERT OR IGNORE INTO marathons (id, title, description, slug, badge, cover_url, is_curated, is_public, created_by, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, 1, 1, 'curator_system', ?, ?)
+        `);
+
+        const insertItem = sqliteDb.prepare(`
+            INSERT OR IGNORE INTO marathon_items (id, marathon_id, media_id, title, year, duration, order_index, notes, stream_url, poster_url, rating, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+
+        // 1. Maratona MCU WandaVision
+        insertMarathon.run(
+            'pl_wandavision_context',
+            'Caminho até WandaVision',
+            'Filmes essenciais para compreender a evolução psicológica, o relacionamento com Visão e as dores de Wanda Maximoff antes da série.',
+            'caminho-ate-wandavision',
+            'MARATONA MCU',
+            'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80',
+            now, now
+        );
+
+        insertItem.run('pi_wanda_01', 'pl_wandavision_context', 'm-ultron-2015', 'Vingadores: Era de Ultron', 2015, '2h 21min', 1, 'Introdução dos irmãos Wanda e Pietro Maximoff. Nascimento e primeiro contato com o Visão.', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4', 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=600&q=80', '12+', now);
+        insertItem.run('pi_wanda_02', 'pl_wandavision_context', 'm-civilwar-2016', 'Capitão América: Guerra Civil', 2016, '2h 27min', 2, 'Desenvolvimento da cumplicidade entre Wanda e Visão em meio ao conflito dos Acordos de Sokovia.', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', 'https://images.unsplash.com/photo-1509281373149-e957c6296406?auto=format&fit=crop&w=600&q=80', '12+', now);
+        insertItem.run('pi_wanda_03', 'pl_wandavision_context', 'm-infinitywar-2018', 'Vingadores: Guerra Infinita', 2018, '2h 29min', 3, 'Ponto crítico: romance isolado na Escócia e a dolorosa perda definitiva de Visão pela Joia da Mente.', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4', 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=600&q=80', '12+', now);
+        insertItem.run('pi_wanda_04', 'pl_wandavision_context', 'm-endgame-2019', 'Vingadores: Ultimato', 2019, '3h 01min', 4, 'Consequências emocionais para Wanda após o estalo, o confronto furioso com Thanos e o luto.', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4', 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80', '12+', now);
+        insertItem.run('pi_wanda_05', 'pl_wandavision_context', 'm-wandavision-2021', 'WandaVision (Série)', 2021, '1 Temporada (9 Eps)', 5, 'A série principal: a anomalia de Westview e a transformação definitiva na Feiticeira Escarlate.', 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4', 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=600&q=80', '14+', now);
+
+        // 2. Maratona Terror Clássico (com streams do YouTube)
+        insertMarathon.run(
+            'pl_terror_classico',
+            'Clássicos do Cinema & Terror',
+            'Obras seminais e atemporais do terror que revolucionaram o cinema moderno.',
+            'classicos-terror',
+            'CULTO & TERROR',
+            'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1200&q=80',
+            now, now
+        );
+
+        insertItem.run('pi_t1', 'pl_terror_classico', 'mov_terror_02', 'Nosferatu', 1922, '1h 34min', 1, 'O clássico do expressionismo alemão que definiu os vampiros no cinema.', 'https://www.youtube.com/watch?v=FC6jFoYm3xs', 'https://image.tmdb.org/t/p/w500/lP9tCgG7pZ5Xo3xT0bV7Ww0Bw8q.jpg', '14+', now);
+        insertItem.run('pi_t2', 'pl_terror_classico', 'mov_terror_01', 'A Noite dos Mortos-Vivos', 1968, '1h 36min', 2, 'George Romero cria a base do terror zumbi moderno.', 'https://www.youtube.com/watch?v=wXWbM13mH60', 'https://image.tmdb.org/t/p/w500/koxk4W9RzIffjXk8W8F77B0aHwG.jpg', '16+', now);
+    },
+    8: (sqliteDb) => {
+        // Controle de Visibilidade de Playlists (Ocultar por padrão e habilitar sob demanda)
+        const cols = sqliteDb.prepare('PRAGMA table_info(playlists)').all().map(c => c.name);
+        if (!cols.includes('is_enabled')) {
+            sqliteDb.exec('ALTER TABLE playlists ADD COLUMN is_enabled INTEGER NOT NULL DEFAULT 0');
+        }
+        sqliteDb.exec(`
+            UPDATE playlists SET is_enabled = 0;
+            UPDATE playlists SET is_enabled = 1 WHERE name LIKE '%TurboX%';
+            CREATE INDEX IF NOT EXISTS idx_playlists_enabled ON playlists(is_enabled);
+        `);
+    }
 };
 
 const SCHEMA_VERSION = Math.max(...Object.keys(MIGRATIONS).map(Number));
@@ -252,7 +377,11 @@ function applyMigrations(sqliteDb) {
 
     for (const version of pending) {
         const run = sqliteDb.transaction(() => {
-            sqliteDb.exec(MIGRATIONS[version]);
+            if (typeof MIGRATIONS[version] === 'function') {
+                MIGRATIONS[version](sqliteDb);
+            } else {
+                sqliteDb.exec(MIGRATIONS[version]);
+            }
             sqliteDb
                 .prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)')
                 .run(version, new Date().toISOString());

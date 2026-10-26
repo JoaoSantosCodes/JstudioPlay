@@ -1,5 +1,5 @@
 {
-  "appId": "com.jstudioplay.app",
+  "appId": "br.com.jstudioplay.app",
   "appName": "JstudioPlay",
   "webDir": "public",
   "bundledWebRuntime": false,

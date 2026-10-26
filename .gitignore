@@ -1,58 +1,36 @@
-# Dependencias
+# Dependências
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
-# Configuracoes de ambiente e segredos
+# Credenciais e Segredos (Mandatório IAM)
+CREDENCIAIS/
 .env
-.env.local
-.env.production
-
-# Logs de execucao e testes
-*.log
-startup.log
-server.log
-server_err.log
-
-# Arquivos temporarios de sistema
-Thumbs.db
-.DS_Store
-
-# Banco de dados SQLite e artefatos de migração
-data/*.db
-data/*.db-shm
-data/*.db-wal
-data/backup_corrupted/
-data/.migrated_to_sqlite
-# db.json: arquivo legado de migração JSON→SQLite (grande porte, não versionável)
-data/db.json
-data/db.json.migrated
-
-# Cache de IDEs
-.vscode/
-.idea/
-
-# Binarios Cloudflare
-cloudflared.exe
-.cloudflared/
-
-# Android & Gradle
-android/.gradle/
-android/app/build/
-android/build/
-android/local.properties
-dist-apk/
-dist-playstore/
-*.apk
-*.aab
-
-# Segurança IAM - MCP Governance
-CREDENCIAIS/*
-!CREDENCIAIS/.gitignore
-!CREDENCIAIS/README.md
-!CREDENCIAIS/*.example
-*.env
-*.key
+.env.*
 *.jks
 *.keystore
+
+# Binários pesados
+cloudflared.exe
+*.log
+
+# Dados locais
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# Builds Web e Android
+dist/
+dist-android/
+build/
+android/.gradle/
+android/build/
+android/app/build/
+android/app/jstudioplay-release.jks
+android/local.properties
+.gradle/
+
+# IDE e OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

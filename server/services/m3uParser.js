@@ -32,6 +32,7 @@ class M3UParser {
             } else if (currentChannel && (line.startsWith('http://') || line.startsWith('https://') || line.startsWith('rtmp://') || line.startsWith('rtsp://') || line.startsWith('mms://'))) {
                 currentChannel.url = line;
                 currentChannel.streamType = this.detectStreamType(currentChannel);
+                currentChannel.id = this.generateId(currentChannel);
 
                 if (autoEnrich) {
                     currentChannel = enricher.enrichChannel(currentChannel);
@@ -98,6 +99,21 @@ class M3UParser {
         return group.replace(/^[\|\-\s]+/, '').replace(/[\|\-\s]+$/, '').trim() || 'TV Aberta';
     }
 
+    generateId(channel) {
+        const type = channel.streamType || 'ch';
+        const url = channel.url || '';
+        // 1. Extrai stream ID se existir na URL (ex: /5259159.m3u8, /movie/user/pass/12345.mp4)
+        const match = url.match(/\/([a-zA-Z0-9_\-]+)\.(?:m3u8|mp4|mkv|avi|ts)/i);
+        if (match && match[1]) {
+            return `${type}_${match[1]}`;
+        }
+        // 2. Hash determinístico baseado em identificadores estáveis
+        const crypto = require('crypto');
+        const seed = `${type}:${channel.tvgId || ''}:${channel.rawName || channel.name || ''}:${url}`;
+        const hash = crypto.createHash('md5').update(seed).digest('hex').substring(0, 10);
+        return `${type}_${hash}`;
+    }
+
     detectStreamType(channel) {
         const group = (channel.group || '').toLowerCase();
         const name = (channel.name || '').toLowerCase();
@@ -110,7 +126,7 @@ class M3UParser {
         }
 
         // Movies / VOD detection
-        if (group.includes('filmes') || group.includes('movies') || group.includes('vod') || group.includes('cinema') || url.includes('/movie/')) {
+        if (group.includes('filmes') || group.includes('movies') || group.includes('vod') || group.includes('cinema') || url.includes('/movie/') || /\.(mp4|mkv|avi)$/i.test(url)) {
             return 'vod';
         }
 

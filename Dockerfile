@@ -1,5 +1,8 @@
 FROM node:20-alpine
 
+LABEL version="8.2.0"
+LABEL description="JstudioPlay Pro v8.2.0"
+
 WORKDIR /app
 
 # Compiladores necessários para better-sqlite3 (módulo nativo C++)

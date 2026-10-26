@@ -48,6 +48,16 @@ function generateDefaultApiKey() {
     return `m3u_key_${crypto.randomBytes(16).toString('hex')}`;
 }
 
+/** Normaliza alias de tipos de mídia para os valores canônicos (live, vod, series) */
+function normalizeStreamType(raw) {
+    if (!raw || typeof raw !== 'string') return null;
+    const s = raw.trim().toLowerCase();
+    if (s === 'tv' || s === 'live' || s === 'aovivo' || s === 'ao-vivo' || s === 'canais') return 'live';
+    if (s === 'movie' || s === 'movies' || s === 'filme' || s === 'filmes' || s === 'vod') return 'vod';
+    if (s === 'serie' || s === 'series' || s === 'series-tv' || s === 'seriados') return 'series';
+    return s;
+}
+
 /** Converte linha da tabela `channels` → objeto compatível com o app */
 function rowToChannel(r) {
     if (!r) return null;
@@ -58,6 +68,15 @@ function rowToChannel(r) {
         tvgId:       r.tvg_id     || undefined,
         tvgName:     r.tvg_name   || undefined,
         logo:        r.logo       || '',
+        poster:      r.poster_url || r.logo || '',
+        posterUrl:   r.poster_url || undefined,
+        backdropUrl: r.backdrop_url || undefined,
+        overview:    r.overview   || undefined,
+        rating:      r.rating     !== null && r.rating !== undefined ? Number(r.rating) : undefined,
+        year:        r.year       || undefined,
+        genres:      r.genres     || undefined,
+        tmdbId:      r.tmdb_id    || undefined,
+        enrichedAt:  r.enriched_at|| undefined,
         group:       r.grp        || 'Geral',
         chno:        r.chno       || undefined,
         streamType:  r.stream_type|| 'live',
@@ -115,8 +134,47 @@ function rowToPlaylist(r) {
         checkStatus: r.check_status,
         lastChecked: r.last_checked || null,
         autoSync:    !!r.auto_sync,
+        isEnabled:   r.is_enabled !== undefined ? !!r.is_enabled : false,
         updated:     r.updated,
         created:     r.created,
+    };
+}
+
+/** Converte linha da tabela `marathons` → objeto */
+function rowToMarathon(r) {
+    if (!r) return null;
+    return {
+        id:          r.id,
+        title:       r.title,
+        description: r.description || '',
+        slug:        r.slug,
+        badge:       r.badge || 'MARATONA',
+        coverUrl:    r.cover_url || '',
+        isCurated:   !!r.is_curated,
+        isPublic:    !!r.is_public,
+        createdBy:   r.created_by,
+        createdAt:   r.created_at,
+        updatedAt:   r.updated_at
+    };
+}
+
+/** Converte linha da tabela `marathon_items` → objeto */
+function rowToMarathonItem(r) {
+    if (!r) return null;
+    return {
+        id:          r.id,
+        marathonId:  r.marathon_id,
+        mediaId:     r.media_id,
+        title:       r.title,
+        year:        r.year,
+        duration:    r.duration || '',
+        orderIndex:  r.order_index,
+        notes:       r.notes || '',
+        streamUrl:   r.stream_url,
+        posterUrl:   r.poster_url || '',
+        backdropUrl: r.backdrop_url || '',
+        rating:      r.rating || '14+',
+        createdAt:   r.created_at
     };
 }
 
@@ -182,6 +240,7 @@ const stmts = {
     channelsByPlaylist: sql.prepare(
         'SELECT * FROM channels WHERE playlist_id = ? ORDER BY sort_order ASC'
     ),
+    channelById: sql.prepare('SELECT * FROM channels WHERE id = ?'),
     deleteChannels: sql.prepare('DELETE FROM channels WHERE playlist_id = ?'),
     insertChannel:  sql.prepare(`
         INSERT OR REPLACE INTO channels
@@ -680,12 +739,31 @@ class Database {
 
     // ===== PLAYLISTS =====
 
-    getPlaylists(userId) {
-        if (!userId) return stmts.allPlaylists.all().map(rowToPlaylist);
-        const user = this.findUserById(userId);
-        if (!user) return [];
-        if (user.role === 'admin' || user.role === 'master' || user.role === 'reseller') return stmts.allPlaylists.all().map(rowToPlaylist);
-        return stmts.playlistsByUser.all(userId, userId).map(rowToPlaylist);
+    getPlaylists(userId, { onlyEnabled = false } = {}) {
+        let list;
+        if (!userId) {
+            list = stmts.allPlaylists.all().map(rowToPlaylist);
+        } else {
+            const user = this.findUserById(userId);
+            if (!user) return [];
+            if (user.role === 'admin' || user.role === 'master' || user.role === 'reseller') {
+                list = stmts.allPlaylists.all().map(rowToPlaylist);
+            } else {
+                list = stmts.playlistsByUser.all(userId, userId).map(rowToPlaylist);
+            }
+        }
+        if (onlyEnabled) {
+            const enabledList = list.filter(p => p.isEnabled);
+            return enabledList.length ? enabledList : list.slice(0, 1);
+        }
+        return list;
+    }
+
+    togglePlaylistEnabled(id, isEnabled) {
+        const val = isEnabled ? 1 : 0;
+        sql.prepare('UPDATE playlists SET is_enabled = ? WHERE id = ?').run(val, id);
+        this.addLog('playlist', `Playlist ${id} visibilidade alterada para: ${isEnabled ? 'Habilitada' : 'Oculta'}`);
+        return this.getPlaylistById(id);
     }
 
     getPlaylistById(id) {
@@ -754,6 +832,288 @@ class Database {
 
     getChannels(playlistId) {
         return stmts.channelsByPlaylist.all(playlistId).map(rowToChannel);
+    }
+
+    getChannelById(id) {
+        if (!id) return null;
+        const row = stmts.channelById.get(id);
+        return rowToChannel(row);
+    }
+
+    /**
+     * Busca transmissões alternativas/espelhos para Smart Failover
+     * Prioriza status 'online' e menor latência.
+     */
+    findAlternativeStreams(id, playlistId = null, limit = 5) {
+        const current = this.getChannelById(id);
+        if (!current) return [];
+
+        const targetPl = playlistId || current.playlistId;
+        // Limpa sufixos de qualidade para encontrar variantes (ex: "ESPN HD" -> "ESPN")
+        const cleanBase = current.name
+            .replace(/\b(4K|UHD|FHD|HD|SD|HEVC|H\.265|1080p|720p|480p|RAW)\b/gi, '')
+            .replace(/[[\]()]/g, '')
+            .trim();
+
+        const queryPattern = cleanBase.length >= 3 ? `%${cleanBase}%` : `%${current.name}%`;
+
+        let rows = [];
+        if (current.tvgId) {
+            // Se tiver tvgId, busca prioritariamente por tvgId
+            const tvgStmt = sql.prepare(`
+                SELECT * FROM channels 
+                WHERE id != ? 
+                  AND (tvg_id = ? OR name LIKE ?)
+                  AND stream_type = ?
+                  ${targetPl ? 'AND playlist_id = ?' : ''}
+                ORDER BY 
+                  CASE WHEN status = 'online' THEN 1 WHEN status = 'unknown' THEN 2 ELSE 3 END,
+                  latency ASC,
+                  sort_order ASC
+                LIMIT ?
+            `);
+            rows = targetPl
+                ? tvgStmt.all(id, current.tvgId, queryPattern, current.streamType || 'live', targetPl, limit)
+                : tvgStmt.all(id, current.tvgId, queryPattern, current.streamType || 'live', limit);
+        } else {
+            const nameStmt = sql.prepare(`
+                SELECT * FROM channels 
+                WHERE id != ? 
+                  AND name LIKE ?
+                  AND stream_type = ?
+                  ${targetPl ? 'AND playlist_id = ?' : ''}
+                ORDER BY 
+                  CASE WHEN status = 'online' THEN 1 WHEN status = 'unknown' THEN 2 ELSE 3 END,
+                  latency ASC,
+                  sort_order ASC
+                LIMIT ?
+            `);
+            rows = targetPl
+                ? nameStmt.all(id, queryPattern, current.streamType || 'live', targetPl, limit)
+                : nameStmt.all(id, queryPattern, current.streamType || 'live', limit);
+        }
+
+        return rows.map(rowToChannel);
+    }
+
+    /**
+     * Atualiza metadados enriquecidos de um canal/título
+     */
+    updateChannelMetadata(id, playlistId, meta = {}) {
+        if (!id) return false;
+        const stmt = sql.prepare(`
+            UPDATE channels
+            SET poster_url = COALESCE(?, poster_url),
+                backdrop_url = COALESCE(?, backdrop_url),
+                overview = COALESCE(?, overview),
+                rating = COALESCE(?, rating),
+                year = COALESCE(?, year),
+                genres = COALESCE(?, genres),
+                tmdb_id = COALESCE(?, tmdb_id),
+                enriched_at = ?
+            WHERE id = ? ${playlistId ? 'AND playlist_id = ?' : ''}
+        `);
+        const now = new Date().toISOString();
+        const params = [
+            meta.posterUrl || null,
+            meta.backdropUrl || null,
+            meta.overview || null,
+            meta.rating !== undefined ? Number(meta.rating) : null,
+            meta.year ? Number(meta.year) : null,
+            meta.genres || null,
+            meta.tmdbId || null,
+            now,
+            id
+        ];
+        if (playlistId) params.push(playlistId);
+        const res = stmt.run(...params);
+        return res.changes > 0;
+    }
+
+    /**
+     * Retorna itens não enriquecidos para processamento em lote
+     */
+    getChannelsForEnrichment(playlistId, type = null, limit = 50) {
+        let q = `
+            SELECT * FROM channels
+            WHERE playlist_id = ?
+              AND enriched_at IS NULL
+        `;
+        const params = [playlistId];
+        if (type) {
+            q += ` AND stream_type = ?`;
+            params.push(type);
+        }
+        q += ` ORDER BY sort_order ASC LIMIT ?`;
+        params.push(limit);
+        return sql.prepare(q).all(...params).map(rowToChannel);
+    }
+
+    /**
+     * Retorna contagem de enriquecimento da playlist
+     */
+    getEnrichmentStats(playlistId) {
+        const stats = sql.prepare(`
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN enriched_at IS NOT NULL THEN 1 ELSE 0 END) as enriched,
+                SUM(CASE WHEN enriched_at IS NULL THEN 1 ELSE 0 END) as pending
+            FROM channels
+            WHERE playlist_id = ?
+        `).get(playlistId);
+        return {
+            total: stats?.total || 0,
+            enriched: stats?.enriched || 0,
+            pending: stats?.pending || 0
+        };
+    }
+
+    /**
+     * Retorna sumário dos tipos de mídia (TV, Filmes, Séries) e contagens da playlist
+     */
+    getPlaylistMediaSummary(playlistId) {
+        const counts = sql.prepare(`
+            SELECT stream_type, COUNT(*) as count, COUNT(DISTINCT grp) as categories_count
+            FROM channels
+            WHERE playlist_id = ?
+            GROUP BY stream_type
+        `).all(playlistId);
+
+        const summary = {
+            live:   { count: 0, label: 'TV Ao Vivo', categoriesCount: 0 },
+            vod:    { count: 0, label: 'Filmes',     categoriesCount: 0 },
+            series: { count: 0, label: 'Séries',     categoriesCount: 0 }
+        };
+
+        let total = 0;
+        for (const row of counts) {
+            total += row.count;
+            if (row.stream_type === 'live') {
+                summary.live = { count: row.count, label: 'TV Ao Vivo', categoriesCount: row.categories_count };
+            } else if (row.stream_type === 'vod') {
+                summary.vod = { count: row.count, label: 'Filmes', categoriesCount: row.categories_count };
+            } else if (row.stream_type === 'series') {
+                summary.series = { count: row.count, label: 'Séries', categoriesCount: row.categories_count };
+            } else if (summary[row.stream_type]) {
+                summary[row.stream_type].count = row.count;
+            }
+        }
+
+        return {
+            playlistId,
+            total,
+            summary
+        };
+    }
+
+    /**
+     * Retorna categorias e contagem por tipo de mídia (TV, Filmes, Séries)
+     */
+    getCategoriesByType(playlistId, rawType) {
+        const type = normalizeStreamType(rawType);
+        let query = `
+            SELECT COALESCE(grp, 'Geral') as name, COUNT(*) as count
+            FROM channels
+            WHERE playlist_id = ?
+        `;
+        const params = [playlistId];
+        if (type) {
+            query += ` AND stream_type = ?`;
+            params.push(type);
+        }
+        query += ` GROUP BY grp ORDER BY count DESC, grp ASC`;
+        return sql.prepare(query).all(...params);
+    }
+
+    /**
+     * Consulta canais com filtragem por stream_type (TV/Filmes/Séries), grupo, busca e paginação
+     */
+    getChannelsFiltered(playlistId, options = {}) {
+        const {
+            type: rawType,
+            group,
+            search,
+            status,
+            page,
+            limit,
+            offset
+        } = options;
+
+        const type = normalizeStreamType(rawType);
+        const conditions = ['playlist_id = ?'];
+        const params = [playlistId];
+
+        if (type) {
+            conditions.push('stream_type = ?');
+            params.push(type);
+        }
+
+        if (group && typeof group === 'string' && group.trim() !== '' && group.toLowerCase() !== 'todos') {
+            conditions.push('grp = ?');
+            params.push(group.trim());
+        }
+
+        if (status && typeof status === 'string') {
+            conditions.push('status = ?');
+            params.push(status.trim());
+        }
+
+        if (search && typeof search === 'string' && search.trim() !== '') {
+            const term = `%${search.trim()}%`;
+            conditions.push('(name LIKE ? OR raw_name LIKE ?)');
+            params.push(term, term);
+        }
+
+        const whereClause = conditions.join(' AND ');
+
+        // Contagem total com otimização pré-computada para evitar full-scan em bibliotecas gigantes
+        let total = 0;
+        const isPlainType = !group && !search && !status && ['live', 'vod', 'series'].includes(type);
+        if (isPlainType) {
+            const p = this.getPlaylistById(playlistId);
+            if (p && typeof p[type] === 'number') {
+                total = p[type];
+            } else {
+                const countQuery = `SELECT COUNT(*) as total FROM channels WHERE ${whereClause}`;
+                total = sql.prepare(countQuery).get(...params).total;
+            }
+        } else {
+            const countQuery = `SELECT COUNT(*) as total FROM channels WHERE ${whereClause}`;
+            total = sql.prepare(countQuery).get(...params).total;
+        }
+
+        // Montar query de seleção
+        let selectQuery = `SELECT * FROM channels WHERE ${whereClause} ORDER BY sort_order ASC`;
+
+        const hasPagination = page !== undefined || limit !== undefined || offset !== undefined;
+        let finalLimit = limit !== undefined ? Math.max(1, Math.min(Number(limit), 5000)) : (hasPagination ? 100 : null);
+        let finalOffset = 0;
+
+        if (page !== undefined && finalLimit) {
+            const p = Math.max(1, Number(page));
+            finalOffset = (p - 1) * finalLimit;
+        } else if (offset !== undefined) {
+            finalOffset = Math.max(0, Number(offset));
+        }
+
+        const queryParams = [...params];
+        if (finalLimit !== null) {
+            selectQuery += ` LIMIT ? OFFSET ?`;
+            queryParams.push(finalLimit, finalOffset);
+        }
+
+        const rows = sql.prepare(selectQuery).all(...queryParams);
+        const items = rows.map(rowToChannel);
+
+        return {
+            items,
+            total,
+            type: type || 'all',
+            group: group || null,
+            page: page ? Number(page) : (finalLimit ? Math.floor(finalOffset / finalLimit) + 1 : 1),
+            limit: finalLimit,
+            totalPages: finalLimit ? Math.ceil(total / finalLimit) : 1
+        };
     }
 
     _bulkInsertChannels(playlistId, channels) {
@@ -1097,6 +1457,147 @@ class Database {
 
         this.addLog('system', 'Backup importado e restaurado com sucesso.');
         return { success: true, playlists: this.getPlaylists(null).length };
+    }
+
+    // ---------------------------------------------------------------------------
+    // Sistema de Maratonas Narrativas & Sagas Cronológicas (v8.2.0)
+    // ---------------------------------------------------------------------------
+
+    getCuratedMarathons() {
+        const rows = sql.prepare('SELECT * FROM marathons WHERE is_curated = 1 OR is_public = 1 ORDER BY created_at DESC').all();
+        return rows.map(r => {
+            const marathon = rowToMarathon(r);
+            const items = this.getMarathonItems(r.id);
+            return {
+                ...marathon,
+                totalItems: items.length,
+                previewItems: items.slice(0, 3)
+            };
+        });
+    }
+
+    getMarathonById(idOrSlug) {
+        const r = sql.prepare('SELECT * FROM marathons WHERE id = ? OR slug = ?').get(idOrSlug, idOrSlug);
+        if (!r) return null;
+        const marathon = rowToMarathon(r);
+        const items = this.getMarathonItems(r.id);
+        return {
+            ...marathon,
+            totalItems: items.length,
+            items
+        };
+    }
+
+    createMarathon(data) {
+        const now = new Date().toISOString();
+        const id = data.id || `pl_${Date.now()}`;
+        const title = data.title;
+        const description = data.description || '';
+        const slug = data.slug || title.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
+        const badge = data.badge || 'MARATONA';
+        const coverUrl = data.coverUrl || data.cover_url || 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=1200&q=80';
+        const isCurated = data.isCurated !== undefined ? (data.isCurated ? 1 : 0) : 0;
+        const isPublic = data.isPublic !== undefined ? (data.isPublic ? 1 : 0) : 1;
+        const createdBy = data.createdBy || data.created_by || 'user_active';
+
+        sql.prepare(`
+            INSERT INTO marathons (id, title, description, slug, badge, cover_url, is_curated, is_public, created_by, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(id, title, description, slug, badge, coverUrl, isCurated, isPublic, createdBy, now, now);
+
+        return this.getMarathonById(id);
+    }
+
+    updateMarathon(id, data) {
+        const existing = this.getMarathonById(id);
+        if (!existing) return null;
+        const now = new Date().toISOString();
+        const title = data.title !== undefined ? data.title : existing.title;
+        const description = data.description !== undefined ? data.description : existing.description;
+        const slug = data.slug !== undefined ? data.slug : existing.slug;
+        const badge = data.badge !== undefined ? data.badge : existing.badge;
+        const coverUrl = data.coverUrl !== undefined ? data.coverUrl : (data.cover_url !== undefined ? data.cover_url : existing.coverUrl);
+        const isPublic = data.isPublic !== undefined ? (data.isPublic ? 1 : 0) : (existing.isPublic ? 1 : 0);
+
+        sql.prepare(`
+            UPDATE marathons
+            SET title = ?, description = ?, slug = ?, badge = ?, cover_url = ?, is_public = ?, updated_at = ?
+            WHERE id = ?
+        `).run(title, description, slug, badge, coverUrl, isPublic, now, id);
+
+        return this.getMarathonById(id);
+    }
+
+    deleteMarathon(idOrSlug) {
+        const res = sql.prepare('DELETE FROM marathons WHERE id = ? OR slug = ?').run(idOrSlug, idOrSlug);
+        return res.changes > 0;
+    }
+
+    getMarathonItems(marathonId) {
+        const rows = sql.prepare('SELECT * FROM marathon_items WHERE marathon_id = ? ORDER BY order_index ASC').all(marathonId);
+        return rows.map(rowToMarathonItem);
+    }
+
+    addMarathonItem(marathonId, itemData) {
+        const now = new Date().toISOString();
+        const existing = this.getMarathonItems(marathonId);
+        const maxOrder = existing.reduce((max, i) => Math.max(max, i.orderIndex), 0);
+        const id = itemData.id || `pi_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+        const mediaId = itemData.mediaId || itemData.media_id || `m_${Date.now()}`;
+        const title = itemData.title || 'Título';
+        const year = itemData.year || new Date().getFullYear();
+        const duration = itemData.duration || '';
+        const orderIndex = itemData.orderIndex || itemData.order_index || (maxOrder + 1);
+        const notes = itemData.notes || '';
+        const streamUrl = itemData.streamUrl || itemData.stream_url || '';
+        const posterUrl = itemData.posterUrl || itemData.poster_url || '';
+        const backdropUrl = itemData.backdropUrl || itemData.backdrop_url || '';
+        const rating = itemData.rating || '14+';
+
+        sql.prepare(`
+            INSERT INTO marathon_items (id, marathon_id, media_id, title, year, duration, order_index, notes, stream_url, poster_url, backdrop_url, rating, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(id, marathonId, mediaId, title, year, duration, orderIndex, notes, streamUrl, posterUrl, backdropUrl, rating, now);
+
+        return sql.prepare('SELECT * FROM marathon_items WHERE id = ?').get(id);
+    }
+
+    reorderMarathonItems(marathonId, items) {
+        // items: array de { id, order_index / orderIndex }
+        const updateTx = sql.transaction(() => {
+            // Seta temporariamente valores altos para não violar UNIQUE (marathon_id, order_index)
+            // nem violar a constraint CHECK (order_index > 0)
+            const TEMP_OFFSET = 100000;
+            for (let i = 0; i < items.length; i++) {
+                const targetId = items[i].id;
+                sql.prepare('UPDATE marathon_items SET order_index = ? WHERE id = ? AND marathon_id = ?')
+                    .run(TEMP_OFFSET + i + 1, targetId, marathonId);
+            }
+            // Depois atribui os novos índices positivos finais
+            for (let i = 0; i < items.length; i++) {
+                const targetId = items[i].id;
+                const newOrder = Number(items[i].orderIndex || items[i].order_index || (i + 1));
+                sql.prepare('UPDATE marathon_items SET order_index = ? WHERE id = ? AND marathon_id = ?')
+                    .run(newOrder, targetId, marathonId);
+            }
+        });
+        updateTx();
+        return this.getMarathonItems(marathonId);
+    }
+
+    removeMarathonItem(marathonId, itemId) {
+        const item = sql.prepare('SELECT * FROM marathon_items WHERE id = ? AND marathon_id = ?').get(itemId, marathonId);
+        if (!item) return null;
+        sql.prepare('DELETE FROM marathon_items WHERE id = ? AND marathon_id = ?').run(itemId, marathonId);
+
+        // Reajusta a ordem dos itens subsequentes
+        sql.prepare(`
+            UPDATE marathon_items
+            SET order_index = order_index - 1
+            WHERE marathon_id = ? AND order_index > ?
+        `).run(marathonId, item.order_index);
+
+        return this.getMarathonItems(marathonId);
     }
 }
 

@@ -97,50 +97,38 @@ class XtreamClient {
         // 2. Tentar baixar a M3U Plus nativa do Xtream (/get.php)
         const m3uUrl = `${base}/get.php?username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}&type=m3u_plus&output=m3u8`;
         const epgUrl = `${base}/xmltv.php?username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`;
-
-        try {
-            const m3uResp = await axios.get(m3uUrl, {
-                timeout: 25000,
-                headers: {
-                    'User-Agent': USER_AGENT
-                },
-                responseType: 'text'
-            });
-
-            if (m3uResp.data && typeof m3uResp.data === 'string' && m3uResp.data.includes('#EXTM3U')) {
-                const channels = m3uParser.parse(m3uResp.data);
-                if (channels.length > 0) {
-                    return {
-                        channels,
-                        total: channels.length,
-                        m3uUrl,
-                        epgUrl,
-                        userInfo: validation.userInfo,
-                        serverInfo: validation.serverInfo
-                    };
-                }
-            }
-        } catch {
-            // Se get.php falhar ou for bloqueado por política de tamanho, faremos fallback para JSON API
-        }
-
-        // 3. Fallback: Buscar via JSON endpoints de live, VOD e séries
         const channels = [];
 
         try {
-            // Live streams
+            // 1. Mapeamento de Categorias de Canais Ao Vivo
+            const liveCatMap = {};
+            try {
+                const liveCatRes = await axios.get(`${base}/player_api.php`, {
+                    params: { username: user, password: pass, action: 'get_live_categories' },
+                    timeout: 10000,
+                    headers: { 'User-Agent': USER_AGENT }
+                });
+                if (Array.isArray(liveCatRes.data)) {
+                    for (const cat of liveCatRes.data) {
+                        if (cat.category_id) liveCatMap[String(cat.category_id)] = cat.category_name;
+                    }
+                }
+            } catch {}
+
+            // 2. Canais Ao Vivo (Live Streams)
             const liveResp = await axios.get(`${base}/player_api.php`, {
                 params: { username: user, password: pass, action: 'get_live_streams' },
-                timeout: 15000,
+                timeout: 25000,
                 headers: { 'User-Agent': USER_AGENT }
             });
 
             if (Array.isArray(liveResp.data)) {
                 for (const item of liveResp.data) {
+                    const group = liveCatMap[String(item.category_id)] || item.category_name || 'TV Ao Vivo';
                     channels.push({
                         id: `live_${item.stream_id}`,
                         name: item.name || 'Canal',
-                        group: item.category_name || 'TV Ao Vivo',
+                        group,
                         logo: item.stream_icon || '',
                         url: `${base}/live/${encodeURIComponent(user)}/${encodeURIComponent(pass)}/${item.stream_id}.m3u8`,
                         streamType: 'live',
@@ -149,50 +137,69 @@ class XtreamClient {
                 }
             }
 
-            // VOD (Filmes)
-            const vodResp = await axios.get(`${base}/player_api.php`, {
-                params: { username: user, password: pass, action: 'get_vod_streams' },
-                timeout: 15000,
-                headers: { 'User-Agent': USER_AGENT }
-            });
-
-            if (Array.isArray(vodResp.data)) {
-                for (const item of vodResp.data) {
-                    const ext = item.container_extension || 'mp4';
-                    channels.push({
-                        id: `vod_${item.stream_id}`,
-                        name: item.name || 'Filme',
-                        group: item.category_name || 'Filmes',
-                        logo: item.stream_icon || '',
-                        url: `${base}/movie/${encodeURIComponent(user)}/${encodeURIComponent(pass)}/${item.stream_id}.${ext}`,
-                        streamType: 'movie',
-                        status: 'unknown'
-                    });
+            // 3. Mapeamento de Categorias de Filmes (VOD)
+            const vodCatMap = {};
+            try {
+                const vodCatRes = await axios.get(`${base}/player_api.php`, {
+                    params: { username: user, password: pass, action: 'get_vod_categories' },
+                    timeout: 10000,
+                    headers: { 'User-Agent': USER_AGENT }
+                });
+                if (Array.isArray(vodCatRes.data)) {
+                    for (const cat of vodCatRes.data) {
+                        if (cat.category_id) vodCatMap[String(cat.category_id)] = cat.category_name;
+                    }
                 }
+            } catch {}
+
+            // 4. Filmes VOD
+            try {
+                const vodResp = await axios.get(`${base}/player_api.php`, {
+                    params: { username: user, password: pass, action: 'get_vod_streams' },
+                    timeout: 25000,
+                    headers: { 'User-Agent': USER_AGENT }
+                });
+
+                if (Array.isArray(vodResp.data)) {
+                    for (const item of vodResp.data) {
+                        const ext = item.container_extension || 'mp4';
+                        const group = vodCatMap[String(item.category_id)] || item.category_name || 'Filmes';
+                        channels.push({
+                            id: `vod_${item.stream_id}`,
+                            name: item.name || 'Filme',
+                            group,
+                            logo: item.stream_icon || '',
+                            posterUrl: item.stream_icon || undefined,
+                            rating: item.rating ? Number(item.rating) : undefined,
+                            url: `${base}/movie/${encodeURIComponent(user)}/${encodeURIComponent(pass)}/${item.stream_id}.${ext}`,
+                            streamType: 'vod',
+                            status: 'unknown'
+                        });
+                    }
+                }
+            } catch (eVod) {
+                console.warn('[XtreamClient] VOD fetch parcial:', eVod.message);
             }
 
-            // Séries
-            const seriesResp = await axios.get(`${base}/player_api.php`, {
-                params: { username: user, password: pass, action: 'get_series' },
-                timeout: 15000,
-                headers: { 'User-Agent': USER_AGENT }
-            });
-
-            if (Array.isArray(seriesResp.data)) {
-                for (const item of seriesResp.data) {
-                    channels.push({
-                        id: `series_${item.series_id}`,
-                        name: item.name || 'Série',
-                        group: item.category_name || 'Séries',
-                        logo: item.cover || '',
-                        url: `${base}/series/${encodeURIComponent(user)}/${encodeURIComponent(pass)}/${item.series_id}.mp4`,
-                        streamType: 'series',
-                        status: 'unknown'
-                    });
-                }
-            }
         } catch (err) {
-            console.error('[XtreamClient] Erro no fallback JSON API:', err.message);
+            console.error('[XtreamClient] Erro na API JSON Xtream:', err.message);
+        }
+
+        if (channels.length === 0) {
+            // Se a API JSON falhar, tenta fallback via M3U parser
+            try {
+                const m3uResp = await axios.get(m3uUrl, {
+                    timeout: 25000,
+                    headers: { 'User-Agent': USER_AGENT },
+                    maxContentLength: Infinity,
+                    maxBodyLength: Infinity,
+                    responseType: 'text'
+                });
+                if (m3uResp.data && typeof m3uResp.data === 'string' && m3uResp.data.includes('#EXTM3U')) {
+                    const parsed = m3uParser.parse(m3uResp.data);
+                    if (parsed.length > 0) channels.push(...parsed);
+                }
+            } catch {}
         }
 
         if (channels.length === 0) {

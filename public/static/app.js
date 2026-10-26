@@ -34,7 +34,7 @@ const number = n => Number(n || 0).toLocaleString('pt-BR');
 const colors = ['#8b5cf6','#00f2fe','#a855f7','#10b981','#f43f5e','#06b6d4','#fb923c'];
 const paths = {
   home:'M3 10 12 3l9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z',
-  playlist:'M6 3h12v18H6zM9 7h6M9 11h6M9 15h3',
+  playlist:'M4 6h16M4 12h9M4 18h9M16 11l5 3-5 3v-6Z',
   tv:'M3 6h18v13H3zM8 22h8M12 19v3M8 2l4 4 4-4',
   film:'M3 4h18v16H3zM7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4',
   grid:'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
@@ -72,12 +72,37 @@ const paths = {
   refresh:'M21 3v6h-6M3 21v-6h6M4 9a8 8 0 0 1 14-4l3 4M3 15l3 4a8 8 0 0 0 14-4',
   globe:'M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0M2 12h20M12 2c5 5 5 15 0 20-5-5-5-15 0-20',
   credits:'M2 7h20M2 12h20M7 17h4M2 5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5Z',
+  sports:'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 3.5 2.5 2-1 3h-3l-1-3z',
+  smile:'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm-3.5 7a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm-7 5.5a5 5 0 0 0 7 0',
+  compass:'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm3.5 5.5-2 5.5-5.5 2 2-5.5z',
+  newspaper:'M4 4h16v16H4zm4 4h8M8 12h8M8 16h5',
+  star:'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+  cross:'M12 2v20M6 8h12',
+  adult:'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm-4 5v10m4-10v10m4-10v10',
 };
 function icon(name) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name] || paths.tv}"/></svg>`; }
 function brand(route = 'login') { return `<a class="brand" href="#/${state.user ? 'dashboard' : 'login'}" aria-label="JstudioPlay — Início"><img src="/static/logo.svg" alt="JstudioPlay"><span>Jstudio<span>Play</span></span></a>`; }
-let initialToken=null;
-try { initialToken = localStorage.getItem('m3u-token'); } catch {}
-const state = {user:null,token:initialToken,setupRequired:false,setupAllowed:false,relayEnabled:false,relayMode:false,page:'',playlists:[],favorites:[],history:[],progress:[],users:[],logs:[],aiStatus:null,channels:[],activePlaylist:'',category:'',query:'',channelPage:1,selected:null,groups:[],loading:false};
+let initialToken=null, initialRelay=true;
+try { initialToken = localStorage.getItem('m3u-token'); const r = localStorage.getItem('m3u-relay'); if(r!==null) initialRelay = r==='true'; } catch {}
+window.eventBus = {
+  _listeners: {},
+  on(event, fn) {
+    if (!this._listeners[event]) this._listeners[event] = [];
+    this._listeners[event].push(fn);
+  },
+  off(event, fn) {
+    if (!this._listeners[event]) return;
+    this._listeners[event] = this._listeners[event].filter(f => f !== fn);
+  },
+  emit(event, data) {
+    if (!this._listeners[event]) return;
+    this._listeners[event].forEach(fn => {
+      try { fn(data); } catch (err) { console.error('EventBus error:', err); }
+    });
+  }
+};
+
+const state = {user:null,token:initialToken,setupRequired:false,setupAllowed:false,relayEnabled:true,relayMode:initialRelay,page:'',playlists:[],favorites:[],history:[],progress:[],users:[],logs:[],aiStatus:null,channels:[],activePlaylist:'',mediaType:'live',category:'',query:'',channelPage:1,selected:null,groups:[],loading:false,dashLive:[],dashMovies:[],dashSeries:[]};
 let hls = null, playbackGeneration = 0, routeGeneration = 0, toastTimer, searchTimer, playbackTimer;
 let theme = 'dark';
 try { theme = localStorage.getItem('m3u-theme') === 'light' ? 'light' : 'dark'; } catch {}
@@ -95,10 +120,10 @@ function getBackendBase() {
   const custom = localStorage.getItem('m3u-backend-url');
   if (custom && custom.trim()) return custom.trim().replace(/\/+$/, '');
   
-  // Se estiver no aplicativo nativo Android (Capacitor), conecta automaticamente à nuvem
+  // Se estiver no aplicativo nativo Android (Capacitor)
   const isNativeApp = window.Capacitor || location.protocol === 'capacitor:' || (location.hostname === 'localhost' && !location.port);
   if (isNativeApp) {
-    return 'https://jstudio-play.vercel.app';
+    return 'http://10.0.2.2:3030';
   }
   return '';
 }
@@ -110,7 +135,6 @@ async function api(path,method='GET',data,options={}) {
   try {
     response = await fetch(url, {
       method,
-      credentials: base ? 'include' : 'same-origin',
       headers: {
         'Content-Type': 'application/json',
         ...(currentToken ? { 'Authorization': 'Bearer ' + currentToken } : {})
@@ -423,28 +447,126 @@ function getIptvClock(){
   const d = new Date();
   return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
 }
+function getIptvDate(){
+  const d = new Date();
+  const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function formatPlOption(p, activeId) {
+  const parts = [];
+  const vod = Number(p.vod) || 0;
+  const series = Number(p.series) || 0;
+  const live = Number(p.live) || 0;
+  if(vod > 0) parts.push(`${number(vod)} filmes`);
+  if(series > 0) parts.push(`${number(series)} séries`);
+  if(live > 0) parts.push(`${number(live)} canais`);
+  const countStr = parts.length ? ` (${parts.join(' • ')})` : (p.total ? ` (${number(p.total)} itens)` : '');
+  const selected = (p.id === activeId) ? 'selected' : '';
+  return `<option value="${p.id}" ${selected}>${esc(p.name)}${countStr}</option>`;
+}
 
 function iptvTopBar(active='dashboard'){
   const time = getIptvClock();
-  const isReseller = state.user?.role === 'reseller';
-  return `<header class="iptv-dash-topbar">
-    <div class="iptv-topbar-left">
-      <nav class="iptv-nav-pills" aria-label="Navegação IPTV">
-        <a class="iptv-nav-pill ${active==='dashboard'?'active':''}" href="#/dashboard" tabindex="0">Início</a>
-        <a class="iptv-nav-pill ${active==='live'||active==='channels'?'active':''}" href="#/live" tabindex="0">TV Ao Vivo</a>
-        <a class="iptv-nav-pill ${active==='movies'?'active':''}" href="#/movies" tabindex="0">Filmes</a>
-        <a class="iptv-nav-pill ${active==='series'?'active':''}" href="#/series" tabindex="0">Séries</a>
-        <a class="iptv-nav-pill ${active==='epg'?'active':''}" href="#/epg" tabindex="0">Guia EPG</a>
-      </nav>
+  const date = getIptvDate();
+  const currentPl = state.playlists.find(p => p.id === state.activePlaylist) || state.playlists[0];
+  const pageTitles = {
+    dashboard: { label: 'Início', icon: 'home' },
+    live: { label: 'TV ao Vivo', icon: 'tv' },
+    channels: { label: 'Canais', icon: 'tv' },
+    movies: { label: 'Filmes & Cinema', icon: 'film' },
+    catalog: { label: 'Filmes & Cinema', icon: 'film' },
+    series: { label: 'Séries & Episódios', icon: 'grid' },
+    marathons: { label: 'Maratonas Narrativas', icon: 'play' },
+    categories: { label: 'Grade de Canais', icon: 'playlist' },
+    favorites: { label: 'Favoritos', icon: 'heart' },
+    settings: { label: 'Configurações', icon: 'settings' },
+    search: { label: 'Busca Global', icon: 'search' },
+    users: { label: 'Usuários', icon: 'users' },
+    credits: { label: 'Créditos', icon: 'credits' },
+    automation: { label: 'M3U Hub', icon: 'globe' },
+    logs: { label: 'Logs do Sistema', icon: 'clock' },
+    player: { label: 'Player HLS', icon: 'tv' }
+  };
+  const curPage = pageTitles[active] || { label: 'JstudioPlay', icon: 'tv' };
+
+  return `<header class="iptv-master-topbar">
+    <div style="display:flex; align-items:center; gap:0.75rem;">
+      <button class="iptv-sidebar-toggle-btn" data-action="toggle-iptv-sidebar" title="Recolher / Expandir menu lateral" aria-label="Alternar barra lateral">
+        ${icon('menu')}
+      </button>
+      <a class="iptv-master-brand" href="#/dashboard" title="JstudioPlay">
+        <div class="iptv-brand-text">Jstudio<span>Play</span></div>
+      </a>
     </div>
-    <div class="iptv-topbar-right">
-      ${isReseller ? `<a class="credit-balance-pill" href="#/credits" title="Saldo de Créditos">${icon('credits')} <strong>${state.user.credits || 0}</strong> créditos</a>` : ''}
-      <span class="iptv-clock" id="iptv-live-clock">${time}</span>
-      <a class="iptv-icon-action" href="#/search" title="Buscar canais" tabindex="0">${icon('search')}</a>
+
+    <div class="iptv-master-topbar-center" id="topbar-center-pane">
+      <div id="topbar-now-playing-container" style="${window._currentPlaying ? '' : 'display:none;'}">
+        <a class="iptv-topbar-now-playing" href="${window._currentPlaying?.type === 'live' ? '#/live' : 'javascript:void(0)'}" data-action="resume-current-playing" title="Voltar para a reprodução">
+          <div class="topbar-equalizer">
+            <span class="eq-bar"></span>
+            <span class="eq-bar"></span>
+            <span class="eq-bar"></span>
+            <span class="eq-bar"></span>
+          </div>
+          <span class="now-playing-title-label" id="topbar-now-playing-title">${esc(window._currentPlaying?.title || 'Reproduzindo')}</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="iptv-master-topbar-right">
+      ${(() => {
+        const enabledList = state.playlists.filter(p => p.isEnabled !== false);
+        const displayList = enabledList.length ? enabledList : state.playlists;
+        return `
+          <div style="display:flex; align-items:center; gap:0.4rem;">
+            ${displayList.length > 1 ? `
+              <select class="iptv-ref-source-select" data-action="change-active-playlist" title="Alternar Playlist Ativa" style="padding:0.4rem 1.8rem 0.4rem 0.6rem; font-size:0.75rem; max-width:250px;">
+                ${displayList.map(p => formatPlOption(p, currentPl?.id)).join('')}
+              </select>
+            ` : ''}
+            <button class="iptv-manage-pls-btn" data-action="open-manage-playlists-modal" title="Gerenciar Playlists: ${enabledList.length} ativas (${state.playlists.length - enabledList.length} ocultas)" tabindex="0">
+              ${icon('playlist')}
+              <span class="iptv-manage-pls-label">Listas <b class="iptv-manage-pls-count">${enabledList.length}/${state.playlists.length}</b></span>
+            </button>
+          </div>
+        `;
+      })()}
+      <a class="iptv-icon-action" href="#/search" title="Buscar no catálogo" tabindex="0">${icon('search')}</a>
       <a class="iptv-icon-action" href="#/settings" title="Configurações" tabindex="0">${icon('settings')}</a>
-      <a class="iptv-icon-action" href="#/settings" title="Perfil da conta" tabindex="0">${icon('user')}</a>
+      <div class="iptv-topbar-datetime">
+        <strong id="iptv-live-clock">${time}</strong>
+        <span>${date}</span>
+      </div>
     </div>
   </header>`;
+}
+
+function iptvBottomNav(active='dashboard'){
+  const isMovies = ['catalog','movies'].includes(active);
+  const isLive = ['live','channels'].includes(active);
+  return `<nav class="iptv-bottom-bar" aria-label="Navegação Rápida">
+    <a class="iptv-bottom-item ${active==='dashboard'?'active':''}" href="#/dashboard" tabindex="0">
+      ${icon('home')}
+      <span>Início</span>
+    </a>
+    <a class="iptv-bottom-item ${isLive?'active':''}" href="#/live" tabindex="0">
+      ${icon('tv')}
+      <span>Ao Vivo</span>
+    </a>
+    <a class="iptv-bottom-item ${isMovies?'active':''}" href="#/movies" tabindex="0">
+      ${icon('film')}
+      <span>Filmes</span>
+    </a>
+    <a class="iptv-bottom-item ${active==='series'?'active':''}" href="#/series" tabindex="0">
+      ${icon('grid')}
+      <span>Séries</span>
+    </a>
+    <a class="iptv-bottom-item ${active==='settings'?'active':''}" href="#/settings" tabindex="0">
+      ${icon('settings')}
+      <span>Ajustes</span>
+    </a>
+  </nav>`;
 }
 
 function loginPage(){
@@ -565,9 +687,13 @@ function loginPage(){
 const pageNames={
   dashboard:'Início',
   live:'TV Ao Vivo',
+  multiview:'Mosaico Multi-View',
   channels:'Canais',
+  categories:'Canais',
+  catalog:'Catálogo',
   movies:'Filmes',
   series:'Séries',
+  marathons:'Maratonas',
   search:'Buscar',
   recordings:'Gravações',
   epg:'Guia EPG',
@@ -594,310 +720,770 @@ function playlistRows(){return state.playlists.map((p,i)=>`<article class="card 
 
 function playlistSection(){return `<section><div class="section-heading"><h2>Minhas playlists</h2>${addButton()}</div><div class="playlist-grid">${state.playlists.length?playlistRows():`<div class="card">${empty('Sua próxima experiência começa aqui','Adicione uma playlist para organizar seus canais e começar a assistir.',addButton())}</div>`}</div></section>`;}
 
-function dashboard(){
-  // Canais de demonstração alinhados com o layout da imagem de referência
-  const liveChannels = [
-    { name: 'SporTV', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/SporTV_2021.svg/320px-SporTV_2021.svg.png', progress: 65, group: 'Esportes' },
-    { name: 'Globo', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/TV_Globo_2021.svg/320px-TV_Globo_2021.svg.png', progress: 85, group: 'Variedades' },
-    { name: 'ESPN', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/ESPN_wordmark.svg/320px-ESPN_wordmark.svg.png', progress: 40, group: 'Esportes' },
-    { name: 'Band', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Rede_Bandeirantes_logo.svg/320px-Rede_Bandeirantes_logo.svg.png', progress: 55, group: 'Notícias' },
-    { name: 'CNN Brasil', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/CNN_Brasil_logo.svg/320px-CNN_Brasil_logo.svg.png', progress: 30, group: 'Notícias' },
-    { name: 'SBT', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/SBT_logo.svg/320px-SBT_logo.svg.png', progress: 75, group: 'Variedades' },
-    { name: 'Discovery', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/Discovery_Channel_2019.svg/320px-Discovery_Channel_2019.svg.png', progress: 50, group: 'Documentários' },
-    { name: 'History', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/History_Logo.svg/320px-History_Logo.svg.png', progress: 60, group: 'Documentários' }
-  ];
+function extractYouTubeVideoId(url){
+  if(!url || typeof url !== 'string') return null;
+  const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+  const match = url.match(regExp);
+  return (match && match[1]) ? match[1] : null;
+}
 
-  const movies = [
-    { title: 'Top Gun: Maverick', meta: 'Ação • 2022', img: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80' },
-    { title: 'Deadpool & Wolverine', meta: 'Ação / Comédia • 2024', img: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=300&q=80' },
-    { title: 'John Wick: Capítulo 4', meta: 'Ação • 2023', img: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=300&q=80' },
-    { title: 'Duna: Parte 2', meta: 'Ficção Científica • 2024', img: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=300&q=80' },
-    { title: 'Oppenheimer', meta: 'Drama / História • 2023', img: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?auto=format&fit=crop&w=300&q=80' }
-  ];
+function formatVodTime(sec){
+  if(isNaN(sec) || sec < 0) return '00:00';
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  if(h > 0){
+    return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
 
-  const series = [
-    { title: 'The Last of Us', meta: 'Drama / Sobrevivência • 2023', img: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=300&q=80' },
-    { title: 'Breaking Bad', meta: 'Crime / Drama • 5 Temp.', img: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=300&q=80' },
-    { title: 'House of the Dragon', meta: 'Fantasia • 2 Temp.', img: 'https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=300&q=80' },
-    { title: 'Stranger Things', meta: 'Suspense • 4 Temp.', img: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=300&q=80' }
-  ];
+window.handlePosterError = function(img, title){
+  if(!img || img._fallbackApplied) return;
+  img._fallbackApplied = true;
+  const cleanTitle = (title || 'JstudioPlay').replace(/["'<>]/g, '').slice(0, 22);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" viewBox="0 0 300 450"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#1e2029"/><stop offset="100%" stop-color="#0e0f12"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/><circle cx="150" cy="180" r="44" fill="#e50914" opacity="0.15"/><path d="M140 160 L170 180 L140 200 Z" fill="#e50914"/><text x="150" y="270" fill="#ffffff" font-family="sans-serif" font-size="16" font-weight="700" text-anchor="middle">${cleanTitle}</text><text x="150" y="295" fill="#e50914" font-family="sans-serif" font-size="11" font-weight="600" letter-spacing="2" text-anchor="middle">JSTUDIOPLAY</text></svg>`;
+  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+};
 
-  return `<div class="iptv-dashboard-page">
-    <!-- Hero Banner: Campeonato Brasileiro (Live) -->
-    <div class="iptv-hero-wrap">
-      <div class="iptv-hero-bg"></div>
-      <div class="iptv-hero-content">
-        <span class="iptv-live-badge"><span class="iptv-live-dot"></span> LIVE</span>
-        <h1 class="iptv-hero-title">Campeonato Brasileiro</h1>
-        <p class="iptv-hero-subtitle">Flamengo x Palmeiras</p>
-        <div class="iptv-hero-schedule">
-          ${icon('clock')} Ao vivo agora • 21:30 - 23:30
+let vodIdleTimer = null;
+function resetVodIdleTimer(){
+  const theater = document.getElementById('vod-theater');
+  if(!theater) return;
+  theater.classList.remove('idle-hidden');
+  clearTimeout(vodIdleTimer);
+  vodIdleTimer = setTimeout(() => {
+    const v = document.getElementById('video');
+    if(v && !v.paused){
+      theater.classList.add('idle-hidden');
+    }
+  }, 3500);
+}
+
+function showTheaterRipple(delta){
+  const overlay = document.getElementById('seek-ripple-overlay');
+  const label = document.getElementById('seek-ripple-label');
+  const iconWrap = document.getElementById('seek-ripple-icon');
+  if(!overlay) return;
+  const isForward = delta > 0;
+  if(label) label.textContent = isForward ? `+${delta}s` : `${delta}s`;
+  if(iconWrap){
+    iconWrap.innerHTML = isForward 
+      ? `<svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`
+      : `<svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`;
+  }
+  overlay.classList.add('active');
+  clearTimeout(window._rippleTimer);
+  window._rippleTimer = setTimeout(() => overlay.classList.remove('active'), 550);
+}
+
+function toggleAspectRatio(){
+  const v = document.getElementById('video');
+  const lbl = document.getElementById('aspect-ratio-label');
+  if(!v) return;
+  const modes = ['contain', 'cover', 'fill'];
+  const labels = { contain: 'Auto', cover: 'Preencher', fill: 'Esticar' };
+  const current = v.style.objectFit || 'contain';
+  const next = modes[(modes.indexOf(current) + 1) % modes.length];
+  v.style.objectFit = next;
+  if(lbl) lbl.textContent = labels[next];
+  toast(`Enquadramento: ${labels[next]}`);
+  resetVodIdleTimer();
+}
+
+function skipVodTime(delta){
+  const v = document.getElementById('video');
+  if(!v) return;
+  const target = Math.max(0, Math.min(v.duration || Infinity, v.currentTime + delta));
+  v.currentTime = target;
+  showSeekFeedback(delta > 0 ? `+${delta}s` : `${delta}s`);
+  showTheaterRipple(delta);
+  resetVodIdleTimer();
+}
+
+function setVodPlaybackRate(rate){
+  const v = document.getElementById('video');
+  if(!v) return;
+  const r = parseFloat(rate) || 1.0;
+  v.playbackRate = r;
+  toast(`Velocidade: ${r}x`);
+  resetVodIdleTimer();
+}
+
+function closeVodTheater(){
+  clearTimeout(vodIdleTimer);
+  vodIdleTimer = null;
+  window._currentVodItem = null;
+  window._currentPlaying = null;
+  window.eventBus.emit('playback:stopped');
+  const ytIframe = document.getElementById('vod-yt-iframe');
+  if(ytIframe) ytIframe.src = '';
+  stopPlayback();
+  const theater = document.getElementById('vod-theater');
+  if(theater) theater.remove();
+}
+
+function openVodTheater(target){
+  if(!target) return;
+  window._currentVodItem = target;
+  state.selected = target;
+  $('#modal')?.close();
+
+  let theater = document.getElementById('vod-theater');
+  if(theater) theater.remove();
+
+  const title = target.name || target.title || 'Cinema VOD';
+  const group = target.group || target.notes || target.meta || '';
+  const isSeries = (target.streamType === 'series') || group.toLowerCase().includes('série') || group.toLowerCase().includes('temporada');
+  const targetUrl = target.url || target.streamUrl || target.previewVideo || '';
+  const ytId = extractYouTubeVideoId(targetUrl);
+
+  theater = document.createElement('div');
+  theater.id = 'vod-theater';
+  theater.className = 'iptv-vod-theater';
+  theater.innerHTML = `
+    <div class="iptv-vod-theater-header">
+      <button class="iptv-vod-back-btn" data-action="close-vod-theater" title="Voltar ao Catálogo (ESC)" tabindex="0">
+        ${icon('left')} <span>Voltar</span>
+      </button>
+      <div class="iptv-vod-header-info">
+        <span class="iptv-vod-type-badge">${ytId ? 'YOUTUBE' : (isSeries ? 'SÉRIE' : 'FILME')}</span>
+        <span class="vod-res-badge" id="vod-res-badge">HD</span>
+        <strong class="iptv-vod-title">${esc(title)}</strong>
+        <span class="iptv-vod-subtitle">${esc(group)}</span>
+      </div>
+      <div class="iptv-vod-top-actions">
+        ${state.relayEnabled && !ytId ? `<button class="iptv-vod-action-btn" data-action="toggle-relay" title="Modo de compatibilidade" tabindex="0">${icon('refresh')}</button>` : ''}
+        <button class="iptv-vod-action-btn" data-action="theater-fullscreen" title="Tela Cheia" tabindex="0">${icon('fullscreen')}</button>
+        <button class="iptv-vod-action-btn" data-action="close-vod-theater" title="Fechar" tabindex="0">${icon('close')}</button>
+      </div>
+    </div>
+    <div class="iptv-vod-video-wrapper">
+      <video id="video" playsinline controls autoplay class="iptv-vod-video-element" ${ytId ? 'style="display:none;"' : ''}></video>
+      <div class="seek-ripple-overlay" id="seek-ripple-overlay">
+        <div class="seek-ripple-circle" id="seek-ripple-icon">
+          <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
         </div>
-        <button class="iptv-hero-btn-play" data-action="open-first-live" tabindex="0">
-          ${icon('play')} Assistir Agora
+        <span class="seek-ripple-label" id="seek-ripple-label">+10s</span>
+      </div>
+      ${ytId ? `
+        <iframe id="vod-yt-iframe" class="iptv-vod-yt-iframe" src="https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&controls=1&rel=0&modestbranding=1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="width:100%; height:100%; border:none; position:absolute; inset:0;"></iframe>
+      ` : ''}
+      <div id="video-empty" role="status" aria-live="polite" hidden></div>
+    </div>
+    ${!ytId ? `
+      <!-- OSD Cinemático VOD (v8.3.4) -->
+      <div class="iptv-vod-theater-controls" id="vod-controls">
+        <div class="iptv-vod-timeline-row">
+          <span class="iptv-vod-time-display" id="vod-current-time">00:00</span>
+          <div class="iptv-vod-progress-track" id="vod-progress-track" title="Avançar / Retroceder">
+            <div class="iptv-vod-time-tooltip" id="vod-time-tooltip">00:00</div>
+            <div class="iptv-vod-buffer-bar" id="vod-buffer-bar" style="width:0%;"></div>
+            <div class="iptv-vod-progress-bar" id="vod-progress-bar" style="width:0%;">
+              <div class="iptv-vod-progress-scrubber"></div>
+            </div>
+          </div>
+          <span class="iptv-vod-time-display" id="vod-duration-time">--:--</span>
+        </div>
+        <div class="iptv-vod-controls-row">
+          <div class="iptv-vod-controls-left">
+            <button class="iptv-vod-btn iptv-vod-btn-round iptv-vod-btn-play" data-action="theater-play-toggle" id="vod-play-btn" title="Play / Pausar (Espaço)">
+              ${icon('pause')}
+            </button>
+            <button class="iptv-vod-btn iptv-vod-btn-round" data-action="theater-skip-back" title="Voltar 10 segundos (←)">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+            </button>
+            <button class="iptv-vod-btn iptv-vod-btn-round" data-action="theater-skip-forward" title="Avançar 10 segundos (→)">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            </button>
+            <div class="iptv-vod-volume-wrap">
+              <button class="iptv-vod-btn iptv-vod-btn-round" data-action="quick-mute" id="vod-mute-btn" title="Mudo (M)">
+                ${icon('volume')}
+              </button>
+              <input type="range" class="iptv-vod-volume-slider" id="vod-volume-slider" min="0" max="1" step="0.05" value="1" title="Ajustar Volume">
+            </div>
+          </div>
+          <div class="iptv-vod-controls-right">
+            <select class="iptv-vod-speed-select" id="vod-speed-select" data-action="vod-change-speed" title="Velocidade de Reprodução">
+              <option value="0.75">0.75x</option>
+              <option value="1" selected>1.0x Normal</option>
+              <option value="1.25">1.25x</option>
+              <option value="1.5">1.5x</option>
+              <option value="2">2.0x</option>
+            </select>
+            <button class="iptv-vod-btn iptv-aspect-btn" data-action="toggle-aspect-ratio" id="btn-aspect-ratio" title="Ajustar proporção de tela">
+              ${icon('fullscreen')} <span>Ajuste: <b class="iptv-aspect-badge" id="aspect-ratio-label">Auto</b></span>
+            </button>
+            <button class="iptv-vod-btn" data-action="pip" title="Miniplayer PiP">
+              ${icon('monitor')} <span>PiP</span>
+            </button>
+            <button class="iptv-vod-btn iptv-vod-btn-round" data-action="theater-fullscreen" title="Tela Cheia (F)">
+              ${icon('fullscreen')}
+            </button>
+          </div>
+        </div>
+      </div>
+    ` : ''}
+  `;
+  document.body.appendChild(theater);
+
+  theater.addEventListener('mousemove', resetVodIdleTimer);
+  theater.addEventListener('click', resetVodIdleTimer);
+  resetVodIdleTimer();
+
+  window._currentPlaying = { title, type: 'vod', target };
+  window.eventBus.emit('playback:started', window._currentPlaying);
+
+  const v = document.getElementById('video');
+  if(v && !ytId){
+    v.onloadedmetadata = () => {
+      const resBadge = document.getElementById('vod-res-badge');
+      if(resBadge && v.videoWidth){
+        if(v.videoWidth >= 3840){
+          resBadge.textContent = '4K UHD';
+          resBadge.className = 'vod-res-badge badge-4k';
+        } else if(v.videoWidth >= 1920){
+          resBadge.textContent = '1080p FHD';
+          resBadge.className = 'vod-res-badge';
+        } else if(v.videoWidth >= 1280){
+          resBadge.textContent = '720p HD';
+          resBadge.className = 'vod-res-badge';
+        } else {
+          resBadge.textContent = 'SD';
+          resBadge.className = 'vod-res-badge';
+        }
+      }
+    };
+
+    v.ontimeupdate = () => {
+      const cur = v.currentTime || 0;
+      const dur = v.duration || 0;
+      const pct = dur > 0 ? (cur / dur) * 100 : 0;
+      const pBar = document.getElementById('vod-progress-bar');
+      const curTxt = document.getElementById('vod-current-time');
+      const durTxt = document.getElementById('vod-duration-time');
+      if(pBar) pBar.style.width = `${pct}%`;
+      if(curTxt) curTxt.textContent = formatVodTime(cur);
+      if(durTxt && dur > 0) durTxt.textContent = formatVodTime(dur);
+
+      window.eventBus.emit('playback:progress', { item: target, position: cur, duration: dur, percent: pct });
+    };
+
+    v.onprogress = () => {
+      if(v.buffered && v.buffered.length > 0 && v.duration > 0){
+        const bufferedEnd = v.buffered.end(v.buffered.length - 1);
+        const bufPct = Math.min(100, (bufferedEnd / v.duration) * 100);
+        const bBar = document.getElementById('vod-buffer-bar');
+        if(bBar) bBar.style.width = `${bufPct}%`;
+      }
+    };
+
+    v.onplay = () => {
+      const btn = document.getElementById('vod-play-btn');
+      if(btn) btn.innerHTML = icon('pause');
+      resetVodIdleTimer();
+      window.eventBus.emit('playback:play', { item: target });
+    };
+
+    v.onpause = () => {
+      const btn = document.getElementById('vod-play-btn');
+      if(btn) btn.innerHTML = icon('play');
+      theater.classList.remove('idle-hidden');
+      window.eventBus.emit('playback:pause', { item: target });
+    };
+
+    const volSlider = document.getElementById('vod-volume-slider');
+    if(volSlider){
+      volSlider.value = v.muted ? 0 : v.volume;
+      volSlider.oninput = (e) => {
+        const val = parseFloat(e.target.value);
+        v.volume = val;
+        v.muted = val === 0;
+        window.eventBus.emit('volume:changed', { volume: val, muted: v.muted });
+        resetVodIdleTimer();
+      };
+    }
+
+    const track = document.getElementById('vod-progress-track');
+    if(track){
+      track.onclick = (e) => {
+        const rect = track.getBoundingClientRect();
+        const pos = (e.clientX - rect.left) / rect.width;
+        if(v.duration > 0){
+          v.currentTime = pos * v.duration;
+        }
+      };
+
+      track.onmousemove = (e) => {
+        const rect = track.getBoundingClientRect();
+        const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const tip = document.getElementById('vod-time-tooltip');
+        if(tip && v.duration > 0){
+          tip.textContent = formatVodTime(pos * v.duration);
+          tip.style.left = `${pos * 100}%`;
+          tip.classList.add('active');
+        }
+      };
+
+      track.onmouseleave = () => {
+        const tip = document.getElementById('vod-time-tooltip');
+        if(tip) tip.classList.remove('active');
+      };
+    }
+  }
+
+  if(!ytId){
+    if(target.url || target.streamUrl){
+      setTimeout(() => playChannel(target), 80);
+    } else {
+      toast(`Iniciando streaming de ${title}…`);
+      setTimeout(() => playChannel(target), 80);
+    }
+  }
+}
+
+function openVodModal(item){
+  window._currentVodItem = item;
+  const title = item.name || item.title || 'Detalhes do Título';
+  const img = item.backdropUrl || item.posterUrl || item.logo || item.img || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=800&q=80';
+  const group = item.genres || item.group || item.meta || 'Filme • VOD';
+  const isSeries = (item.streamType === 'series') || group.toLowerCase().includes('série') || group.toLowerCase().includes('temporada');
+  const prog = (typeof currentProgress === 'function') ? currentProgress(item) : null;
+  const progSec = prog?.position ? Math.floor(prog.position / 60) : 0;
+  const btnLabel = progSec > 0 ? `Continuar assistindo de ${progSec} min` : 'Assistir Agora';
+  const ratingText = item.rating ? `⭐ ${item.rating} / 10` : '⭐ 8.5 / 10';
+  const yearText = item.year ? `• ${item.year}` : '';
+  const isFav = state.favorites && state.favorites.some(f => 
+    (f.channel && (f.channel.name === title || f.channel.url === item.url || f.channel.id === item.id)) ||
+    f.name === title || f.url === item.url
+  );
+
+  const html = `
+    <div style="display:flex; flex-direction:column; gap:1.25rem; max-width:650px;">
+      <div style="position:relative; width:100%; height:260px; border-radius:12px; overflow:hidden; background-image:url('${esc(img)}'); background-size:cover; background-position:center;" id="modal-vod-backdrop">
+        <div style="position:absolute; inset:0; background:linear-gradient(to top, #14151a 0%, rgba(20,21,26,0.3) 100%);"></div>
+        <div style="position:absolute; bottom:1rem; left:1.25rem; right:1.25rem;">
+          <span style="font-size:0.75rem; text-transform:uppercase; font-weight:800; background:#e50914; color:#fff; padding:3px 8px; border-radius:4px;">${isSeries?'Série':'Filme'}</span>
+          <h2 style="font-size:1.6rem; font-weight:900; color:#fff; margin:6px 0 0;" id="modal-vod-title">${esc(title)}</h2>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:0.75rem; color:rgba(255,255,255,0.7); font-size:0.85rem;" id="modal-vod-meta">
+        <span>${ratingText}</span>
+        ${yearText ? `<span>•</span><span>${yearText}</span>` : ''}
+        <span>•</span>
+        <span>${esc(group)}</span>
+        <span>•</span>
+        <span>Streaming HLS</span>
+      </div>
+      <p style="font-size:0.92rem; color:rgba(255,255,255,0.8); line-height:1.6; margin:0;" id="modal-vod-synopsis">
+        ${esc(item.overview || item.synopsis || item.description || 'Buscando sinopse e detalhes oficiais…')}
+      </p>
+      <div style="display:flex; gap:0.75rem; margin-top:0.5rem; align-items:center;">
+        <button class="iptv-btn-play-red" data-action="start-vod-theater" data-name="${esc(title)}" style="flex:1; justify-content:center; height:48px;" tabindex="0">
+          ${icon('play')} ${btnLabel}
+        </button>
+        <button class="btn secondary" data-action="enrich-current-vod" style="padding:0 1.25rem; height:48px; gap:0.4rem;" title="Buscar Metadados na API">
+          ${icon('refresh')} Atualizar
+        </button>
+        <button class="iptv-btn-info-glass iptv-vod-fav-btn ${isFav ? 'is-favorited' : ''}" id="modal-vod-fav-btn" data-action="toggle-favorite-search" data-name="${esc(title)}" style="height:48px; min-width:48px; padding:0 1rem; display:inline-flex; align-items:center; justify-content:center; color:${isFav ? '#e50914' : 'rgba(255,255,255,0.7)'};" title="${isFav ? 'Remover dos Favoritos' : 'Adicionar aos Favoritos'}" aria-label="${isFav ? 'Remover dos Favoritos' : 'Adicionar aos Favoritos'}" tabindex="0">
+          ${icon('heart')}
         </button>
       </div>
+      ${isSeries ? `
+        <div style="margin-top:0.75rem; border-top:1px solid rgba(255,255,255,0.08); padding-top:0.75rem;">
+          <h3 style="font-size:1.05rem; color:#fff; margin:0 0 0.5rem;">Episódios Disponíveis</h3>
+          <div style="display:flex; flex-direction:column; gap:0.35rem; max-height:160px; overflow-y:auto;">
+            ${[1, 2, 3, 4].map(ep => `
+              <div class="iptv-settings-row" data-action="start-vod-theater" data-name="${esc(title)} E0${ep}" style="padding:0.6rem 1rem; margin-bottom:0.2rem; cursor:pointer;" tabindex="0">
+                <span style="font-weight:700; color:#fff; font-size:0.88rem;">Episódio ${ep}</span>
+                <span class="iptv-badge-live" style="background:rgba(255,255,255,0.1); color:#fff; box-shadow:none;">48 min</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+    </div>
+  `;
+  openModal(title, html);
+}
 
-      <!-- Brasão flutuante -->
-      <div class="iptv-hero-crest">
-        <svg viewBox="0 0 100 100" fill="none" style="width:110px; height:110px;">
-          <circle cx="50" cy="50" r="45" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>
-          <path d="M50 15 L78 30 L78 68 L50 85 L22 68 L22 30 Z" fill="rgba(229,9,20,0.4)" stroke="#fff" stroke-width="2"/>
-          <text x="50" y="55" fill="#fff" font-size="12" font-weight="900" text-anchor="middle">BRASILEIRÃO</text>
-        </svg>
+let heroAutoTimer = null;
+function changeHeroSlide(idx){
+  const slides = window._heroSlides || [];
+  if(!slides.length || idx < 0 || idx >= slides.length) return;
+  window._currentHeroIdx = idx;
+  const item = slides[idx];
+  const banner = document.getElementById('master-hero-banner');
+  const titleEl = document.getElementById('hero-title');
+  const descEl = document.getElementById('hero-desc');
+  const badgeRow = document.getElementById('hero-badge-row');
+  const dots = document.querySelectorAll('.iptv-hero-dot');
+
+  if(banner){
+    const bg = item.backdropUrl || item.posterUrl || item.logo || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1600&q=80';
+    banner.style.backgroundImage = `url('${esc(bg)}')`;
+  }
+  if(titleEl) titleEl.textContent = item.title || item.name || 'JstudioPlay Cinema';
+  if(descEl) descEl.textContent = item.overview || item.description || 'Aproveite a melhor experiência em streaming e TV digital.';
+  if(badgeRow){
+    badgeRow.innerHTML = `
+      <span class="iptv-hero-badge badge-highlight">Destaque</span>
+      <span class="iptv-hero-badge badge-quality">4K UHD</span>
+      <span class="iptv-hero-badge">DOLBY AUDIO</span>
+      ${item.year ? `<span class="iptv-hero-badge">${esc(item.year)}</span>` : ''}
+      ${item.rating ? `<span class="iptv-hero-badge">⭐ ${esc(item.rating)}</span>` : ''}
+    `;
+  }
+  dots.forEach((d, i) => {
+    d.classList.toggle('active', i === idx);
+  });
+}
+
+function initHeroAutoRotate(){
+  clearInterval(heroAutoTimer);
+  const banner = document.getElementById('master-hero-banner');
+  if(!banner) return;
+  heroAutoTimer = setInterval(() => {
+    const slides = window._heroSlides || [];
+    if(slides.length <= 1) return;
+    const nextIdx = ((window._currentHeroIdx || 0) + 1) % slides.length;
+    changeHeroSlide(nextIdx);
+  }, 10000);
+
+  banner.onmouseenter = () => clearInterval(heroAutoTimer);
+  banner.onmouseleave = () => initHeroAutoRotate();
+}
+
+function dashboard(){
+  const trending = (state.dashMovies && state.dashMovies.length) ? state.dashMovies.slice(0, 8) : [
+    { title: 'John Wick 4', meta: 'Ação • 2023', img: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=320&q=80', description: 'John Wick descobre um caminho para derrotar a Alta Cúpula.' },
+    { title: 'The Last of Us', meta: 'Drama / Sobrevivência', img: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=320&q=80', description: 'Joel e Ellie atravessam uma América pós-apocalíptica.' },
+    { title: 'House of the Dragon', meta: 'Fantasia / Ação', img: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=320&q=80', description: 'A guerra civil na Casa Targaryen pelo Trono de Ferro.' },
+    { title: 'The Boys', meta: 'Ação / Comédia', img: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=320&q=80', description: 'Justiceiros enfrentam super-heróis corruptos apoiados pela Vought.' },
+    { title: 'Avatar: O Caminho da Água', meta: 'Ficção Científica', img: 'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=320&q=80', description: 'Jake Sully e Neytiri formam uma família e exploram Pandora.' }
+  ];
+
+  const seriesList = (state.dashSeries && state.dashSeries.length) ? state.dashSeries.slice(0, 8) : [
+    { title: 'Stranger Things', meta: 'Série • 4 Temporadas', img: 'https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?auto=format&fit=crop&w=320&q=80' },
+    { title: 'Breaking Bad', meta: 'Série • 5 Temporadas', img: 'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=320&q=80' },
+    { title: 'Peaky Blinders', meta: 'Série • 6 Temporadas', img: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=320&q=80' }
+  ];
+
+  const realHistory = (state.history && state.history.length) ? state.history : [];
+  const continueItems = realHistory.slice(0, 6).map((h, i) => {
+    const ch = h.channel || {};
+    const pos = Number(h.position) || 0;
+    const dur = Number(h.duration) || 0;
+    const pct = (dur > 0 && pos > 0) ? Math.min(100, Math.round((pos / dur) * 100)) : 15;
+    const minsLeft = dur > pos ? Math.round((dur - pos) / 60) : 0;
+    const subtitle = minsLeft > 0 ? `${pct}% assistido • ${minsLeft}m restantes` : `${pct}% assistido • ${ch.group || 'VOD'}`;
+    return {
+      title: ch.name || h.title || `Item ${i+1}`,
+      subtitle: subtitle,
+      img: ch.logo || h.img || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=480&q=80',
+      progress: pct,
+      channel: ch,
+      position: pos
+    };
+  });
+
+  // Seleção dinâmica do conteúdo de destaque com suporte a múltiplos itens e auto-rotação (v8.3.2)
+  const heroPool = (state.dashMovies && state.dashMovies.length) ? state.dashMovies.slice(0, 5) : [
+    {
+      title: 'Central JstudioPlay Pro',
+      name: 'Central JstudioPlay Pro',
+      genres: 'Cinema, Séries & TV',
+      overview: 'Explore canais ao vivo, filmes em alta definição e séries organizadas com reprodução ultra-rápida, Miniplayer PiP e Smart Failover.',
+      backdropUrl: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=1600&q=80',
+      rating: '9.8',
+      year: '2026'
+    },
+    {
+      title: 'Avatar: O Caminho da Água',
+      name: 'Avatar: O Caminho da Água',
+      genres: 'Ficção Científica • Aventura',
+      overview: 'Jake Sully e Neytiri formam uma família e exploram as regiões marítimas de Pandora diante de novas ameaças.',
+      backdropUrl: 'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=1600&q=80',
+      rating: '8.9',
+      year: '2024'
+    },
+    {
+      title: 'The Last of Us',
+      name: 'The Last of Us',
+      genres: 'Drama • Sobrevivência',
+      overview: 'Joel e Ellie cruzam uma América em ruínas após o colapso da civilização humana.',
+      backdropUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1600&q=80',
+      rating: '9.2',
+      year: '2025'
+    }
+  ];
+  window._heroSlides = heroPool;
+  window._currentHeroIdx = 0;
+  const heroItem = heroPool[0];
+  const heroBackdrop = heroItem.backdropUrl || heroItem.posterUrl || heroItem.logo || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1600&q=80';
+  const heroTitle = heroItem.title || heroItem.name || 'JstudioPlay Cinema';
+  const heroOverview = heroItem.overview || heroItem.description || 'Aproveite a melhor experiência em streaming e TV digital com qualidade premium e estabilidade total.';
+  const heroGenre = heroItem.genres || heroItem.group || 'Destaque';
+
+  setTimeout(() => initHeroAutoRotate(), 120);
+
+  return `<div style="padding:1.5rem var(--iptv-safe-x); max-width:1440px; margin:0 auto; box-sizing:border-box;">
+    
+    <!-- Hero Banner Cinemático com Dots e Auto-Rotação (v8.3.2) -->
+    <div class="iptv-master-hero" id="master-hero-banner" style="background-image:url('${esc(heroBackdrop)}');">
+      <div class="iptv-master-hero-overlay"></div>
+      <div class="iptv-master-hero-content">
+        <div class="iptv-hero-badge-row" id="hero-badge-row">
+          <span class="iptv-hero-badge badge-highlight">Destaque</span>
+          <span class="iptv-hero-badge badge-quality">4K UHD</span>
+          <span class="iptv-hero-badge">DOLBY AUDIO</span>
+          ${heroItem.year ? `<span class="iptv-hero-badge">${esc(heroItem.year)}</span>` : ''}
+          ${heroItem.rating ? `<span class="iptv-hero-badge">⭐ ${esc(heroItem.rating)}</span>` : ''}
+        </div>
+        <h1 class="iptv-master-hero-title" id="hero-title">${esc(heroTitle)}</h1>
+        <p class="iptv-master-hero-desc" id="hero-desc">
+          ${esc(heroOverview)}
+        </p>
+        <div class="iptv-master-hero-actions">
+          <button class="iptv-btn-play-red" data-action="play-featured-hero" tabindex="0">
+            ${icon('play')} Assistir Agora
+          </button>
+          <a class="iptv-btn-info-glass" href="#/multiview" tabindex="0">
+            ${icon('monitor')} Mosaico 2x2
+          </a>
+        </div>
+        <!-- Indicadores Dots de Carrossel -->
+        <div class="iptv-hero-dots-container" id="hero-dots">
+          ${heroPool.map((_, i) => `
+            <button class="iptv-hero-dot ${i === 0 ? 'active' : ''}" data-action="hero-dot" data-idx="${i}" title="Destaque ${i+1}" aria-label="Ir para destaque ${i+1}"></button>
+          `).join('')}
+        </div>
       </div>
     </div>
 
-    <!-- Seções de Trilhos -->
-    <div class="iptv-sections-wrap">
-      <!-- Trilho 1: TV Ao Vivo (Cards Widescreen com Progresso) -->
-      <section class="iptv-rail-section">
-        <div class="iptv-rail-header">
-          <div class="iptv-rail-title">${icon('tv')} TV Ao Vivo</div>
-          <a class="iptv-rail-arrow" href="#/live" title="Ver todos os canais" tabindex="0">${icon('right')}</a>
-        </div>
-        <div class="iptv-rail-track">
-          ${liveChannels.map((c, i) => `
-            <div class="iptv-channel-card" data-action="open-first-live" data-index="${i}" tabindex="0" title="${esc(c.name)}">
-              <div class="iptv-channel-logo-wrap">
-                <img src="${c.logo}" alt="${esc(c.name)}" onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='block';">
-                <span class="iptv-channel-fallback" style="display:none;">${esc(c.name)}</span>
-              </div>
-              <div class="iptv-channel-name">${esc(c.name)}</div>
-              <div class="iptv-card-progress">
-                <div class="iptv-card-progress-bar" style="width:${c.progress}%;"></div>
+    <!-- 1. Carrossel: Continuar Assistindo (Continue Watching) -->
+    <section style="margin-bottom:2.25rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <h2 style="font-size:1.25rem; font-weight:800; color:#fff; margin:0;">Continuar Assistindo</h2>
+      </div>
+      <div class="iptv-ref-shelf-track">
+        ${continueItems.length ? continueItems.map(c => `
+          <div class="iptv-ref-continue-card" data-action="resume-vod" data-title="${esc(c.title)}" tabindex="0" style="cursor:pointer;">
+            <div class="iptv-ref-continue-thumb">
+              <img src="${c.img}" alt="${esc(c.title)}" loading="lazy" onerror="window.handlePosterError(this, '${esc(c.title)}')">
+              <div class="iptv-ref-continue-progress">
+                <div class="iptv-ref-continue-bar" style="width:${c.progress}%;"></div>
               </div>
             </div>
-          `).join('')}
-        </div>
-      </section>
+            <div class="iptv-ref-continue-title">${esc(c.title)}</div>
+            <div class="iptv-ref-continue-meta">${esc(c.subtitle)}</div>
+          </div>
+        `).join('') : `
+          <div style="width:100%; background:rgba(255,255,255,0.03); border:1px dashed rgba(255,255,255,0.08); border-radius:12px; padding:1.75rem; text-align:center; color:rgba(255,255,255,0.5);">
+            <p style="margin:0 0 0.35rem; font-size:0.95rem; font-weight:600; color:#fff;">Nenhum conteúdo em andamento</p>
+            <span style="font-size:0.82rem; color:rgba(255,255,255,0.4);">Inicie um filme, série ou canal para acompanhar seu progresso automaticamente aqui.</span>
+          </div>
+        `}
+      </div>
+    </section>
 
-      <!-- Trilho 2: Filmes (Pôsteres Verticais) -->
-      <section class="iptv-rail-section">
-        <div class="iptv-rail-header">
-          <div class="iptv-rail-title">${icon('film')} Filmes</div>
-          <a class="iptv-rail-arrow" href="#/movies" title="Ver filmes" tabindex="0">${icon('right')}</a>
-        </div>
-        <div class="iptv-rail-track">
-          ${movies.map(m => `
-            <div class="iptv-poster-card" data-action="open-movie-detail" data-id="${m.id}" tabindex="0">
-              <img class="iptv-poster-img" src="${m.img}" alt="${esc(m.title)}" loading="lazy">
-              <div class="iptv-poster-overlay">
-                <strong class="iptv-poster-title">${esc(m.title)}</strong>
-                <span class="iptv-poster-meta">${esc(m.meta)}</span>
-              </div>
+    <!-- 2. Carrossel: Filmes Populares na Biblioteca -->
+    <section style="margin-bottom:2.25rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <h2 style="font-size:1.25rem; font-weight:800; color:#fff; margin:0;">Filmes Populares na Biblioteca</h2>
+        <a href="#/movies" style="color:rgba(255,255,255,0.6); display:flex; align-items:center; text-decoration:none;" title="Ver todos">${icon('right')}</a>
+      </div>
+      <div class="iptv-ref-shelf-track">
+        ${trending.map((t, idx) => `
+          <div class="iptv-poster-card" data-action="vod-card-click" data-type="movie" data-index="${idx}" tabindex="0" title="${esc(t.title || t.name)}" style="flex:0 0 170px; height:255px; cursor:pointer;">
+            <img class="iptv-poster-img" src="${t.posterUrl || t.img || t.logo}" alt="${esc(t.title || t.name)}" loading="lazy" onerror="window.handlePosterError(this, '${esc(t.title || t.name)}')">
+            ${t.rating ? `<span class="iptv-poster-badge iptv-rating-badge">⭐ ${t.rating}</span>` : ''}
+            ${t.year ? `<span class="iptv-poster-badge iptv-year-badge">${t.year}</span>` : ''}
+            <div class="iptv-poster-overlay">
+              <strong class="iptv-poster-title">${esc(t.title || t.name)}</strong>
+              <span class="iptv-poster-meta">${esc(t.meta || t.group || 'Filme')}</span>
             </div>
-          `).join('')}
-        </div>
-      </section>
+          </div>
+        `).join('')}
+      </div>
+    </section>
 
-      <!-- Trilho 3: Séries (Pôsteres Verticais) -->
-      <section class="iptv-rail-section">
-        <div class="iptv-rail-header">
-          <div class="iptv-rail-title">${icon('grid')} Séries</div>
-          <a class="iptv-rail-arrow" href="#/series" title="Ver séries" tabindex="0">${icon('right')}</a>
-        </div>
-        <div class="iptv-rail-track">
-          ${series.map(s => `
-            <div class="iptv-poster-card" data-action="open-first-live" tabindex="0">
-              <img class="iptv-poster-img" src="${s.img}" alt="${esc(s.title)}" loading="lazy">
-              <div class="iptv-poster-overlay">
-                <strong class="iptv-poster-title">${esc(s.title)}</strong>
-                <span class="iptv-poster-meta">${esc(s.meta)}</span>
-              </div>
+    <!-- 3. Carrossel: Séries e Episódios -->
+    <section style="margin-bottom:2rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <h2 style="font-size:1.25rem; font-weight:800; color:#fff; margin:0;">Séries e Episódios</h2>
+        <a href="#/series" style="color:rgba(255,255,255,0.6); display:flex; align-items:center; text-decoration:none;" title="Ver todas">${icon('right')}</a>
+      </div>
+      <div class="iptv-ref-shelf-track">
+        ${seriesList.map((s, idx) => `
+          <div class="iptv-poster-card" data-action="vod-card-click" data-type="series" data-index="${idx}" tabindex="0" title="${esc(s.title || s.name)}" style="flex:0 0 170px; height:255px; cursor:pointer;">
+            <img class="iptv-poster-img" src="${s.posterUrl || s.img || s.logo}" alt="${esc(s.title || s.name)}" loading="lazy" onerror="window.handlePosterError(this, '${esc(s.title || s.name)}')">
+            ${s.rating ? `<span class="iptv-poster-badge iptv-rating-badge">⭐ ${s.rating}</span>` : ''}
+            ${s.year ? `<span class="iptv-poster-badge iptv-year-badge">${s.year}</span>` : ''}
+            <div class="iptv-poster-overlay">
+              <strong class="iptv-poster-title">${esc(s.title || s.name)}</strong>
+              <span class="iptv-poster-meta">${esc(s.meta || s.group || 'Série')}</span>
             </div>
-          `).join('')}
+          </div>
+        `).join('')}
+      </div>
+    </section>
+
+  </div>`;
+}
+
+function categoriesPage(){
+  const categoryList = [
+    { id: 'esportes', name: 'Esportes', icon: 'sports', selected: true },
+    { id: 'filmes', name: 'Filmes', icon: 'film' },
+    { id: 'series', name: 'Séries', icon: 'tv' },
+    { id: 'infantil', name: 'Infantil', icon: 'smile' },
+    { id: 'documentarios', name: 'Documentários', icon: 'compass' },
+    { id: 'noticias', name: 'Notícias', icon: 'newspaper' },
+    { id: 'variedades', name: 'Variedades', icon: 'star' },
+    { id: 'musica', name: 'Música', icon: 'music' },
+    { id: 'religiosos', name: 'Religiosos', icon: 'cross' },
+    { id: 'internacionais', name: 'Canais Internacionais', icon: 'globe' },
+    { id: 'adultos', name: 'Adultos', icon: 'adult' }
+  ];
+
+  return `<div style="padding:1.5rem var(--iptv-safe-x); max-width:1440px; margin:0 auto; box-sizing:border-box;">
+    <h1 style="font-size:1.8rem; font-weight:800; color:#fff; margin:0 0 1.5rem;">Categorias</h1>
+    <div class="iptv-master-categories-grid">
+      ${categoryList.map(c => `
+        <div class="iptv-cat-card-master ${c.selected?'selected':''}" data-action="filter-master-cat" data-name="${esc(c.name)}" tabindex="0">
+          <div class="iptv-cat-icon-wrap">
+            ${icon(c.icon)}
+          </div>
+          <div class="iptv-cat-card-title">${esc(c.name)}</div>
         </div>
-      </section>
+      `).join('')}
     </div>
   </div>`;
 }
 
 function epgPage(){
-  const categories = [
-    { name: 'Todos os Canais', count: 156, active: true },
-    { name: 'Esportes', count: 24 },
-    { name: 'Filmes', count: 32 },
-    { name: 'Séries', count: 28 },
-    { name: 'Notícias', count: 12 },
-    { name: 'Infantil', count: 15 },
-    { name: 'Documentários', count: 10 },
-    { name: 'Música', count: 8 },
-    { name: 'Variedades', count: 14 },
-    { name: 'Internacionais', count: 13 }
+  const days = [
+    { id: 'today', label: 'Hoje', active: true },
+    { id: 'mon', label: 'Seg 14/10' },
+    { id: 'tue', label: 'Ter 15/10' },
+    { id: 'wed', label: 'Qua 16/10' },
+    { id: 'thu', label: 'Qui 17/10' }
   ];
 
-  const gridChannels = [
-    { name: 'Globo', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/TV_Globo_2021.svg/120px-TV_Globo_2021.svg.png', p1: 'Jornal Nacional', t1: '20:30 - 21:30', p2: 'Troca de Passes', t2: '21:30 - 22:30' },
-    { name: 'SporTV', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/SporTV_2021.svg/120px-SporTV_2021.svg.png', p1: 'Brasileirão Série A', t1: '21:00 - 23:30', p2: 'SporTV News', t2: '23:30 - 00:30' },
-    { name: 'ESPN', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/ESPN_wordmark.svg/120px-ESPN_wordmark.svg.png', p1: 'NBA - Playoffs', t1: '21:15 - 23:45', p2: 'Linha de Passe', t2: '23:45 - 01:00' },
-    { name: 'Band', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Rede_Bandeirantes_logo.svg/120px-Rede_Bandeirantes_logo.svg.png', p1: 'MasterChef Brasil', t1: '21:15 - 23:00', p2: 'A Fazenda Notícias', t2: '23:00 - 00:00' },
-    { name: 'Record TV', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/SBT_logo.svg/120px-SBT_logo.svg.png', p1: 'Jornal da Record', t1: '20:45 - 21:45', p2: 'Cidade Alerta', t2: '21:45 - 23:15' },
-    { name: 'SBT', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/SBT_logo.svg/120px-SBT_logo.svg.png', p1: 'Programa do Ratinho', t1: '21:00 - 22:15', p2: 'The Wall', t2: '22:15 - 23:30' },
-    { name: 'Discovery', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/Discovery_Channel_2019.svg/120px-Discovery_Channel_2019.svg.png', p1: 'Fuga para a Escócia', t1: '20:30 - 21:45', p2: 'How It\'s Made', t2: '21:45 - 22:45' },
-    { name: 'History', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f5/History_Logo.svg/120px-History_Logo.svg.png', p1: 'Grandes Civilizações', t1: '20:30 - 22:00', p2: 'O Incrível Dr. Pol', t2: '22:00 - 23:00' }
+  const allChs = (state.channels && state.channels.length) ? state.channels.slice(0, 20) : [];
+  const channels = allChs.length ? allChs.map(ch => {
+    const hasEpg = Boolean(ch.program && ch.time);
+    return {
+      name: ch.name,
+      group: ch.group || 'Geral',
+      logo: ch.logo,
+      program: hasEpg ? ch.program : 'Programação não disponível para este canal',
+      time: hasEpg ? ch.time : '—',
+      hasEpg,
+      url: ch.url
+    };
+  }) : [
+    { name: 'Globo HD', group: 'Abertos', program: 'Brasileirão Série A', time: '16:00 - 18:00', hasEpg: true },
+    { name: 'SporTV HD', group: 'Esportes', program: 'Futebol ao Vivo', time: '16:00 - 18:00', hasEpg: true },
+    { name: 'ESPN HD', group: 'Esportes', program: 'NBA', time: '16:00 - 17:45', hasEpg: true },
+    { name: 'TNT HD', group: 'Filmes', program: 'Velozes e Furiosos 9', time: '15:30 - 17:30', hasEpg: true },
+    { name: 'Record TV HD', group: 'Abertos', program: 'Cidade Alerta', time: '16:00 - 17:00', hasEpg: true },
+    { name: 'SBT HD', group: 'Abertos', program: 'Programa do Ratinho', time: '16:15 - 18:00', hasEpg: true },
+    { name: 'Band HD', group: 'Esportes', program: 'Jogo Aberto', time: '15:00 - 17:00', hasEpg: true }
   ];
 
-  return `<div class="iptv-epg-page">
-    <header class="iptv-epg-topbar">
-      <div class="iptv-epg-title-tag">
-        <a class="iptv-main-logo" href="#/dashboard" style="text-decoration:none;">
-          <div class="iptv-play-icon" style="width:32px; height:32px; border-radius:6px;">
-            <svg viewBox="0 0 24 24" style="width:14px; height:14px;"><path d="M8 5v14l11-7z"/></svg>
-          </div>
-          <span class="iptv-logo-title" style="font-size:1.3rem;">JSTUDIO<span style="color:var(--iptv-red);">PLAY</span></span>
-        </a>
-        <span>TV Ao Vivo <small>| Guia de Programação (EPG)</small></span>
-      </div>
-      <div class="iptv-topbar-right">
-        <span class="iptv-clock">${getIptvClock()}</span>
-        <a class="iptv-icon-action" href="#/player" title="Buscar canais">${icon('search')}</a>
-        <a class="iptv-icon-action" href="#/settings" title="Configurações">${icon('settings')}</a>
-      </div>
-    </header>
+  return `<div style="padding:1.5rem var(--iptv-safe-x); max-width:1440px; margin:0 auto; box-sizing:border-box;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
+      <h1 style="font-size:1.8rem; font-weight:800; color:#fff; margin:0;">Guia de Programação (EPG)</h1>
+      <span style="font-size:1.1rem; font-weight:700; color:rgba(255,255,255,0.7);">${getIptvClock()}</span>
+    </div>
 
-    <div class="iptv-epg-container">
-      <!-- Sidebar de Categorias -->
-      <aside class="iptv-epg-sidebar">
-        ${categories.map(c => `
-          <button class="iptv-epg-cat-item ${c.active?'active':''}" data-action="iptv-epg-cat" data-name="${esc(c.name)}">
-            <span>${esc(c.name)}</span>
-            <span class="iptv-epg-cat-count">${c.count}</span>
-          </button>
-        `).join('')}
-      </aside>
+    <!-- Pílulas de Dias -->
+    <div class="iptv-epg-day-pills">
+      ${days.map(d => `
+        <button class="iptv-epg-day-pill ${d.active?'active':''}" data-action="epg-day-select" data-day="${d.id}" tabindex="0">
+          ${d.label}
+        </button>
+      `).join('')}
+    </div>
 
-      <!-- Grade Timeline EPG -->
-      <main class="iptv-epg-main">
-        <div class="iptv-epg-time-ruler">
-          <div class="iptv-epg-ruler-date">Hoje ▾</div>
-          <div class="iptv-epg-ruler-slots">
-            <div class="iptv-epg-slot">20:30</div>
-            <div class="iptv-epg-slot">21:00</div>
-            <div class="iptv-epg-slot">21:30</div>
-            <div class="iptv-epg-slot">22:00</div>
-            <div class="iptv-epg-slot">22:30</div>
-          </div>
-        </div>
-
-        <div class="iptv-epg-grid-rows">
-          ${gridChannels.map(ch => `
-            <div class="iptv-epg-row">
-              <div class="iptv-epg-channel-col" data-action="open-first-live">
-                <div class="iptv-epg-ch-logo">
-                  <img src="${ch.logo}" alt="${esc(ch.name)}" onerror="this.onerror=null;this.parentElement.textContent='${esc(initials(ch.name))}';">
-                </div>
-                <div class="iptv-epg-ch-info">
-                  <strong>${esc(ch.name)}</strong>
-                  <span class="iptv-epg-live-chip">AO VIVO</span>
-                </div>
-              </div>
-              <div class="iptv-epg-programs-row">
-                <div class="iptv-epg-prog-block current" data-action="open-first-live">
-                  <strong class="iptv-epg-prog-title">${esc(ch.p1)}</strong>
-                  <span class="iptv-epg-prog-time">${esc(ch.t1)}</span>
-                </div>
-                <div class="iptv-epg-prog-block" data-action="open-first-live">
-                  <strong class="iptv-epg-prog-title">${esc(ch.p2)}</strong>
-                  <span class="iptv-epg-prog-time">${esc(ch.t2)}</span>
-                </div>
-              </div>
+    <!-- Lista de Canais & Grade EPG -->
+    <div>
+      ${channels.map((ch, idx) => `
+        <div class="iptv-epg-item-row" data-action="open-epg-detail" data-name="${esc(ch.name)}" data-prog="${esc(ch.program)}" data-time="${esc(ch.time)}" data-hasepg="${ch.hasEpg?'true':'false'}" tabindex="0" style="cursor:pointer;">
+          <div style="display:flex; align-items:center; gap:1rem;">
+            <span style="font-size:0.75rem; color:rgba(255,255,255,0.4); font-weight:700; width:36px;">${String(idx+1).padStart(3,'0')} HD</span>
+            <div class="iptv-round-logo" style="width:38px; height:38px;">
+              ${ch.logo ? `<img src="${esc(ch.logo)}" alt="${esc(ch.name)}">` : icon('tv')}
             </div>
-          `).join('')}
+            <div>
+              <strong style="display:block; font-size:0.95rem; color:#fff;">${esc(ch.name)}</strong>
+              <span style="font-size:0.78rem; color:rgba(255,255,255,0.5);">${esc(ch.group || 'Geral')}</span>
+            </div>
+          </div>
+          <div>
+            <strong style="display:block; font-size:0.9rem; color:#fff;">${esc(ch.program)}</strong>
+            <span style="font-size:0.78rem; color:rgba(255,255,255,0.5);">${esc(ch.time)}</span>
+          </div>
+          ${ch.hasEpg ? `<span class="iptv-badge-live">AO VIVO</span>` : `<span class="iptv-badge-live" style="background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.5); box-shadow:none;">SEM GUIA</span>`}
         </div>
-      </main>
+      `).join('')}
     </div>
   </div>`;
 }
 
 function iptvSmartSidebar(active='dashboard'){
   const role = state.user?.role || 'user';
-  const items = [
-    { id: 'dashboard', label: 'Início', icon: 'home' },
-    { id: 'live', label: 'TV Ao Vivo', icon: 'tv' },
-    { id: 'movies', label: 'Filmes', icon: 'film' },
-    { id: 'series', label: 'Séries', icon: 'grid' }
+  let isCollapsed = false;
+  try { isCollapsed = localStorage.getItem('iptv-sidebar-collapsed') === 'true'; } catch {}
+
+  const mainItems = [
+    { id: 'dashboard', label: 'Início', icon: 'home', href: '#/dashboard' },
+    { id: 'live', label: 'TV ao Vivo', icon: 'tv', href: '#/live' },
+    { id: 'multiview', label: 'Mosaico Multi-View', icon: 'monitor', href: '#/multiview' },
+    { id: 'movies', label: 'Filmes', icon: 'film', href: '#/movies' },
+    { id: 'series', label: 'Séries', icon: 'grid', href: '#/series' },
+    { id: 'marathons', label: 'Maratonas', icon: 'play', href: '#/marathons' },
+    { id: 'categories', label: 'Canais', icon: 'playlist', href: '#/categories' },
+    { id: 'favorites', label: 'Favoritos', icon: 'heart', href: '#/favorites' },
+    { id: 'settings', label: 'Configurações', icon: 'settings', href: '#/settings' }
   ];
 
-  // Playlists: Pro, Revendedor, Adm e Master
-  if(['pro','reseller','admin','master'].includes(role)){
-    items.push({ id: 'playlists', label: 'Playlists', icon: 'playlist' });
-  }
-
-  // Gravações: Pro, Revendedor, Adm e Master
-  if(['pro','reseller','admin','master'].includes(role)){
-    items.push({ id: 'recordings', label: 'Gravações', icon: 'clock' });
-  }
-
-  items.push({ id: 'epg', label: 'EPG', icon: 'refresh' });
-  items.push({ id: 'favorites', label: 'Favoritos', icon: 'heart' });
-
-  // M3U Hub: Adm e Master
-  if(['admin','master'].includes(role)){
-    items.push({ id: 'automation', label: 'M3U Hub', icon: 'globe' });
-  }
-
-  // Status da IA: Adm e Master
-  if(['admin','master'].includes(role)){
-    items.push({ id: 'ai-status', label: 'Status da IA', icon: 'refresh' });
-  }
-
-  // Gestão de Clientes / Usuários: Revendedor, Adm e Master
+  const adminItems = [];
   if(['reseller','admin','master'].includes(role)){
-    items.push({ id: 'users', label: 'Usuários', icon: 'users' });
+    adminItems.push({ id: 'users', label: 'Usuários', icon: 'users', href: '#/users' });
+    adminItems.push({ id: 'credits', label: 'Créditos', icon: 'credits', href: '#/credits' });
   }
-
-  // Comprar Créditos: Revendedor, Adm e Master
-  if(['reseller','admin','master'].includes(role)){
-    items.push({ id: 'credits', label: 'Comprar Crédito', icon: 'credits' });
+  if(['admin','master'].includes(role)){
+    adminItems.push({ id: 'automation', label: 'M3U Hub', icon: 'globe', href: '#/automation' });
   }
-
-  // Logs do Sistema: Exclusivo Master
   if(role === 'master'){
-    items.push({ id: 'logs', label: 'Logs', icon: 'clock' });
+    adminItems.push({ id: 'logs', label: 'Logs', icon: 'clock', href: '#/logs' });
   }
 
-  items.push({ id: 'settings', label: 'Configurações', icon: 'settings' });
-  return `<aside class="iptv-smart-sidebar" aria-label="Menu Principal IPTV">
-    <div style="padding:0 0.5rem 1.25rem; display:flex; align-items:center; gap:0.75rem;">
-      <div class="iptv-play-icon" style="width:36px; height:36px; border-radius:8px;">
-        <svg viewBox="0 0 24 24" style="width:16px; height:16px;"><path d="M8 5v14l11-7z"/></svg>
-      </div>
-      <span class="iptv-logo-title" style="font-size:1.35rem;">JSTUDIO<span style="color:var(--iptv-red);">PLAY</span></span>
-    </div>
-    ${role === 'reseller' ? `
-      <div class="iptv-sidebar-credit-badge">
-        <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
-          <span style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px; color:rgba(255,255,255,0.6);">Saldo</span>
-          <span style="font-size:0.72rem; color:#4ade80; font-weight:700;">Ativo</span>
-        </div>
-        <div style="display:flex; align-items:center; gap:0.4rem; margin-top:0.25rem;">
-          ${icon('credits')}
-          <span style="font-size:1.15rem; font-weight:800; color:#fff;">${state.user.credits || 0}</span>
-          <span style="font-size:0.8rem; color:rgba(255,255,255,0.7);">créditos</span>
-        </div>
-        <div style="display:flex; gap:0.35rem; margin-top:0.45rem;">
-          <a href="#/credits" class="iptv-sidebar-buy-link" style="flex:1; text-align:center; padding:0.35rem 0.2rem;">+ Comprar</a>
-          <button type="button" class="iptv-sidebar-buy-link" data-action="transfer-credits-modal" style="flex:1; text-align:center; padding:0.35rem 0.2rem; background:rgba(168,85,247,0.25); border:none; cursor:pointer;">⇄ Enviar</button>
-        </div>
-      </div>
-    ` : ['user', 'pro'].includes(role) ? `
-      <div style="padding:0 0.5rem 0.75rem;">
-        <button type="button" data-action="request-reseller-modal" style="width:100%; border-radius:8px; display:flex; align-items:center; justify-content:center; gap:0.4rem; background:linear-gradient(135deg, #a855f7, #6366f1); border:none; color:#fff; font-size:0.8rem; font-weight:700; padding:0.55rem 0.4rem; cursor:pointer; box-shadow:0 2px 8px rgba(99,102,241,0.25);">
-          💼 Seja um Revendedor
-        </button>
-      </div>
-    ` : ''}
-    <nav style="display:flex; flex-direction:column; gap:0.35rem;">
-      ${items.map(it => `
-        <a class="iptv-smart-nav-item ${(active===it.id || (it.id==='playlists'&&active==='channels') || (it.id==='live'&&active==='channels'))?'active':''}" href="#/${it.id}" tabindex="0">
-          ${icon(it.icon)}
-          <span>${it.label}</span>
-        </a>
-      `).join('')}
+  const renderItem = (it) => {
+    const isActive = active===it.id || (it.id==='movies' && ['catalog','movies'].includes(active)) || (it.id==='live' && active==='channels');
+    return `
+      <a class="iptv-master-side-btn ${isActive?'active':''}" href="${it.href}" tabindex="0" title="${it.label}">
+        ${icon(it.icon)}
+        <span>${it.label}</span>
+      </a>
+    `;
+  };
+
+  return `<aside class="iptv-master-sidebar ${isCollapsed?'collapsed':''}" id="iptv-sidebar" aria-label="Menu Principal IPTV">
+    <nav style="display:flex; flex-direction:column; gap:0.25rem; width:100%;">
+      ${mainItems.map(renderItem).join('')}
+      ${adminItems.length ? `
+        <div class="iptv-sidebar-divider"></div>
+        <div class="iptv-sidebar-section-label">Gestão</div>
+        ${adminItems.map(renderItem).join('')}
+      ` : ''}
     </nav>
-    <div style="margin-top:auto; padding-top:1rem; border-top:1px solid var(--iptv-border);">
-      <button class="iptv-smart-nav-item" data-action="logout" tabindex="0" style="width:100%; color:var(--iptv-text-sec);">
+
+    <div style="margin-top:auto; padding-top:0.65rem; border-top:1px solid rgba(255,255,255,0.06); width:100%;">
+      <button class="iptv-master-side-btn" data-action="logout" tabindex="0" title="Sair" style="color:rgba(255,255,255,0.5);">
         ${icon('logout')}
         <span>Sair</span>
       </button>
@@ -906,186 +1492,319 @@ function iptvSmartSidebar(active='dashboard'){
 }
 
 function livePage(){
-  const allChs = (state.channels && state.channels.length) ? state.channels : [
-    { name: 'SporTV HD', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/SporTV_2021.svg/120px-SporTV_2021.svg.png', group: 'Esportes', url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8' },
-    { name: 'Globo SP', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/62/TV_Globo_2021.svg/120px-TV_Globo_2021.svg.png', group: 'Variedades', url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8' },
-    { name: 'ESPN Brasil', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/ESPN_wordmark.svg/120px-ESPN_wordmark.svg.png', group: 'Esportes', url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8' },
-    { name: 'TNT Séries', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/Discovery_Channel_2019.svg/120px-Discovery_Channel_2019.svg.png', group: 'Filmes', url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8' },
-    { name: 'Band News', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Rede_Bandeirantes_logo.svg/120px-Rede_Bandeirantes_logo.svg.png', group: 'Notícias', url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8' },
-    { name: 'CNN Brasil', logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/CNN_Brasil_logo.svg/120px-CNN_Brasil_logo.svg.png', group: 'Notícias', url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8' }
+  const liveOnly = (state.channels || []).filter(c => !c.streamType || c.streamType === 'live');
+  const allChs = liveOnly.length ? liveOnly : [
+    { name: 'Globo HD', program: 'Brasileirão Série A', group: 'Abertos', time: '16:00 - 18:00' },
+    { name: 'SporTV HD', program: 'Futebol ao Vivo', group: 'Esportes', time: '16:00 - 18:00' },
+    { name: 'ESPN HD', program: 'NBA', group: 'Esportes', time: '16:00 - 17:45' },
+    { name: 'Record TV HD', program: 'Cidade Alerta', group: 'Abertos', time: '16:00 - 17:00' },
+    { name: 'SBT HD', program: 'Programa do Ratinho', group: 'Abertos', time: '16:15 - 18:00' },
+    { name: 'Band HD', program: 'Jogo Aberto', group: 'Esportes', time: '15:00 - 17:00' }
   ];
 
-  const groupCounts = {};
-  allChs.forEach(c => {
-    const g = c.group || 'Geral';
-    groupCounts[g] = (groupCounts[g] || 0) + 1;
-  });
+  const catFilter = state.liveCategory || 'Todos';
+  let filtered = allChs;
+  if(catFilter && catFilter !== 'Todos'){
+    const q = catFilter.toLowerCase();
+    filtered = allChs.filter(c => (c.group && c.group.toLowerCase().includes(q)) || (c.name && c.name.toLowerCase().includes(q)));
+    if(!filtered.length) filtered = allChs; // fallback graceful
+  }
 
-  const categories = [
-    { name: 'Todos os canais', count: allChs.length, active: !state.category || state.category === 'Todos os canais' },
-    ...Object.entries(groupCounts).map(([name, count]) => ({
-      name,
-      count,
-      active: state.category === name
-    }))
-  ];
-
-  const curCat = state.category && state.category !== 'Todos os canais' ? state.category : null;
-  const filtered = curCat ? allChs.filter(c => (c.group || 'Geral') === curCat) : allChs;
   const activeCh = state.selected || filtered[0] || allChs[0];
-  window._liveChannels = allChs;
+  window._liveChannels = filtered;
 
-  return `<div class="iptv-tri-layout">
-    <!-- Área Esquerda: Categorias -->
-    <aside class="iptv-tri-col-cats">
-      <div style="padding:0.5rem 0.5rem 1rem; font-size:1.1rem; font-weight:700; color:#fff;">Categorias</div>
-      ${categories.map(c => `
-        <button class="iptv-epg-cat-item ${c.active?'active':''}" data-action="iptv-live-cat" data-name="${esc(c.name)}" tabindex="0">
-          <span>${esc(c.name)}</span>
-          <span class="iptv-epg-cat-count">${c.count}</span>
-        </button>
-      `).join('')}
-    </aside>
+  const pills = ['Todos', 'Abertos', 'Esportes', 'Notícias', 'Variedades', 'Infantil'];
 
-    <!-- Área Central: Lista de Canais -->
-    <main class="iptv-tri-col-channels">
-      <div style="padding:1rem 1.25rem; font-size:1.1rem; font-weight:700; color:#fff; border-bottom:1px solid var(--iptv-border); display:flex; justify-content:space-between; align-items:center;">
-        <span>Canais (${filtered.length})</span>
-        <span class="iptv-live-badge" style="margin:0;"><span class="iptv-live-dot"></span> AO VIVO</span>
-      </div>
-      <div style="overflow-y:auto; flex:1;" id="live-channel-list">
-        ${filtered.slice(0, 100).map((ch, idx) => {
-          const isAct = (activeCh && (activeCh.url === ch.url || activeCh.name === ch.name));
-          const numStr = String(idx + 1).padStart(2, '0');
-          return `
-          <button class="iptv-tri-channel-row ${isAct?'active':''}" data-action="select-live-ch" data-index="${allChs.indexOf(ch)}" data-name="${esc(ch.name)}" tabindex="0">
-            <div style="display:flex; align-items:center; gap:0.85rem;">
-              <span style="font-size:0.85rem; font-weight:700; color:var(--iptv-text-sec); width:24px;">${numStr}</span>
-              <div class="iptv-epg-ch-logo" style="width:34px; height:34px;">
-                ${ch.logo ? `<img src="${esc(ch.logo)}" alt="${esc(ch.name)}" onerror="this.onerror=null;this.parentElement.textContent='${esc(initials(ch.name))}';">` : initials(ch.name)}
-              </div>
-              <div style="text-align:left;">
-                <strong style="display:block; font-size:0.95rem; color:#fff;">${esc(ch.name)}</strong>
-                <span style="font-size:0.78rem; color:var(--iptv-text-sec);">${esc(ch.group || 'Geral')}</span>
-              </div>
-            </div>
-            <span class="iptv-live-chip">AO VIVO</span>
-          </button>`;
-        }).join('')}
-      </div>
-    </main>
-
-    <!-- Área Direita: Prévia e Player de Vídeo -->
-    <aside class="iptv-tri-col-preview">
-      <div class="iptv-preview-screen" style="position:relative; background:#000; border-radius:12px; overflow:hidden; aspect-ratio:16/9; display:flex; align-items:center; justify-content:center;">
-        <video id="video" playsinline controls autoplay style="width:100%; height:100%; object-fit:contain; background:#000; z-index:1;"></video>
+  return `<div class="iptv-master-live-split">
+    <!-- Coluna Esquerda: Player de Vídeo e Card de Detalhes -->
+    <div class="iptv-live-player-pane">
+      <div class="iptv-live-video-box">
+        <video id="video" playsinline controls autoplay></video>
         <div id="video-empty" role="status" aria-live="polite" style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(0,0,0,0.85); color:#fff; z-index:2; text-align:center; padding:1rem;" hidden></div>
-        <div style="position:absolute; top:0.75rem; left:0.75rem; z-index:3; pointer-events:none;">
-          <span class="iptv-live-badge" id="video-live"><span class="iptv-live-dot"></span> AO VIVO</span>
+      </div>
+
+      <div class="iptv-live-channel-card">
+        <div class="iptv-channel-left-info">
+          <div class="iptv-round-logo">
+            ${activeCh?.logo ? `<img src="${esc(activeCh.logo)}" alt="${esc(activeCh.name)}">` : initials(activeCh?.name || 'TV')}
+          </div>
+          <div>
+            <strong style="display:block; font-size:1.15rem; color:#fff;" id="preview-ch-name">${esc(activeCh?.name || 'Selecione um canal')}</strong>
+            <span style="font-size:0.88rem; color:rgba(255,255,255,0.7);" id="preview-prog-title">${esc(activeCh?.program || activeCh?.group || 'Brasileirão Série A')}</span>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:1.2rem;">
+          <span style="font-size:0.88rem; color:rgba(255,255,255,0.6);" id="preview-prog-time">${esc(activeCh?.time || '16:00 - 18:00')}</span>
+          <span class="iptv-badge-live">AO VIVO</span>
         </div>
       </div>
-      <div style="display:flex; flex-direction:column; gap:0.5rem; margin-top:0.75rem;">
-        <h2 style="font-size:1.5rem; font-weight:800; color:#fff; margin:0;" id="preview-ch-name">${esc(activeCh?.name || 'Canal')}</h2>
-        <h3 style="font-size:1.1rem; font-weight:600; color:#e5e7eb; margin:0;" id="preview-prog-title">${esc(activeCh?.group || 'Transmissão Ao Vivo')}</h3>
-        <p style="font-size:0.88rem; color:var(--iptv-text-sec); margin:0;" id="preview-prog-time">Ao vivo agora • Qualidade Adaptativa (HLS)</p>
+    </div>
+
+    <!-- Coluna Direita: Seletor TV ao Vivo -->
+    <aside class="iptv-live-right-column">
+      <div class="iptv-right-col-header">
+        <div class="iptv-right-col-title">
+          ${icon('tv')} TV ao Vivo
+        </div>
+        <div class="iptv-right-cat-pills">
+          ${pills.map(p => `
+            <button class="iptv-cat-pill-btn ${catFilter===p?'active':''}" data-action="live-tab-filter" data-category="${p}" tabindex="0">
+              ${p}
+            </button>
+          `).join('')}
+        </div>
       </div>
-      <div style="background:var(--iptv-surface); border:1px solid var(--iptv-border); padding:1rem 1.25rem; border-radius:10px;">
-        <span style="font-size:0.75rem; text-transform:uppercase; font-weight:700; color:var(--iptv-text-sec); letter-spacing:0.5px;">Status da Transmissão</span>
-        <strong style="display:block; font-size:0.95rem; color:#fff; margin-top:4px;" id="preview-next-prog">Sinal Online (HLS Stream)</strong>
+
+      <div class="iptv-channel-scroll-list" id="live-channel-list">
+        ${filtered.slice(0, 100).map((ch, idx) => {
+          const isAct = (activeCh && (activeCh.url === ch.url || activeCh.name === ch.name));
+          const numStr = String(idx + 1).padStart(3, '0') + ' HD';
+          return `
+            <button class="iptv-master-channel-row ${isAct?'active':''}" data-action="select-live-ch" data-index="${idx}" data-name="${esc(ch.name)}" tabindex="0">
+              <span class="iptv-ch-num">${numStr}</span>
+              <div class="iptv-round-logo" style="width:36px; height:36px; margin-right:0.75rem;">
+                ${ch.logo ? `<img src="${esc(ch.logo)}" alt="${esc(ch.name)}">` : initials(ch.name)}
+              </div>
+              <div style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left;">
+                <strong style="display:block; font-size:0.9rem; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(ch.name)}</strong>
+                <span style="font-size:0.75rem; color:rgba(255,255,255,0.5); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block;">${esc(ch.program || ch.group || 'Programação Ao Vivo')}</span>
+              </div>
+              <span class="iptv-badge-live" style="margin-left:0.5rem; flex-shrink:0;">AO VIVO</span>
+            </button>
+          `;
+        }).join('')}
       </div>
-      <div style="display:flex; gap:0.75rem; margin-top:0.5rem;">
-        <button class="iptv-btn-submit" data-action="fullscreen-live" tabindex="0" style="flex:1; height:52px;">
-          ${icon('fullscreen')} Tela Cheia
-        </button>
-        <button class="iptv-btn-submit" data-action="reconnect-live" tabindex="0" style="background:var(--iptv-surface-card); border:1px solid var(--iptv-border); width:52px; height:52px; padding:0; display:flex; align-items:center; justify-content:center;" title="Reconectar">
-          ${icon('refresh')}
+
+      <div style="padding:0.75rem; text-align:center; border-top:1px solid rgba(255,255,255,0.06);">
+        <button class="btn ghost small" data-action="load-more-live-channels" style="color:rgba(255,255,255,0.7); font-size:0.8rem; border:none; background:none; cursor:pointer;" tabindex="0">
+          Mais Canais ∨
         </button>
       </div>
     </aside>
+  </div>`;
+}
+
+function catalogPage(type = 'movies'){
+  const isSeries = type === 'series';
+  const categories = (isSeries ? state.seriesCategories : state.movieCategories) || [];
+  const rawItems = (isSeries ? state.currentSeries : state.currentMovies) || [];
+  const selectedCat = isSeries ? (state.selectedSeriesCategory || '') : (state.selectedVodCategory || '');
+  const total = isSeries ? (state.totalSeries || rawItems.length) : (state.totalMovies || rawItems.length);
+  const currentPl = state.playlists.find(p => p.id === state.activePlaylist);
+  const query = (state.catalogQuery || '').toLowerCase().trim();
+
+  // Filtro de busca se houver texto
+  const items = query ? rawItems.filter(it => (it.name && it.name.toLowerCase().includes(query)) || (it.group && it.group.toLowerCase().includes(query))) : rawItems;
+
+  // Prateleira "Continuar Assistindo" estritamente isolada por tipo de mídia
+  const vodHistory = (state.history || []).filter(h => {
+    const ch = h.channel || h;
+    const st = ch.streamType || '';
+    if (isSeries) {
+      return st === 'series' || /(?:s\d{1,2}e\d{1,2}|t\d{1,2}e\d{1,2}|temporada|season|ep\.)/i.test(ch.name || '');
+    } else {
+      return st === 'vod' || (!st && !ch.program);
+    }
+  });
+
+  const continueItems = vodHistory.slice(0, 6).map(h => {
+    const ch = h.channel || h;
+    const prog = (typeof currentProgress === 'function') ? currentProgress(ch) : null;
+    const perc = (prog && prog.duration > 0) ? Math.min(100, Math.round((prog.position / prog.duration) * 100)) : 15;
+    return {
+      title: ch.name || h.title || 'Título',
+      subtitle: `${perc}% assistido • ${ch.group || (isSeries ? 'Série' : 'Filme')}`,
+      img: ch.logo || h.img || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80',
+      progress: perc,
+      channel: ch
+    };
+  });
+
+  return `<div style="padding:1.25rem var(--iptv-safe-x); max-width:1440px; margin:0 auto; box-sizing:border-box;">
+    
+    <!-- 1. Prateleira Superior: Continuar Assistindo (se houver histórico do tipo) -->
+    ${continueItems.length ? `
+      <div class="iptv-ref-shelf-wrap">
+        <h3 style="font-size:1.1rem; font-weight:700; color:#fff; margin:0 0 0.75rem;">Continuar Assistindo</h3>
+        <div class="iptv-ref-shelf-track">
+          ${continueItems.map(c => `
+            <div class="iptv-ref-continue-card" data-action="resume-vod" data-title="${esc(c.title)}" tabindex="0">
+              <div class="iptv-ref-continue-thumb">
+                <img src="${c.img || ''}" alt="${esc(c.title)}" loading="lazy">
+                <div class="iptv-ref-continue-progress">
+                  <div class="iptv-ref-continue-bar" style="width:${c.progress}%;"></div>
+                </div>
+              </div>
+              <div class="iptv-ref-continue-title">${esc(c.title)}</div>
+              <div class="iptv-ref-continue-meta">${esc(c.subtitle)}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    ` : ''}
+
+    <!-- 2. Barra Integrada: Busca de Catálogo & Seletor de Origem -->
+    <div class="iptv-ref-filter-bar">
+      <div class="iptv-ref-search-box">
+        ${icon('search')}
+        <input class="iptv-ref-search-input" id="catalog-search-input" placeholder="Busque um título no catálogo" value="${esc(state.catalogQuery || '')}" autocomplete="off">
+      </div>
+      <div class="iptv-ref-source-dropdown" style="display:flex; align-items:center; gap:0.5rem;">
+        <select class="iptv-ref-source-select" data-action="change-active-playlist" title="Origem / Playlist" style="max-width:260px;">
+          ${(state.playlists.filter(p => p.isEnabled !== false).length ? state.playlists.filter(p => p.isEnabled !== false) : state.playlists).map(p => formatPlOption(p, state.activePlaylist)).join('')}
+        </select>
+        <button class="iptv-manage-pls-btn" data-action="open-manage-playlists-modal" title="Gerenciar Playlists (Habilitar / Ocultar)" tabindex="0">
+          ${icon('playlist')}
+          <span class="iptv-manage-pls-label">Gerenciar</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 3. Chips Horizontais de Filtro (Categorias) -->
+    <div class="iptv-ref-chips-scroll">
+      <button class="iptv-ref-chip ${!selectedCat?'active':''}" data-action="${isSeries?'filter-series-cat':'filter-vod-cat'}" data-name="" tabindex="0">
+        Todos
+      </button>
+      ${categories.slice(0, 45).map(c => `
+        <button class="iptv-ref-chip ${selectedCat===c.name?'active':''}" data-action="${isSeries?'filter-series-cat':'filter-vod-cat'}" data-name="${esc(c.name)}" tabindex="0">
+          ${esc(c.name)}
+        </button>
+      `).join('')}
+    </div>
+
+    <!-- 4. Cabeçalho de Contagem de Catálogo e Ação de Enriquecimento -->
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; margin-bottom:1.25rem;">
+      <h2 class="iptv-ref-heading" style="margin:0;">
+        Explore o catálogo <span class="iptv-ref-counter">(${number(total)})</span>
+      </h2>
+      <button class="btn small primary" data-action="enrich-catalog-batch" data-type="${isSeries?'series':'vod'}" style="gap:0.4rem; padding:0.45rem 1rem; font-size:0.82rem; border-radius:8px;">
+        ${icon('refresh')} Atualizar Capas & Sinopses (API)
+      </button>
+    </div>
+
+    <!-- 5. Grid de 4 Colunas com Pôsteres 2:3 e Legenda Inferior -->
+    <div class="iptv-ref-grid">
+      ${items.length ? items.map((m, idx) => {
+        const coverImg = m.posterUrl || m.logo;
+        return `
+        <div class="iptv-ref-poster-card" data-action="catalog-card-click" data-type="${isSeries?'series':'movies'}" data-index="${idx}" tabindex="0" title="${esc(m.name)}">
+          <div class="iptv-ref-poster-thumb">
+            ${coverImg ? `<img src="${esc(coverImg)}" alt="${esc(m.name)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">` : ''}
+            <div class="iptv-ref-poster-fallback" style="${coverImg?'display:none;':''}">
+              ${icon(isSeries?'tv':'film')}
+            </div>
+            ${m.rating ? `<span class="iptv-poster-badge iptv-rating-badge">⭐ ${m.rating}</span>` : ''}
+            ${m.year ? `<span class="iptv-poster-badge iptv-year-badge">${m.year}</span>` : ''}
+          </div>
+          <div class="iptv-ref-poster-info">
+            <div class="iptv-ref-poster-title">${esc(m.name)}</div>
+            <div class="iptv-ref-poster-sub">${esc(m.genres || m.group || (isSeries?'SÉRIE':'FILMES'))}</div>
+          </div>
+        </div>
+      `;}).join('') : `
+        <div style="grid-column: 1 / -1; padding:3rem; text-align:center; color:var(--iptv-text-sec);">
+          ${icon('search')}
+          <p style="margin-top:0.75rem;">Nenhum título encontrado com os filtros atuais.</p>
+        </div>
+      `}
+    </div>
+
+    ${total > items.length ? `
+      <div style="display:flex; justify-content:center; margin:2.5rem 0 1rem;">
+        <button class="btn secondary" data-action="load-more-catalog" data-type="${isSeries?'series':'movies'}" style="padding:0.75rem 2rem; font-size:0.95rem; border-radius:10px; gap:0.5rem; background:rgba(255,255,255,0.08); color:#fff; border:1px solid rgba(255,255,255,0.15); cursor:pointer;">
+          ${icon('plus')} Carregar Mais Títulos (${number(items.length)} de ${number(total)})
+        </button>
+      </div>
+    ` : ''}
+
   </div>`;
 }
 
 function moviesPage(){
-  const genres = ['Todos', 'Ação', 'Aventura', 'Comédia', 'Drama', 'Terror', 'Ficção científica', 'Animação', 'Documentários'];
-  const movies = [
-    { id: 'm1', title: 'Top Gun: Maverick', meta: 'Ação • 2022 • 2h 11m', rating: '12', res: '4K', syn: 'Após mais de 30 anos de serviço como um dos principais aviadores da Marinha, Pete Mitchell segue rompendo limites.', img: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80' },
-    { id: 'm2', title: 'Deadpool & Wolverine', meta: 'Ação / Comédia • 2024 • 2h 08m', rating: '16', res: '4K', syn: 'Wolverine se recupera de ferimentos quando cruza com o desbocado Deadpool em uma missão para salvar o multiverso.', img: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=400&q=80' },
-    { id: 'm3', title: 'John Wick: Capítulo 4', meta: 'Ação • 2023 • 2h 49m', rating: '16', res: '4K', syn: 'John Wick descobre um caminho para derrotar a Alta Cúpula, enfrentando assassinos letais ao redor do globo.', img: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?auto=format&fit=crop&w=400&q=80' },
-    { id: 'm4', title: 'Duna: Parte 2', meta: 'Ficção Científica • 2024 • 2h 46m', rating: '14', res: '4K', syn: 'Paul Atreides se une a Chani e aos Fremen em busca de vingança contra os conspiradores que destruíram sua família.', img: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=400&q=80' },
-    { id: 'm5', title: 'Oppenheimer', meta: 'Drama / História • 2023 • 3h 00m', rating: '16', res: '4K', syn: 'A história do físico americano J. Robert Oppenheimer e o Projeto Manhattan durante a Segunda Guerra Mundial.', img: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?auto=format&fit=crop&w=400&q=80' },
-    { id: 'm6', title: 'Interestelar', meta: 'Ficção • 2014 • 2h 49m', rating: '10', res: '1080p', syn: 'Um grupo de exploradores viaja através de um buraco de minhoca em busca de um novo lar para a humanidade.', img: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=400&q=80' }
-  ];
-
-  return `<div style="padding:1.5rem var(--iptv-safe-x);">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-      <h1 style="font-size:1.75rem; font-weight:800; color:#fff; margin:0;">Filmes</h1>
-      <a href="#/search" class="iptv-genre-pill" style="text-decoration:none;">${icon('search')} Buscar filme</a>
-    </div>
-    <!-- Filtros de Gênero -->
-    <div class="iptv-genre-pills" style="padding-left:0; padding-right:0;">
-      ${genres.map((g, i) => `<button class="iptv-genre-pill ${i===0?'active':''}" tabindex="0">${esc(g)}</button>`).join('')}
-    </div>
-    <!-- Grid de Pôsteres -->
-    <div class="iptv-catalog-grid" style="padding-left:0; padding-right:0;">
-      ${movies.map(m => `
-        <div class="iptv-poster-card" data-action="open-movie-detail" data-id="${m.id}" tabindex="0" title="${esc(m.title)}">
-          <img class="iptv-poster-img" src="${m.img}" alt="${esc(m.title)}" loading="lazy">
-          <div class="iptv-poster-overlay">
-            <span style="display:inline-block; font-size:0.65rem; font-weight:800; background:rgba(0,0,0,0.7); border:1px solid #fff; border-radius:3px; padding:1px 4px; margin-bottom:4px; width:fit-content;">${m.res}</span>
-            <strong class="iptv-poster-title">${esc(m.title)}</strong>
-            <span class="iptv-poster-meta">${esc(m.meta)}</span>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-  </div>`;
+  return catalogPage('movies');
 }
 
 function seriesPage(){
-  const series = [
-    { id: 's1', title: 'The Last of Us', meta: 'Drama / Sobrevivência • 2023', seasons: '1 Temporada • 9 Episódios', img: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=400&q=80' },
-    { id: 's2', title: 'Breaking Bad', meta: 'Crime / Drama • 2008', seasons: '5 Temporadas • 62 Episódios', img: 'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=400&q=80' },
-    { id: 's3', title: 'House of the Dragon', meta: 'Fantasia • 2024', seasons: '2 Temporadas • 18 Episódios', img: 'https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=400&q=80' },
-    { id: 's4', title: 'Stranger Things', meta: 'Suspense • 2022', seasons: '4 Temporadas • 34 Episódios', img: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=400&q=80' }
-  ];
-
-  return `<div style="padding:1.5rem var(--iptv-safe-x);">
-    <h1 style="font-size:1.75rem; font-weight:800; color:#fff; margin:0 0 1.5rem;">Séries em Alta</h1>
-    <div class="iptv-catalog-grid" style="padding-left:0; padding-right:0;">
-      ${series.map(s => `
-        <div class="iptv-poster-card" data-action="open-first-live" tabindex="0" title="${esc(s.title)}">
-          <img class="iptv-poster-img" src="${s.img}" alt="${esc(s.title)}" loading="lazy">
-          <div class="iptv-poster-overlay">
-            <strong class="iptv-poster-title">${esc(s.title)}</strong>
-            <span class="iptv-poster-meta">${esc(s.seasons)}</span>
-          </div>
-        </div>
-      `).join('')}
-    </div>
-  </div>`;
+  return catalogPage('series');
 }
 
 function searchPage(){
-  const keys = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z','0','1','2','3','4','5','6','7','8','9'];
-  return `<div class="iptv-search-wrap">
-    <div class="iptv-search-bar-tv">
-      ${icon('search')}
-      <input id="iptv-search-input" placeholder="Digite o nome do canal, filme ou série..." autofocus spellcheck="false" tabindex="0">
+  const query = (state.searchQuery || '').toLowerCase().trim();
+  const currentTab = state.searchTab || 'channels';
+
+  const allChannels = state.channels || [
+    { name: 'ESPN HD', group: 'Esportes' },
+    { name: 'SporTV HD', group: 'Esportes' },
+    { name: 'FOX Sports HD', group: 'Esportes' },
+    { name: 'Band HD', group: 'Esportes' },
+    { name: 'TNT HD', group: 'Esportes' },
+    { name: 'Globo HD', group: 'Esportes' },
+    { name: 'Disney Channel HD', group: 'Infantil' }
+  ];
+  const allMovies = state.currentMovies || [];
+  const allSeries = state.currentSeries || [];
+
+  const filteredChannels = query ? allChannels.filter(c => c.name.toLowerCase().includes(query) || (c.group && c.group.toLowerCase().includes(query))) : allChannels;
+  const filteredMovies = query ? allMovies.filter(m => m.name.toLowerCase().includes(query) || (m.group && m.group.toLowerCase().includes(query))) : allMovies;
+  const filteredSeries = query ? allSeries.filter(s => s.name.toLowerCase().includes(query) || (s.group && s.group.toLowerCase().includes(query))) : allSeries;
+
+  const activeList = currentTab === 'movies' ? filteredMovies : (currentTab === 'series' ? filteredSeries : filteredChannels);
+
+  return `<div style="padding:1.5rem var(--iptv-safe-x); max-width:980px; margin:0 auto; box-sizing:border-box;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+      <h1 style="font-size:1.8rem; font-weight:800; color:#fff; margin:0;">Busca</h1>
+      <span style="font-size:1.1rem; font-weight:700; color:rgba(255,255,255,0.7);">${getIptvClock()}</span>
     </div>
 
-    <!-- Teclado Virtual D-Pad para Smart TV -->
-    <div style="display:flex; flex-direction:column; align-items:center; gap:0.75rem; width:100%;">
-      <span style="font-size:0.8rem; font-weight:600; color:var(--iptv-text-sec); text-transform:uppercase; letter-spacing:1px;">Teclado de Controle Remoto</span>
-      <div class="iptv-vkeyboard">
-        ${keys.map(k => `<button class="iptv-vkey" data-action="vkey-press" data-val="${k}" tabindex="0">${k}</button>`).join('')}
-        <button class="iptv-vkey wide" data-action="vkey-space" tabindex="0">Espaço</button>
-        <button class="iptv-vkey wide" data-action="vkey-backspace" tabindex="0">⌫ Apagar</button>
-        <button class="iptv-vkey wide" data-action="vkey-clear" tabindex="0">Limpar</button>
+    <!-- Barra de Busca Master -->
+    <div style="position:relative; margin-bottom:1.75rem;">
+      <input id="iptv-search-input" value="${esc(state.searchQuery || '')}" placeholder="Buscar filmes, séries, canais..." autofocus spellcheck="false" style="width:100%; height:52px; background:#121418; border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:0 3.2rem 0 1.25rem; color:#fff; font-size:1rem; outline:none; box-sizing:border-box; transition:border-color 0.2s;" onfocus="this.style.borderColor='rgba(229,9,20,0.6)'" onblur="this.style.borderColor='rgba(255,255,255,0.08)'">
+      <div style="position:absolute; right:1.25rem; top:50%; transform:translateY(-50%); color:rgba(255,255,255,0.5); pointer-events:none;">
+        ${icon('search')}
       </div>
     </div>
 
-    <div id="iptv-search-results" style="width:100%; max-width:800px; text-align:center; padding-top:1.5rem;">
-      <p style="color:var(--iptv-text-sec); font-size:0.95rem;">Busque pelo nome ou selecione as teclas acima para filtrar.</p>
+    <!-- Seção de Resultados e Abas -->
+    <div>
+      <div style="font-size:0.85rem; font-weight:700; color:rgba(255,255,255,0.45); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:0.85rem;">Resultados</div>
+      <div style="display:flex; gap:0.6rem; margin-bottom:1.25rem;">
+        <button class="iptv-epg-day-pill ${currentTab==='channels'?'active':''}" data-action="search-tab" data-tab="channels" tabindex="0">
+          Canais (${filteredChannels.length})
+        </button>
+        <button class="iptv-epg-day-pill ${currentTab==='movies'?'active':''}" data-action="search-tab" data-tab="movies" tabindex="0">
+          Filmes (${filteredMovies.length})
+        </button>
+        <button class="iptv-epg-day-pill ${currentTab==='series'?'active':''}" data-action="search-tab" data-tab="series" tabindex="0">
+          Séries (${filteredSeries.length})
+        </button>
+      </div>
+
+      <!-- Lista de Itens Encontrados -->
+      <div style="display:flex; flex-direction:column; gap:0.5rem;" id="iptv-search-results">
+        ${activeList.length ? activeList.slice(0, 50).map((it, idx) => {
+          const isFav = state.favorites && state.favorites.some(f => (f.channel && f.channel.name === it.name) || f.name === it.name);
+          return `
+            <div class="iptv-settings-row" data-action="${currentTab==='channels'?'select-live-ch':'play-vod-item'}" data-index="${idx}" data-name="${esc(it.name)}" tabindex="0" style="margin-bottom:0.4rem; padding:0.9rem 1.25rem;">
+              <div class="iptv-settings-row-left" style="gap:1rem;">
+                <div class="iptv-round-logo" style="width:40px; height:40px;">
+                  ${it.logo ? `<img src="${esc(it.logo)}" alt="${esc(it.name)}">` : initials(it.name)}
+                </div>
+                <div>
+                  <strong style="display:block; font-size:0.95rem; color:#fff;">${esc(it.name)}</strong>
+                  <span style="font-size:0.78rem; color:rgba(255,255,255,0.5);">${esc(it.group || (currentTab==='movies'?'Filmes':currentTab==='series'?'Séries':'Esportes'))}</span>
+                </div>
+              </div>
+              <button class="favorite-button ${isFav?'is-favorite':''}" data-action="toggle-favorite-search" data-name="${esc(it.name)}" style="background:none; border:none; color:${isFav?'#e50914':'rgba(255,255,255,0.4)'}; cursor:pointer;" title="Favoritar">
+                ${icon('heart')}
+              </button>
+            </div>
+          `;
+        }).join('') : `
+          <div style="padding:3rem 1rem; text-align:center; color:rgba(255,255,255,0.5);">
+            <p>Nenhum resultado encontrado para o termo pesquisado.</p>
+          </div>
+        `}
+      </div>
     </div>
   </div>`;
 }
@@ -1118,182 +1837,116 @@ function recordingsPage(){
   </div>`;
 }
 
-function settings(activeSection='legendas'){
-  return `<div class="iptv-settings-page">
-    <header class="iptv-settings-topbar">
-      <a class="iptv-main-logo" href="#/dashboard" style="text-decoration:none;">
-        <div class="iptv-play-icon" style="width:34px; height:34px; border-radius:8px;">
-          <svg viewBox="0 0 24 24" style="width:16px; height:16px;"><path d="M8 5v14l11-7z"/></svg>
+function settings(){
+  const expDate = state.user?.expiresAt ? new Date(state.user.expiresAt).toLocaleDateString('pt-BR') : '13/10/2026 19:56:47';
+
+  return `<div style="padding:1.5rem var(--iptv-safe-x); max-width:880px; margin:0 auto; box-sizing:border-box;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+      <h1 style="font-size:1.8rem; font-weight:800; color:#fff; margin:0;">Configurações</h1>
+      <span style="font-size:1.1rem; font-weight:700; color:rgba(255,255,255,0.7);">${getIptvClock()}</span>
+    </div>
+
+    <!-- Grupo 0: Gerenciamento de Playlists -->
+    <div class="iptv-settings-group">
+      <div class="iptv-settings-group-title">Playlists & Catálogo</div>
+
+      <div class="iptv-settings-row" data-action="open-manage-playlists-modal" tabindex="0">
+        <div class="iptv-settings-row-left">
+          ${icon('playlist')}
+          <div>
+            <div class="iptv-settings-label">Playlists e Fontes de Conteúdo</div>
+            <div class="iptv-settings-sub">${state.playlists.filter(p=>p.isEnabled!==false).length} listas ativas de ${state.playlists.length} cadastradas (habilitar / ocultar)</div>
+          </div>
         </div>
-        <span class="iptv-logo-title" style="font-size:1.35rem;">JSTUDIO<span style="color:var(--iptv-red);">PLAY</span></span>
-      </a>
-      <div class="iptv-topbar-right">
-        <span class="iptv-clock">${getIptvClock()}</span>
-        <a class="iptv-icon-action" href="#/settings">${icon('settings')}</a>
+        <div style="color:rgba(255,255,255,0.4);">${icon('right')}</div>
       </div>
-    </header>
+    </div>
 
-    <div class="iptv-settings-grid">
-      <!-- Menu Lateral Esquerdo (7 Categorias Oficiais) -->
-      <aside class="iptv-settings-nav">
-        <button class="iptv-settings-nav-item ${activeSection==='conta'?'active':''}" data-action="iptv-settings-tab" data-tab="conta" tabindex="0">
-          ${icon('user')} Conta
-        </button>
-        <button class="iptv-settings-nav-item ${activeSection==='player'?'active':''}" data-action="iptv-settings-tab" data-tab="player" tabindex="0">
-          ${icon('play')} Player Engine
-        </button>
-        <button class="iptv-settings-nav-item ${activeSection==='legendas'?'active':''}" data-action="iptv-settings-tab" data-tab="legendas" tabindex="0">
-          ${icon('info')} Legendas
-        </button>
-        <button class="iptv-settings-nav-item ${activeSection==='epg'?'active':''}" data-action="iptv-settings-tab" data-tab="epg" tabindex="0">
-          ${icon('refresh')} EPG
-        </button>
-        <button class="iptv-settings-nav-item ${activeSection==='parental'?'active':''}" data-action="iptv-settings-tab" data-tab="parental" tabindex="0">
-          ${icon('shield')} Controle Parental
-        </button>
-        <button class="iptv-settings-nav-item ${activeSection==='rede'?'active':''}" data-action="iptv-settings-tab" data-tab="rede" tabindex="0">
-          ${icon('globe')} Teste de Rede
-        </button>
-        <button class="iptv-settings-nav-item ${activeSection==='info'?'active':''}" data-action="iptv-settings-tab" data-tab="info" tabindex="0">
-          ${icon('info')} Informações
-        </button>
-      </aside>
+    <!-- Grupo 1: Conta -->
+    <div class="iptv-settings-group">
+      <div class="iptv-settings-group-title">Conta</div>
 
-      <!-- Painel de Conteúdo Direito -->
-      <main class="iptv-settings-panel">
-        ${activeSection==='legendas'?`
-          <div class="iptv-settings-panel-head">
-            <h2>Legendas</h2>
-            <p>Configure as opções de legendas do player.</p>
+      <div class="iptv-settings-row" data-action="account-details" tabindex="0">
+        <div class="iptv-settings-row-left">
+          ${icon('user')}
+          <div>
+            <div class="iptv-settings-label">Dados da conta</div>
+            <div class="iptv-settings-sub">Expira em: ${expDate}</div>
           </div>
-          <div class="iptv-settings-rows">
-            <div class="iptv-setting-row" tabindex="0">
-              <div class="iptv-setting-row-info">
-                <strong>Ativar legendas</strong>
-                <small>Exibir legendas automaticamente</small>
-              </div>
-              <label class="iptv-toggle-switch">
-                <input type="checkbox" checked data-action="iptv-toggle-sub">
-                <span class="iptv-toggle-slider"></span>
-              </label>
-            </div>
-            <div class="iptv-setting-row" data-action="cycle-sub-size" tabindex="0">
-              <div class="iptv-setting-row-info">
-                <strong>Tamanho da fonte</strong>
-              </div>
-              <div class="iptv-setting-control">Médio ${icon('right')}</div>
-            </div>
-            <div class="iptv-setting-row" data-action="cycle-sub-style" tabindex="0">
-              <div class="iptv-setting-row-info">
-                <strong>Estilo da legenda</strong>
-              </div>
-              <div class="iptv-setting-control">Branco com fundo escuro ${icon('right')}</div>
-            </div>
-            <div class="iptv-setting-row" data-action="cycle-sub-lang" tabindex="0">
-              <div class="iptv-setting-row-info">
-                <strong>Idioma preferencial</strong>
-              </div>
-              <div class="iptv-setting-control">Português ${icon('right')}</div>
-            </div>
-            <div class="iptv-setting-row" data-action="cycle-sub-sync" tabindex="0">
-              <div class="iptv-setting-row-info">
-                <strong>Ajuste de sincronização</strong>
-              </div>
-              <div class="iptv-setting-control">0 ms ${icon('right')}</div>
-            </div>
+        </div>
+        <div style="color:rgba(255,255,255,0.4);">${icon('right')}</div>
+      </div>
+
+      <div class="iptv-settings-row" data-action="video-quality-setting" tabindex="0">
+        <div class="iptv-settings-row-left">
+          ${icon('settings')}
+          <div>
+            <div class="iptv-settings-label">Qualidade de vídeo</div>
+            <div class="iptv-settings-sub">Auto (recomendado)</div>
           </div>
-        `:activeSection==='parental'?`
-          <div class="iptv-settings-panel-head">
-            <h2>Controle Parental</h2>
-            <p>Defina ou altere o PIN de bloqueio para categorias protegidas.</p>
+        </div>
+        <div style="color:rgba(255,255,255,0.4);">${icon('right')}</div>
+      </div>
+
+      <div class="iptv-settings-row" data-action="language-setting" tabindex="0">
+        <div class="iptv-settings-row-left">
+          ${icon('globe')}
+          <div>
+            <div class="iptv-settings-label">Idioma</div>
+            <div class="iptv-settings-sub">Português (BR)</div>
           </div>
-          <div class="iptv-pin-container">
-            <span style="font-size:0.95rem; font-weight:600; color:#fff;">Digite o PIN de 4 dígitos</span>
-            <div class="iptv-pin-display">
-              <span class="iptv-pin-dot filled"></span>
-              <span class="iptv-pin-dot filled"></span>
-              <span class="iptv-pin-dot"></span>
-              <span class="iptv-pin-dot"></span>
-            </div>
-            <div class="iptv-pin-grid">
-              ${[1,2,3,4,5,6,7,8,9,'Limpar',0,'OK'].map(k => `
-                <button class="iptv-pin-btn" tabindex="0">${k}</button>
-              `).join('')}
-            </div>
+        </div>
+        <div style="color:rgba(255,255,255,0.4);">${icon('right')}</div>
+      </div>
+
+      <div class="iptv-settings-row" tabindex="0">
+        <div class="iptv-settings-row-left">
+          ${icon('compass')}
+          <div>
+            <div class="iptv-settings-label">Aspecto</div>
+            <div class="iptv-settings-sub">Tema escuro</div>
           </div>
-        `:activeSection==='rede'?`
-          <div class="iptv-settings-panel-head">
-            <h2>Teste de Rede</h2>
-            <p>Diagnóstico de conectividade com os servidores de streaming.</p>
+        </div>
+        <div class="iptv-red-switch" data-action="toggle-dark-mode" title="Alternar tema"></div>
+      </div>
+    </div>
+
+    <!-- Grupo 2: Outras opções -->
+    <div class="iptv-settings-group">
+      <div class="iptv-settings-group-title">Outras opções</div>
+
+      <div class="iptv-settings-row" data-action="clear-app-cache" tabindex="0">
+        <div class="iptv-settings-row-left">
+          ${icon('refresh')}
+          <div>
+            <div class="iptv-settings-label">Limpar cache</div>
+            <div class="iptv-settings-sub">Liberar memória e recarregar dados locais</div>
           </div>
-          <div class="iptv-settings-rows">
-            <div class="iptv-setting-row">
-              <div class="iptv-setting-row-info">
-                <strong>Status da Conexão</strong>
-                <small style="color:var(--iptv-success);">● Conectado à Internet (Fibra/Wi-Fi)</small>
-              </div>
-              <span class="iptv-live-chip" style="background:rgba(34,197,94,0.15); color:var(--iptv-success);">ONLINE</span>
-            </div>
-            <div class="iptv-setting-row">
-              <div class="iptv-setting-row-info">
-                <strong>Latência (Ping)</strong>
-                <small>Servidor HLS Relay local</small>
-              </div>
-              <div class="iptv-setting-control" style="color:#fff; font-weight:700;">12 ms</div>
-            </div>
-            <div class="iptv-setting-row">
-              <div class="iptv-setting-row-info">
-                <strong>Velocidade Estimada</strong>
-                <small>Largura de banda disponível</small>
-              </div>
-              <div class="iptv-setting-control" style="color:#fff; font-weight:700;">120 Mbps (4K Pronto)</div>
-            </div>
-            <button class="iptv-btn-submit" data-action="run-speedtest" tabindex="0" style="margin-top:1rem;">
-              ${icon('refresh')} Iniciar Novo Teste
-            </button>
+        </div>
+        <div style="color:rgba(255,255,255,0.4);">${icon('right')}</div>
+      </div>
+
+      <div class="iptv-settings-row" data-action="about-app" tabindex="0">
+        <div class="iptv-settings-row-left">
+          ${icon('info')}
+          <div>
+            <div class="iptv-settings-label">Sobre o app</div>
+            <div class="iptv-settings-sub">JstudioPlay IPTV PLAY Pro v7.9.7</div>
           </div>
-        `:activeSection==='conta'?`
-          <div class="iptv-settings-panel-head">
-            <h2>Minha Conta</h2>
-            <p>Informações de acesso e servidor IPTV.</p>
+        </div>
+        <div style="color:rgba(255,255,255,0.4);">${icon('right')}</div>
+      </div>
+
+      <div class="iptv-settings-row" data-action="logout" tabindex="0">
+        <div class="iptv-settings-row-left">
+          ${icon('logout')}
+          <div>
+            <div class="iptv-settings-label">Sair</div>
+            <div class="iptv-settings-sub">Encerrar sessão neste dispositivo</div>
           </div>
-          <div class="iptv-settings-rows">
-            <div class="iptv-setting-row">
-              <div class="iptv-setting-row-info">
-                <strong>Usuário Ativo</strong>
-                <small>${esc(state.user?.name||'Administrador')} (${esc(state.user?.username||'admin')})</small>
-              </div>
-            </div>
-            <div class="iptv-setting-row">
-              <div class="iptv-setting-row-info">
-                <strong>Servidor IPTV Conectado</strong>
-                <small>http://*****.com:8080 (Protegido)</small>
-              </div>
-              <span class="iptv-live-chip" style="background:rgba(34,197,94,0.15); color:var(--iptv-success);">ATIVO</span>
-            </div>
-          </div>
-          <button class="iptv-btn-submit" data-action="logout" tabindex="0" style="margin-top:1.5rem; background:#333;">
-            ${icon('logout')} Trocar de Conta / Sair
-          </button>
-        `:`
-          <div class="iptv-settings-panel-head">
-            <h2>${activeSection==='player'?'Player Engine':activeSection==='epg'?'EPG':'Informações'}</h2>
-            <p>Configurações avançadas do sistema.</p>
-          </div>
-          <div class="iptv-settings-rows">
-            <div class="iptv-setting-row" tabindex="0">
-              <div class="iptv-setting-row-info">
-                <strong>${activeSection==='player'?'Mecanismo de Reprodução (ExoPlayer / HLS)':activeSection==='epg'?'Sincronização Automática do Guia':'Versão do Aplicativo'}</strong>
-                <small>${activeSection==='player'?'Buffer adaptativo de alta performance':activeSection==='epg'?'Atualiza a cada 6 horas':'JstudioPlay Pro v7.7.0 (Smart TV Build)'}</small>
-              </div>
-              <label class="iptv-toggle-switch">
-                <input type="checkbox" checked>
-                <span class="iptv-toggle-slider"></span>
-              </label>
-            </div>
-          </div>
-        `}
-      </main>
+        </div>
+        <div style="color:rgba(255,255,255,0.4);">${icon('right')}</div>
+      </div>
     </div>
   </div>`;
 }
@@ -1481,7 +2134,119 @@ function userRows(query){
   `).join('') || '<tr><td colspan="7">Nenhum usuário encontrado.</td></tr>';
 }
 
-function logsPage(){return `${heading('Logs de Auditoria do Sistema','Acompanhe em tempo real todos os acessos, erros e atividades administrativas do servidor.')}<section class="card table-wrap"><table class="data-table"><thead><tr><th>Data e hora</th><th>Usuário</th><th>Atividade</th></tr></thead><tbody>${state.logs.map(l=>`<tr><td><small>${dateTime(l.at)}</small></td><td>${esc(l.user)}</td><td>${esc(l.action)}</td></tr>`).join('')||'<tr><td colspan="3">Nenhuma atividade registrada.</td></tr>'}</tbody></table><div class="table-foot">Até 500 atividades mais recentes. Endereços das playlists e senhas não são registrados.</div></section>`;}
+function marathonsPage(){
+  const marathons = state.marathons || [];
+  const current = state.currentMarathon;
+
+  if(!marathons.length){
+    return `<div style="padding:2rem; max-width:1200px; margin:0 auto;">
+      <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:3rem 2rem; text-align:center;">
+        <span style="font-size:2.5rem; display:block; margin-bottom:1rem;">🎬</span>
+        <h2 style="font-size:1.4rem; font-weight:800; color:#fff; margin:0 0 0.5rem;">Nenhuma Maratona Disponível</h2>
+        <p style="color:var(--iptv-text-sec); font-size:0.95rem; margin:0;">Carregando catálogo de maratonas narrativas…</p>
+      </div>
+    </div>`;
+  }
+
+  const activeId = state.activeMarathonId || marathons[0].id;
+  const marathon = current || marathons.find(m => m.id === activeId) || marathons[0];
+  const items = marathon.items || [];
+  const cover = marathon.coverUrl || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80';
+
+  return `<div class="iptv-marathons-container">
+    <!-- Hero Banner da Maratona Selecionada -->
+    <section class="iptv-marathon-hero" style="background-image:url('${esc(cover)}');">
+      <div class="iptv-marathon-hero-overlay"></div>
+      <div class="iptv-marathon-hero-content">
+        <div style="display:flex; align-items:center; gap:0.65rem; margin-bottom:0.85rem;">
+          <span style="background:var(--iptv-red); color:#fff; font-size:0.75rem; font-weight:900; text-transform:uppercase; padding:5px 12px; border-radius:6px; letter-spacing:0.6px; box-shadow:0 0 12px rgba(229,9,20,0.4);">${esc(marathon.badge || 'MARATONA NARRATIVA')}</span>
+          <span style="background:rgba(255,255,255,0.12); backdrop-filter:blur(10px); color:#fff; font-size:0.75rem; font-weight:700; padding:5px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.15);">${items.length} ${items.length === 1 ? 'TÍTULO' : 'TÍTULOS'} ORDENADOS</span>
+        </div>
+        <h1 class="iptv-marathon-hero-title">${esc(marathon.title)}</h1>
+        <p class="iptv-marathon-hero-desc">${esc(marathon.description || 'Acompanhe a sequência cronológica completa sem perder nenhum detalhe do enredo.')}</p>
+        <div class="iptv-marathon-actions">
+          <button class="iptv-btn-play-red iptv-marathon-start-btn" data-action="start-marathon" tabindex="0">
+            ${icon('play')} <span>Assistir Sequência Narrativa</span>
+          </button>
+          <button class="iptv-btn-hero-export" data-action="export-marathon-m3u" data-slug="${esc(marathon.slug)}" tabindex="0" title="Baixar playlist M3U ordenada para TV Box e Smart TV">
+            ${icon('download')} <span>Exportar M3U (Smart TV)</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Seletor de Maratonas Curadas -->
+    <section>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.15rem;">
+        <h3 style="font-size:1.25rem; font-weight:800; color:#fff; margin:0; display:flex; align-items:center; gap:0.5rem;">
+          <span>🌟</span> Maratonas Curadas Disponíveis
+        </h3>
+        <span style="font-size:0.82rem; color:var(--iptv-text-sec); font-weight:600;">${marathons.length} sagas catalogadas</span>
+      </div>
+      <div class="iptv-marathons-grid">
+        ${marathons.map(m => {
+          const isAct = m.id === activeId;
+          const mCover = m.coverUrl || 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=800&q=80';
+          return `
+            <div class="iptv-marathon-card ${isAct ? 'active' : ''}" data-action="select-marathon" data-id="${esc(m.id)}" tabindex="0">
+              <div class="iptv-marathon-card-bg" style="background-image:url('${esc(mCover)}');"></div>
+              <div class="iptv-marathon-card-header">
+                <span class="iptv-marathon-badge" style="color:${isAct ? '#fff' : 'var(--iptv-red)'}; background:${isAct ? 'var(--iptv-red)' : 'rgba(229,9,20,0.14)'};">${esc(m.badge || 'MARATONA')}</span>
+                <span class="iptv-marathon-count-badge">${m.totalItems || 0} títulos</span>
+              </div>
+              <strong class="iptv-marathon-card-title">${esc(m.title)}</strong>
+              <p class="iptv-marathon-card-desc">${esc(m.description)}</p>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </section>
+
+    <!-- Timeline Narrativa com Ordem Estrita -->
+    <section>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.35rem;">
+        <div>
+          <h3 style="font-size:1.35rem; font-weight:800; color:#fff; margin:0 0 0.25rem;">Ordem Narrativa da História</h3>
+          <p style="font-size:0.88rem; color:var(--iptv-text-sec); margin:0;">Assista na sequência recomendada com notas contextuais sobre cada evento cronológico.</p>
+        </div>
+        <span style="font-size:0.82rem; background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.85); padding:5px 14px; border-radius:20px; font-weight:700; border:1px solid rgba(255,255,255,0.1);">Passo a Passo</span>
+      </div>
+
+      <div class="iptv-timeline-list">
+        ${items.map(it => {
+          const padIdx = String(it.orderIndex || 1).padStart(2, '0');
+          const isYt = (it.streamUrl || '').includes('youtube.com') || (it.streamUrl || '').includes('youtu.be');
+          const poster = it.posterUrl || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=400&q=80';
+          return `
+            <div class="iptv-timeline-item">
+              <div class="iptv-timeline-idx">${padIdx}</div>
+              <div class="iptv-timeline-poster" style="background-image:url('${esc(poster)}');"></div>
+              <div class="iptv-timeline-info">
+                <div class="iptv-timeline-meta-row">
+                  <strong class="iptv-timeline-title">${esc(it.title)}</strong>
+                  ${it.year ? `<span class="iptv-timeline-tag">${it.year}</span>` : ''}
+                  ${it.duration ? `<span class="iptv-timeline-tag">⏱️ ${esc(it.duration)}</span>` : ''}
+                  ${it.rating ? `<span class="iptv-timeline-tag tag-rating">⭐ ${esc(it.rating)}</span>` : ''}
+                  ${isYt ? `<span class="iptv-timeline-tag tag-yt">YOUTUBE</span>` : ''}
+                </div>
+                ${it.notes ? `
+                  <div class="iptv-timeline-note">
+                    💡 <em>${esc(it.notes)}</em>
+                  </div>
+                ` : ''}
+              </div>
+              <div class="iptv-timeline-action">
+                <button class="iptv-btn-play-red iptv-timeline-play-btn" data-action="play-marathon-item" data-item-id="${esc(it.id)}" tabindex="0">
+                  ${icon('play')} <span>Assistir</span>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </section>
+  </div>`;
+}
 
 async function renderRoute(){
   const defaultPage = state.user ? '/dashboard' : '/landing';
@@ -1500,36 +2265,189 @@ async function renderRoute(){
   if(page==='ai-status' && !['admin','master'].includes(userRole)){navigate('dashboard');return;}
   if(page==='automation' && !['admin','master'].includes(userRole)){navigate('dashboard');return;}
   if(page==='recordings' && userRole === 'user'){navigate('dashboard');return;}
-  if(page==='playlists' && userRole === 'user' && !state.playlists.length){navigate('live');return;}
-  stopPlayback();state.page=page;$('#modal').close();
+  if(page==='live'||page==='channels'||page==='multiview'){
+    if(window.pipModule)window.pipModule.exit();
+    stopPlayback();
+  } else {
+    // Se o usuário está assistindo a um canal ativo e sai do player, aciona o PiP
+    const activeVideo = document.getElementById('video');
+    if(state.selected && activeVideo && !activeVideo.paused && activeVideo.currentTime > 0){
+      if(window.pipModule)window.pipModule.enter(state.selected);
+    }
+    stopPlayback();
+  }
+  state.page=page;$('#modal').close();
   document.title=`${pageNames[page]|| (page==='login'?'Entrar':page==='landing'?'IPTV, Filmes & Séries':'Do seu jeito.')} — JstudioPlay`;
   if(page==='landing'){$('#app').innerHTML=landing();return;}
   if(page==='login'){$('#app').innerHTML=loginPage();if(tvMode)focusTV($('#username')||visibleTVTargets()[0]);initGoogleAuth();return;}
-  $('#app').innerHTML='<div style="min-height:100vh;display:grid;place-items:center;background:var(--iptv-bg);color:#fff;font-family:var(--iptv-font);"><div class="loading-state">Carregando JstudioPlay…<div class="loading-line"></div></div></div>';
+  if (!$('#content') && !$('.iptv-main-container')) {
+    $('#app').innerHTML='<div style="min-height:100vh;display:grid;place-items:center;background:var(--iptv-bg);color:#fff;font-family:var(--iptv-font);"><div class="loading-state">Carregando JstudioPlay…<div class="loading-line"></div></div></div>';
+  }
   setMenu(false);
   try {
-    await loadLibrary();
+    if(!state.playlists.length) {
+      await loadLibrary();
+    }
     if(generation!==routeGeneration)return;
+
+    // Sincroniza playlist ativa persistida ou autodetecta playlist habilitada com melhor acervo
+    const enabledPls = state.playlists.filter(p => p.isEnabled !== false);
+    const targetPool = enabledPls.length ? enabledPls : state.playlists;
+    const savedPl = localStorage.getItem('m3u-active-playlist');
+    const plExists = savedPl && targetPool.some(p => p.id === savedPl);
+    if(plExists){
+      state.activePlaylist = savedPl;
+    } else {
+      const bestPl = targetPool.slice().sort((a,b) => ((Number(b.vod)||0) + (Number(b.series)||0) + (Number(b.live)||0)) - ((Number(a.vod)||0) + (Number(a.series)||0) + (Number(a.live)||0)))[0];
+      state.activePlaylist = bestPl?.id || targetPool[0]?.id || '';
+      if(state.activePlaylist) {
+        try { localStorage.setItem('m3u-active-playlist', state.activePlaylist); } catch {}
+      }
+    }
+
     if(page==='users')state.users=await api('/admin/users');
     if(page==='logs')state.logs=await api('/admin/logs')||[];
     if(page==='ai-status')state.aiStatus=await api('/integrations/status');
     if(generation!==routeGeneration)return;
-    if(['live','channels','player','dashboard'].includes(page) && state.playlists.length && !state.channels.length){
-      await loadChannels(state.activePlaylist||state.playlists[0].id, generation);
+
+    if(page==='dashboard' && state.playlists.length){
+      if(!state.dashboardLoaded || state.dashboardPlaylist !== state.activePlaylist){
+        const curPl = state.playlists.find(p => p.id === state.activePlaylist);
+        // Autodetecta playlist com acervo real se a ativa for restrita a canais ao vivo
+        const vodPlId = ((Number(curPl?.vod) || 0) > 50)
+          ? state.activePlaylist
+          : (state.playlists.slice().sort((a,b) => (Number(b.vod)||0) - (Number(a.vod)||0))[0]?.id || state.activePlaylist);
+        const seriesPlId = ((Number(curPl?.series) || 0) > 50)
+          ? state.activePlaylist
+          : (state.playlists.slice().sort((a,b) => (Number(b.series)||0) - (Number(a.series)||0))[0]?.id || state.activePlaylist);
+
+        const [liveRes, vodRes, serRes] = await Promise.all([
+          api(`/playlists/${state.activePlaylist}/filter?type=live&limit=10`).catch(()=>({channels:[]})),
+          api(`/playlists/${vodPlId}/filter?type=vod&limit=10`).catch(()=>({channels:[]})),
+          api(`/playlists/${seriesPlId}/filter?type=series&limit=10`).catch(()=>({channels:[]}))
+        ]);
+        state.dashLive = liveRes.channels || [];
+        state.dashMovies = vodRes.channels || [];
+        state.dashSeries = serRes.channels || [];
+        state.dashboardLoaded = true;
+        state.dashboardPlaylist = state.activePlaylist;
+      }
+    }
+
+    if(['live','channels','player'].includes(page) && state.playlists.length){
+      const currentType = (page === 'live' || page === 'channels') ? 'live' : (state.mediaType || 'live');
+      state.mediaType = currentType;
+      if(!state.channels.length || state.channelsPlaylist !== state.activePlaylist || state.loadedMediaType !== currentType){
+        await loadChannels(state.activePlaylist, generation, currentType);
+        state.channelsPlaylist = state.activePlaylist;
+        state.loadedMediaType = currentType;
+        if(generation!==routeGeneration)return;
+      }
+    }
+
+    if((page==='catalog' || page==='movies') && state.playlists.length){
+      state.mediaType = 'vod';
+      const curPl = state.playlists.find(p => p.id === state.activePlaylist);
+      // Se a playlist ativa atual tiver menos de 5 filmes e houver playlist rica em VOD no sistema, alterna automaticamente
+      if((Number(curPl?.vod) || 0) < 5){
+        const richPl = state.playlists.slice().sort((a,b) => (Number(b.vod)||0) - (Number(a.vod)||0))[0];
+        if(richPl && (Number(richPl.vod) || 0) > (Number(curPl?.vod) || 0)){
+          state.activePlaylist = richPl.id;
+          state.movieCategories = null;
+          state.selectedVodCategory = '';
+          state.moviePage = 1;
+          try { localStorage.setItem('m3u-active-playlist', richPl.id); } catch {}
+        }
+      }
+      if(!state.movieCategories || state.movieCategoriesPlaylist !== state.activePlaylist){
+        const catRes = await api(`/playlists/${state.activePlaylist}/categories?type=vod`).catch(()=>({categories:[]}));
+        state.movieCategories = catRes.categories || [];
+        state.movieCategoriesPlaylist = state.activePlaylist;
+      }
+      const curCat = state.selectedVodCategory || '';
+      const filterQuery = curCat ? `&group=${encodeURIComponent(curCat)}` : '';
+      const pageNum = state.moviePage || 1;
+      const vodRes = await api(`/playlists/${state.activePlaylist}/filter?type=vod&limit=100&page=${pageNum}${filterQuery}`).catch(()=>({channels:[], total:0}));
+      state.currentMovies = vodRes.channels || [];
+      state.totalMovies = vodRes.total || 0;
       if(generation!==routeGeneration)return;
     }
-    const content=page==='dashboard'?dashboard():page==='live'||page==='channels'?livePage():page==='movies'?moviesPage():page==='series'?seriesPage():page==='search'?searchPage():page==='favorites'?favoritesPage():page==='recordings'?recordingsPage():page==='epg'?epgPage():page==='playlists'?heading('Minhas playlists','Todas as suas listas, organizadas em um só lugar.')+playlistSection():page==='settings'?settings():page==='users'?usersPage():page==='credits'?creditsPage():page==='ai-status'?aiStatusPage():page==='logs'?logsPage():page==='player'?playerPage():page==='automation'?'<div class="loading-state">Carregando M3U Hub…<div class="loading-line"></div></div>':savedPage(page);
+
+    if(page==='series' && state.playlists.length){
+      state.mediaType = 'series';
+      const curPl = state.playlists.find(p => p.id === state.activePlaylist);
+      // Se a playlist ativa atual tiver menos de 5 séries e houver playlist rica em Séries, alterna automaticamente
+      if((Number(curPl?.series) || 0) < 5){
+        const richPl = state.playlists.slice().sort((a,b) => (Number(b.series)||0) - (Number(a.series)||0))[0];
+        if(richPl && (Number(richPl.series) || 0) > (Number(curPl?.series) || 0)){
+          state.activePlaylist = richPl.id;
+          state.seriesCategories = null;
+          state.selectedSeriesCategory = '';
+          state.seriesPage = 1;
+          try { localStorage.setItem('m3u-active-playlist', richPl.id); } catch {}
+        }
+      }
+      if(!state.seriesCategories || state.seriesCategoriesPlaylist !== state.activePlaylist){
+        const catRes = await api(`/playlists/${state.activePlaylist}/categories?type=series`).catch(()=>({categories:[]}));
+        state.seriesCategories = catRes.categories || [];
+        state.seriesCategoriesPlaylist = state.activePlaylist;
+      }
+      const curCat = state.selectedSeriesCategory || '';
+      const filterQuery = curCat ? `&group=${encodeURIComponent(curCat)}` : '';
+      const pageNum = state.seriesPage || 1;
+      const serRes = await api(`/playlists/${state.activePlaylist}/filter?type=series&limit=100&page=${pageNum}${filterQuery}`).catch(()=>({channels:[], total:0}));
+      state.currentSeries = serRes.channels || [];
+      state.totalSeries = serRes.total || 0;
+      if(generation!==routeGeneration)return;
+    }
+
+    if(page==='search' && state.playlists.length){
+      if(!state.currentMovies || !state.currentMovies.length){
+        const curPl = state.playlists.find(p => p.id === state.activePlaylist);
+        const vodPlId = (Number(curPl?.vod) || 0) > 50
+          ? state.activePlaylist
+          : (state.playlists.slice().sort((a,b) => (Number(b.vod)||0) - (Number(a.vod)||0))[0]?.id || state.activePlaylist);
+        const vodRes = await api(`/playlists/${vodPlId}/filter?type=vod&limit=100&page=1`).catch(()=>({channels:[]}));
+        state.currentMovies = vodRes.channels || [];
+      }
+      if(!state.currentSeries || !state.currentSeries.length){
+        const curPl = state.playlists.find(p => p.id === state.activePlaylist);
+        const seriesPlId = (Number(curPl?.series) || 0) > 50
+          ? state.activePlaylist
+          : (state.playlists.slice().sort((a,b) => (Number(b.series)||0) - (Number(a.series)||0))[0]?.id || state.activePlaylist);
+        const serRes = await api(`/playlists/${seriesPlId}/filter?type=series&limit=100&page=1`).catch(()=>({channels:[]}));
+        state.currentSeries = serRes.channels || [];
+      }
+      if(generation!==routeGeneration)return;
+    }
+
+    if(page==='marathons'){
+      const res = await api('/marathons/curated').catch(()=>({data:[]}));
+      state.marathons = res.data || [];
+      if(!state.activeMarathonId && state.marathons.length){
+        state.activeMarathonId = state.marathons[0].id;
+      }
+      if(state.activeMarathonId){
+        state.currentMarathon = await api(`/marathons/${state.activeMarathonId}`).catch(()=>null);
+      }
+      if(generation!==routeGeneration)return;
+    }
+
+    const content=page==='dashboard'?dashboard():page==='live'||page==='channels'?livePage():page==='multiview'?multiviewPage():page==='catalog'||page==='movies'?catalogPage('movies'):page==='series'?catalogPage('series'):page==='marathons'?marathonsPage():page==='categories'?categoriesPage():page==='search'?searchPage():page==='favorites'?favoritesPage():page==='recordings'?recordingsPage():page==='epg'?epgPage():page==='playlists'?heading('Minhas playlists','Todas as suas listas, organizadas em um só lugar.')+playlistSection():page==='settings'?settings():page==='users'?usersPage():page==='credits'?creditsPage():page==='ai-status'?aiStatusPage():page==='logs'?logsPage():page==='player'?playerPage():page==='automation'?'<div class="loading-state">Carregando M3U Hub…<div class="loading-line"></div></div>':savedPage(page);
     // Estrutura Unificada de TV com Sidebar Oficial para todas as telas autenticadas
-    const isFullBleed = ['live','channels','player'].includes(page);
+    const isFullBleed = ['live','channels','player','multiview'].includes(page);
     $('#app').innerHTML=`
-      <div style="display:flex; min-height:100vh; background:var(--iptv-bg); color:#fff; font-family:var(--iptv-font);">
-        ${iptvSmartSidebar(page)}
-        <div class="iptv-main-container">
-          ${page!=='settings'?iptvTopBar(page):''}
-          <main class="${isFullBleed?'':'iptv-page-body'}" style="${isFullBleed?'flex:1; overflow-y:auto;':''}" id="content">
-            ${content}
-          </main>
+      <div class="iptv-app-shell" style="display:flex; flex-direction:column; min-height:100vh; background:var(--iptv-bg); color:#fff; font-family:var(--iptv-font);">
+        ${iptvTopBar(page)}
+        <div class="iptv-body-wrapper" style="display:flex; flex:1; min-height:0; position:relative;">
+          ${iptvSmartSidebar(page)}
+          <div class="iptv-main-container" style="flex:1; display:flex; flex-direction:column; min-width:0; overflow-x:hidden;">
+            <main class="${isFullBleed?'':'iptv-page-body'}" style="${isFullBleed?'flex:1; overflow-y:auto;':''}" id="content">
+              ${content}
+            </main>
+          </div>
         </div>
+        ${iptvBottomNav(page)}
       </div>
     `;
     setMenu(false);
@@ -1548,7 +2466,15 @@ async function renderRoute(){
     if(page==='automation'&&window.renderAutomationPage)window.renderAutomationPage();
     if(page==='player'&&state.playlists.length)await loadChannels(state.activePlaylist||state.playlists[0].id,generation);
     if(tvMode&&generation===routeGeneration)focusTV(page==='player'?$('#channel-list .channel-select')||$('#category-list .category-button'):$('.iptv-smart-nav-item.active')||visibleTVTargets()[0]);
-  }catch(error){if(generation===routeGeneration && state.user)$('#content').innerHTML=empty('Não foi possível carregar',error.message,'<button class="btn" data-action="retry-page">Tentar novamente</button>','info');}
+  }catch(error){
+    if(generation===routeGeneration){
+      console.error('Erro na navegação:', error);
+      const target = $('#content') || $('#app');
+      if (target) {
+        target.innerHTML=empty('Não foi possível carregar',error.message||'Instabilidade temporária ao carregar a página.','<button class="btn primary" data-action="retry-page">Tentar novamente</button>','info');
+      }
+    }
+  }
 }
 function playerPage(){
   if(!state.playlists.some(p=>p.id===state.activePlaylist))state.activePlaylist=state.playlists[0]?.id||'';
@@ -1664,9 +2590,20 @@ function playerPage(){
 </div>`;
 }
 let channelRequest=0, pendingChannel=null;
-async function loadChannels(id,generation=routeGeneration){
+async function loadChannels(id, generation=routeGeneration, type=state.mediaType||'live'){
   stopPlayback();
-  const request=++channelRequest;state.loading=true;state.activePlaylist=id;state.channels=[];state.groups=[];state.category='';state.query='';state.channelPage=1;state.selected=null;
+  const request=++channelRequest;
+  state.loading=true;
+  state.activePlaylist=id;
+  state.channels=[];
+  state.groups=[];
+  state.category='';
+  state.query='';
+  state.channelPage=1;
+  state.selected=null;
+  const curType = type || 'live';
+  state.mediaType = curType;
+
   if($('#channel-search'))$('#channel-search').value='';
   if($('#category-list'))$('#category-list').innerHTML='';
   if($('#now-name'))$('#now-name').textContent='Seu próximo conteúdo está aqui';
@@ -1674,13 +2611,33 @@ async function loadChannels(id,generation=routeGeneration){
   if($('#now-favorite')){$('#now-favorite').disabled=true;$('#now-favorite').style.color='';}
   updateEpisodeControls(null);
   playerMessage('O que vamos assistir?','Escolha um item da sua lista para começar.');
-  if($('#channel-list'))$('#channel-list').innerHTML='<div class="loading-state">Carregando canais…<div class="loading-line"></div></div>';
+  if($('#channel-list'))$('#channel-list').innerHTML='<div class="loading-state">Carregando catálogo…<div class="loading-line"></div></div>';
   try{
-    const channels=await api(`/playlists/${id}/channels`);
-    if(request!==channelRequest||generation!==routeGeneration)return;
-    state.channels=channels;const groups=new Map();channels.forEach(c=>groups.set(c.group,(groups.get(c.group)||0)+1));state.groups=[...groups.entries()].sort((a,b)=>a[0].localeCompare(b[0],'pt-BR'));
-    state.loading=false;renderCategories();renderChannels();
-    if(pendingChannel){const match=channels.find(c=>c.url===pendingChannel);pendingChannel=null;if(match)playChannel(match);}
+    if(curType === 'live'){
+      const channels = await api(`/playlists/${id}/channels?type=live`);
+      if(request!==channelRequest||generation!==routeGeneration)return;
+      state.channels = channels;
+      const groups = new Map();
+      channels.forEach(c => groups.set(c.group || 'Geral', (groups.get(c.group || 'Geral') || 0) + 1));
+      state.groups = [...groups.entries()].sort((a,b)=>a[0].localeCompare(b[0],'pt-BR'));
+    } else {
+      const catRes = await api(`/playlists/${id}/categories?type=${curType}`).catch(()=>({categories:[]}));
+      if(request!==channelRequest||generation!==routeGeneration)return;
+      const cats = catRes.categories || [];
+      state.groups = cats.map(c => [c.name, c.count]);
+
+      const itemsRes = await api(`/playlists/${id}/filter?type=${curType}&limit=150`).catch(()=>({channels:[]}));
+      if(request!==channelRequest||generation!==routeGeneration)return;
+      state.channels = itemsRes.channels || [];
+    }
+
+    state.loading=false;
+    renderCategories();renderChannels();
+    if(state.page==='live'||state.page==='channels'){
+      const contentEl = document.getElementById('content');
+      if(contentEl) contentEl.innerHTML = livePage();
+    }
+    if(pendingChannel){const match=state.channels.find(c=>c.url===pendingChannel);pendingChannel=null;if(match)playChannel(match);}
   }catch(error){if(request===channelRequest&&generation===routeGeneration){state.loading=false;$('#channel-list').innerHTML=empty('Falha ao carregar',error.message,'<button class="btn small" data-action="reload-channels">Tentar novamente</button>','info');}}
 }
 function renderCategories(){
@@ -1880,7 +2837,288 @@ function renderChannels(){
   if(focused)focusTV([...channelList.querySelectorAll('[data-action]')].find(el=>el.dataset.action===focused.action&&el.dataset.index===focused.index)||channelList.querySelector('.channel-select,summary'));
   if(state.page==='player'){if(typeof window.healthModule!=='undefined')window.healthModule.observe();if(typeof window.epgModule!=='undefined')window.epgModule.observeEpg();renderStreamingSections();}
 }
-function stopPlayback(save=true){const v=$('#video');if(save&&v&&state.selected)savePlaybackProgress(state.selected,v).catch(()=>{});playbackGeneration++;clearTimeout(playbackTimer);playbackTimer=null;if(hls){hls.destroy();hls=null;}if(v){v.onplaying=null;v.onerror=null;v.onloadedmetadata=null;v.ontimeupdate=null;v.onpause=null;v.onended=null;v.onwaiting=null;v.onstalled=null;v.pause();v.removeAttribute('src');v.load();}}
+// =============================================================================
+// NEXT-GEN v8.3.1: SMART FAILOVER, PIP MINIPLAYER, MULTI-VIEW & OSD
+// =============================================================================
+
+let osdTimer = null;
+function showChannelOSD(channel) {
+  if (!channel) return;
+  let osd = document.getElementById('channel-osd');
+  if (!osd) {
+    osd = document.createElement('div');
+    osd.id = 'channel-osd';
+    document.body.appendChild(osd);
+  }
+
+  const logoSrc = channel.logo || '';
+  const title = channel.name || 'Canal';
+  const group = channel.group || 'Geral';
+
+  osd.innerHTML = `
+    <div class="osd-logo-wrap">
+      ${logoSrc ? `<img src="${esc(logoSrc)}" alt="" onerror="this.style.display='none';this.parentElement.textContent='▶';">` : '▶'}
+    </div>
+    <div class="osd-info">
+      <div class="osd-title">${esc(title)}</div>
+      <div class="osd-meta">
+        <span class="osd-live-tag">AO VIVO</span>
+        <span>${esc(group)}</span>
+        <span>•</span>
+        <span>FHD 1080p</span>
+      </div>
+    </div>
+  `;
+
+  osd.classList.add('osd-visible');
+  clearTimeout(osdTimer);
+  osdTimer = setTimeout(() => {
+    osd.classList.remove('osd-visible');
+  }, 3200);
+}
+window.showChannelOSD = showChannelOSD;
+
+let failoverState = { attempts: 0, currentId: null };
+function resetFailover(channel) {
+  if (!failoverState.currentId || (channel && failoverState.currentId !== channel.id)) {
+    failoverState = { attempts: 0, currentId: channel ? channel.id : null };
+  }
+}
+
+async function trySmartFailover(failedChannel, instance, generation) {
+  if (!failedChannel || !failedChannel.id) return false;
+  if (failoverState.attempts >= 2 && failoverState.currentId === failedChannel.id) {
+    return false;
+  }
+  try {
+    const res = await api(`/channels/${encodeURIComponent(failedChannel.id)}/alternatives?playlistId=${encodeURIComponent(state.activePlaylist||'')}`);
+    if (res && Array.isArray(res.alternatives) && res.alternatives.length > 0) {
+      const bestAlt = res.alternatives.find(a => a.status === 'online') || res.alternatives[0];
+      if (bestAlt && bestAlt.url !== failedChannel.url) {
+        failoverState.attempts = (failoverState.attempts || 0) + 1;
+        failoverState.currentId = failedChannel.id;
+        toast(`⚡ Smart Failover: Alternando para fonte espelho "${bestAlt.name || 'Alternativa'}"...`, false);
+        if (instance) {
+          instance.destroy();
+          if (hls === instance) { hls = null; window.currentHlsInstance = null; }
+        }
+        playChannel(bestAlt);
+        return true;
+      }
+    }
+  } catch (err) {
+    console.warn('[SmartFailover] Falha ao consultar alternativas:', err);
+  }
+  return false;
+}
+
+const pipModule = {
+  activeChannel: null,
+  hlsInstance: null,
+
+  ensureContainer() {
+    let el = document.getElementById('pip-floating-player');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'pip-floating-player';
+      el.className = 'pip-minimized';
+      document.body.appendChild(el);
+    }
+    return el;
+  },
+
+  enter(channel) {
+    if (!channel || !channel.url) return;
+    this.activeChannel = channel;
+    const el = this.ensureContainer();
+    const chName = channel.name || 'Transmissão Ao Vivo';
+    
+    el.innerHTML = `
+      <div class="pip-video-wrapper">
+        <video id="pip-video" playsinline></video>
+        <div class="pip-overlay-controls">
+          <div class="pip-header-bar">
+            <div class="pip-channel-info" title="${esc(chName)}">
+              <span class="pip-live-pulse"></span>
+              <span>${esc(chName)}</span>
+            </div>
+            <div class="pip-actions">
+              <button class="pip-btn" data-action="expand-pip" title="Expandir para player principal">
+                ${icon('fullscreen')}
+              </button>
+              <button class="pip-btn" data-action="close-pip" title="Fechar PiP">
+                ${icon('close')}
+              </button>
+            </div>
+          </div>
+          <div class="pip-center-controls">
+            <button class="pip-play-btn" data-action="toggle-pip-play" title="Pausar / Reproduzir">
+              ${icon('pause')}
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    el.classList.remove('pip-minimized');
+
+    const pipVideo = document.getElementById('pip-video');
+    if (pipVideo) {
+      if (window.Hls?.isSupported()) {
+        if (this.hlsInstance) { this.hlsInstance.destroy(); }
+        this.hlsInstance = new Hls({ enableWorker: true, enableSoftwareAES: true });
+        this.hlsInstance.loadSource(channel.url);
+        this.hlsInstance.attachMedia(pipVideo);
+        this.hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => pipVideo.play().catch(()=>{}));
+      } else {
+        pipVideo.src = channel.url;
+        pipVideo.play().catch(()=>{});
+      }
+    }
+  },
+
+  exit() {
+    const el = document.getElementById('pip-floating-player');
+    if (el) {
+      el.classList.add('pip-minimized');
+      if (this.hlsInstance) {
+        this.hlsInstance.destroy();
+        this.hlsInstance = null;
+      }
+      const v = document.getElementById('pip-video');
+      if (v) { v.pause(); v.removeAttribute('src'); }
+      el.innerHTML = '';
+    }
+    this.activeChannel = null;
+  }
+};
+window.pipModule = pipModule;
+
+const multiviewModule = {
+  instances: [null, null, null, null],
+  activeSoundIndex: 0,
+
+  initSlots() {
+    const liveChannels = (state.channels || []).filter(c => c.streamType === 'live');
+    for (let i = 0; i < 4; i++) {
+      const v = document.getElementById(`mv-video-${i}`);
+      const select = document.getElementById(`mv-select-${i}`);
+      if (!v || !select) continue;
+
+      const ch = liveChannels[i];
+      if (ch) {
+        select.value = ch.id;
+        this.playSlot(i, ch);
+      }
+    }
+  },
+
+  playSlot(index, channel) {
+    const v = document.getElementById(`mv-video-${index}`);
+    if (!v || !channel) return;
+
+    if (this.instances[index]) {
+      this.instances[index].destroy();
+      this.instances[index] = null;
+    }
+
+    v.muted = (index !== this.activeSoundIndex);
+
+    if (window.Hls?.isSupported()) {
+      const h = new Hls({ enableWorker: true, enableSoftwareAES: true });
+      this.instances[index] = h;
+      h.loadSource(channel.url);
+      h.attachMedia(v);
+      h.on(Hls.Events.MANIFEST_PARSED, () => v.play().catch(()=>{}));
+    } else {
+      v.src = channel.url;
+      v.play().catch(()=>{});
+    }
+  },
+
+  setSound(targetIndex) {
+    this.activeSoundIndex = targetIndex;
+    for (let i = 0; i < 4; i++) {
+      const v = document.getElementById(`mv-video-${i}`);
+      const slot = document.getElementById(`mv-slot-${i}`);
+      const btn = document.querySelector(`[data-action="mv-sound"][data-slot="${i}"]`);
+      if (v) {
+        v.muted = (i !== targetIndex);
+      }
+      if (slot) {
+        slot.classList.toggle('active-audio', i === targetIndex);
+      }
+      if (btn) {
+        btn.classList.toggle('active-sound', i === targetIndex);
+        btn.innerHTML = (i === targetIndex) ? icon('volume') + ' Áudio Ativo' : icon('volume') + ' Ativar Som';
+      }
+    }
+  },
+
+  destroy() {
+    for (let i = 0; i < 4; i++) {
+      if (this.instances[i]) {
+        this.instances[i].destroy();
+        this.instances[i] = null;
+      }
+      const v = document.getElementById(`mv-video-${i}`);
+      if (v) { v.pause(); v.removeAttribute('src'); }
+    }
+  }
+};
+window.multiviewModule = multiviewModule;
+
+function multiviewPage() {
+  const liveChannels = (state.channels || []).filter(c => c.streamType === 'live').slice(0, 100);
+
+  setTimeout(() => {
+    multiviewModule.initSlots();
+  }, 100);
+
+  return `
+    <div class="multiview-wrapper">
+      <div class="multiview-header">
+        <h1>${icon('monitor')} Mosaico Multi-View 2×2</h1>
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+          <span style="font-size:0.85rem; color:rgba(255,255,255,0.6);">Clique no slot para comutar o áudio principal</span>
+          <button class="iptv-btn-info-glass" data-action="mv-reset" style="padding:0.5rem 1rem; font-size:0.85rem;">
+            ${icon('refresh')} Reiniciar Mosaico
+          </button>
+        </div>
+      </div>
+
+      <div class="multiview-grid">
+        ${[0, 1, 2, 3].map(i => {
+          const defaultCh = liveChannels[i];
+          return `
+            <div class="multiview-slot ${i===0?'active-audio':''}" id="mv-slot-${i}" data-action="mv-slot-click" data-slot="${i}">
+              <div class="multiview-slot-toolbar">
+                <select class="multiview-select" id="mv-select-${i}" data-action="mv-select-ch" data-slot="${i}">
+                  <option value="">Selecione um canal...</option>
+                  ${liveChannels.map(ch => `<option value="${esc(ch.id)}" ${defaultCh && defaultCh.id===ch.id?'selected':''}>${esc(ch.name)}</option>`).join('')}
+                </select>
+                <div class="multiview-slot-actions">
+                  <button class="multiview-tool-btn ${i===0?'active-sound':''}" data-action="mv-sound" data-slot="${i}">
+                    ${icon('volume')} ${i===0?'Áudio Ativo':'Ativar Som'}
+                  </button>
+                  <button class="multiview-tool-btn" data-action="mv-expand" data-slot="${i}" title="Assistir no player principal">
+                    ${icon('fullscreen')}
+                  </button>
+                </div>
+              </div>
+              <video id="mv-video-${i}" playsinline ${i!==0?'muted':''}></video>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function stopPlayback(save=true){
+  window._currentPlaying = null;
+  if(window.eventBus) window.eventBus.emit('playback:stopped');
+  const v=$('#video');if(save&&v&&state.selected)savePlaybackProgress(state.selected,v).catch(()=>{});playbackGeneration++;clearTimeout(playbackTimer);playbackTimer=null;if(hls){hls.destroy();hls=null;}if(v){v.onplaying=null;v.onerror=null;v.onloadedmetadata=null;v.ontimeupdate=null;v.onpause=null;v.onended=null;v.onwaiting=null;v.onstalled=null;v.pause();v.removeAttribute('src');v.load();}
+}
 let playbackPlaylist='', lastProgressSave=0, progressWrites=Promise.resolve();
 function currentProgress(ch){return state.progress.find(p=>p.playlistId===state.activePlaylist&&p.channel.url===ch.url);}
 function savePlaybackProgress(ch,v){
@@ -1897,7 +3135,19 @@ function savePlaybackProgress(ch,v){
   });
   return progressWrites;
 }
-function playerMessage(title,message,suggestRelay=false){const el=$('#video-empty');if(el){el.hidden=false;el.setAttribute('role','status');el.setAttribute('aria-live','polite');el.innerHTML=`<img src="/static/logo.svg" alt=""><h2>${esc(title)}</h2><p>${esc(message)}</p>${suggestRelay&&state.relayEnabled&&!state.relayMode?'<button class="btn small video-retry" data-action="toggle-relay">Tentar com modo de compatibilidade</button>':''}`;}if($('#video-live'))$('#video-live').hidden=true;}
+function playerMessage(title,message,suggestRelay=false){
+  const el=$('#video-empty');
+  if(el){
+    el.hidden=false;
+    el.setAttribute('role','status');
+    el.setAttribute('aria-live','polite');
+    const isVaptyOrAuth = (state.activePlaylist && state.playlists.find(p=>p.id===state.activePlaylist)?.name?.toLowerCase().includes('vapty')) || message.toLowerCase().includes('expirou') || message.toLowerCase().includes('credenciais') || message.includes('401');
+    const switchBtn = isVaptyOrAuth ? '<button class="btn small primary" data-action="switch-working-list" style="margin-top:0.6rem;">Trocar para Lista Demo Online</button>' : '';
+    const relayBtn = suggestRelay&&state.relayEnabled&&!state.relayMode ? '<button class="btn small video-retry" data-action="toggle-relay">Tentar com modo de compatibilidade</button>' : '';
+    el.innerHTML=`<img src="/static/logo.svg" alt="" style="width:54px;height:54px;object-fit:contain;margin-bottom:0.85rem;"><h2 style="font-size:1.15rem;margin:0 0 0.4rem;color:#fff;">${esc(title)}</h2><p style="font-size:0.85rem;color:rgba(255,255,255,0.75);max-width:380px;margin:0 0 0.75rem;line-height:1.45;">${esc(message)}</p>${switchBtn||relayBtn}`;
+  }
+  if($('#video-live'))$('#video-live').hidden=true;
+}
 function updateRelayControl(){
   const card=$('#relay-card');if(card)card.classList.toggle('active',state.relayMode);
   const status=$('#relay-status');if(status)status.textContent=state.relayMode?'Ativado':'Desativado';
@@ -1908,6 +3158,14 @@ function updateRelayControl(){
 }
 function playChannel(ch){
   if(!ch)return;
+  window._currentPlaying = { title: ch.name, type: 'live', target: ch };
+  if(window.eventBus) window.eventBus.emit('playback:started', window._currentPlaying);
+  showChannelOSD(ch);
+  const targetUrl = ch.url || ch.streamUrl || '';
+  if(extractYouTubeVideoId(targetUrl) && !document.getElementById('vod-theater')){
+    openVodTheater(ch);
+    return;
+  }
   if(typeof window.epgModule!=='undefined')window.epgModule.updateSelectedEpg(state.selected?.url,ch.url);
   stopPlayback();state.selected=ch;playbackPlaylist=state.activePlaylist;lastProgressSave=Date.now();const generation=playbackGeneration;const v=$('#video');if(!v)return;
   if($('#now-name'))$('#now-name').textContent=ch.name;
@@ -1916,39 +3174,113 @@ function playChannel(ch){
   if($('#preview-ch-name'))$('#preview-ch-name').textContent=ch.name;
   if($('#preview-prog-title'))$('#preview-prog-title').textContent=ch.group||'Transmissão Ao Vivo';
   updateNowFavorite();updateEpisodeControls(ch);updateStreamingHero(ch);renderChannels();
-  playerMessage('Carregando…','Conectando à fonte da sua playlist. Se não iniciar em alguns instantes, confira a conexão e a compatibilidade do conteúdo.');
+  if($('#video-empty')) $('#video-empty').hidden = true;
   let url;try{url=new URL(ch.url);if(!['http:','https:'].includes(url.protocol))throw new Error();}catch{playerMessage('Endereço inválido','Este conteúdo não possui uma URL de reprodução válida.');return;}
   if(location.protocol==='https:'&&url.protocol==='http:'&&!state.relayMode){playerMessage('Esta fonte usa HTTP','Solicite ao provedor uma transmissão HTTPS para assistir diretamente nesta página.',true);return;}
   // Never put the source URL in text, attributes or error messages; the media
   // element receives it only because direct playback requires the browser.
-  playbackTimer=setTimeout(()=>{if(generation!==playbackGeneration) return;playerMessage('A transmissão está demorando','A fonte não iniciou a reprodução dentro do tempo esperado. Verifique a conexão ou tente reconectar.',true);},20000);
+  playbackTimer=setTimeout(()=>{if(generation!==playbackGeneration) return;playerMessage('Transmissão indisponível','A fonte demorou para responder ou o teste expirou no provedor. Tente reconectar ou escolher outro canal.',true);},25000);
   let historyRecorded=false;
   v.onloadedmetadata=()=>{if(generation!==playbackGeneration)return;const p=currentProgress(ch);if(Number.isFinite(v.duration)&&p?.position>0&&p.position<v.duration-5)v.currentTime=p.position;};
   v.onplaying=()=>{if(generation!==playbackGeneration)return;clearTimeout(playbackTimer);playbackTimer=null;$('#video-empty').hidden=true;$('#video-live').hidden=Number.isFinite(v.duration);if(!historyRecorded){historyRecorded=true;const userID=state.user?.id;api('/history','POST',{playlistId:playbackPlaylist,channel:ch}).then(items=>{if(state.user?.id===userID)state.history=items||[];}).catch(e=>toast(e.message,true));}};
-  v.onwaiting=()=>{if(generation!==playbackGeneration)return;playerMessage('Carregando transmissão…','A fonte está temporariamente sem dados. A reprodução será retomada quando houver mídia disponível.');};
-  v.onstalled=()=>{if(generation===playbackGeneration&&!v.paused)playerMessage('Conexão interrompida','A fonte parou de enviar dados. Aguarde ou use Reconectar.');};
+  v.onwaiting=()=>{if(generation!==playbackGeneration)return;if(document.getElementById('vod-theater')&&$('#video-empty')){$('#video-empty').hidden=true;}};
+  v.onstalled=()=>{if(generation===playbackGeneration&&!v.paused&&!document.getElementById('vod-theater'))playerMessage('Conexão interrompida','A fonte parou de enviar dados. Aguarde ou use Reconectar.');};
   v.ontimeupdate=()=>{if(generation!==playbackGeneration||!Number.isFinite(v.duration)||v.currentTime<2)return;const now=Date.now();if(now-lastProgressSave>=15000){lastProgressSave=now;savePlaybackProgress(ch,v).catch(e=>toast(e.message,true));}};
   v.onpause=()=>{if(generation===playbackGeneration)savePlaybackProgress(ch,v).catch(()=>{});};
   v.onended=()=>{if(generation===playbackGeneration)savePlaybackProgress(ch,v).catch(()=>{});};
-  v.onerror=()=>{if(generation!==playbackGeneration)return;clearTimeout(playbackTimer);playbackTimer=null;const code=v.error?.code;playerMessage(code===3?'Formato incompatível':'Não foi possível reproduzir',code===3?'O navegador não conseguiu decodificar este formato.':'A transmissão pode estar indisponível, bloqueada pelo provedor ou não ser compatível com o navegador.',code!==3);};
+  v.onerror=()=>{
+    if(generation!==playbackGeneration)return;
+    if(!state.relayMode && state.relayEnabled){
+      clearTimeout(playbackTimer);
+      playbackTimer=null;
+      state.relayMode = true;
+      try { localStorage.setItem('m3u-relay', 'true'); } catch {}
+      updateRelayControl();
+      playChannel(ch);
+      return;
+    }
+    clearTimeout(playbackTimer);
+    playbackTimer=null;
+    const code=v.error?.code;
+    playerMessage(code===3?'Formato incompatível':'Transmissão indisponível',code===3?'O navegador não conseguiu decodificar este formato.':'A fonte pode estar fora do ar ou o teste expirou no provedor.',code!==3);
+  };
   v.muted=false;if(v.volume===0)v.volume=1.0;
   const start=()=>{v.muted=false;if(v.volume===0)v.volume=1.0;return v.play().catch(error=>{if(generation!==playbackGeneration)return;if(error.name==='NotAllowedError'){$('#video-empty').hidden=true;v.muted=true;v.play().then(()=>{if(window._showUnmuteBanner)window._showUnmuteBanner();}).catch(()=>{toast('Toque no botão de reprodução para iniciar.');});}else if(error.name!=='AbortError')playerMessage('Não foi possível iniciar','Confira se o conteúdo está disponível e se o formato é compatível com o navegador.',true);});};
   const direct=()=>{if(generation!==playbackGeneration)return;v.src=ch.url;start();};
   const known=/\.(mp4|m4v|mov|webm|ogv|ogg|mp3|m4a|aac|wav|flac|ts)$/i.test(url.pathname);
   const useHls=window.Hls?.isSupported()&&!known;
-  if(state.relayMode){
+  const isExternalStream = url.hostname !== 'localhost' && url.hostname !== '127.0.0.1' && !url.pathname.startsWith('/proxy');
+  const shouldUseRelay = state.relayMode || isExternalStream;
+  if(shouldUseRelay){
     const channelIndex=state.channels.indexOf(ch);
-    api('/playback','POST',{playlistId:playbackPlaylist,channelIndex}).then(result=>{
+    api('/playback','POST',{playlistId:playbackPlaylist,channelIndex,channelUrl:ch.url}).then(result=>{
       if(generation!==playbackGeneration)return;
       if(result.mode==='media'){v.src=result.url;start();return;}
-      if(result.mode==='hls'&&window.Hls?.isSupported()){const instance=new Hls({enableWorker:true,backBufferLength:90,enableSoftwareAES:true});hls=instance;window.currentHlsInstance=instance;instance.loadSource(result.url);instance.attachMedia(v);instance.on(Hls.Events.MANIFEST_PARSED,start);instance.on(Hls.Events.ERROR,(_,data)=>{if(generation===playbackGeneration&&data.fatal)playerMessage('Não foi possível reproduzir','O relay interrompeu a transmissão ou o formato HLS não é compatível.');});return;}
+      if(result.mode==='hls'&&window.Hls?.isSupported()){
+        const instance=new Hls({
+          enableWorker:true,
+          backBufferLength:90,
+          enableSoftwareAES:true,
+          manifestLoadingTimeOut: 20000,
+          levelLoadingTimeOut: 20000,
+          fragLoadingTimeOut: 45000
+        });
+        hls=instance;
+        window.currentHlsInstance=instance;
+        instance.loadSource(result.url);
+        instance.attachMedia(v);
+        instance.on(Hls.Events.MANIFEST_PARSED,start);
+        instance.on(Hls.Events.ERROR,(_,data)=>{
+          if(generation===playbackGeneration&&data.fatal)
+            playerMessage('Não foi possível reproduzir','O relay interrompeu a transmissão ou o formato HLS não é compatível.');
+        });
+        return;
+      }
       if(result.mode==='hls'&&v.canPlayType('application/vnd.apple.mpegurl')){v.src=result.url;start();return;}
        playerMessage('Formato incompatível','O modo de compatibilidade não identificou um formato HLS ou MP4 compatível.');
      }).catch(error=>{if(generation!==playbackGeneration)return;const messages={upstream_http_status:`A origem respondeu HTTP ${error.upstreamStatus||'não informado'} ao modo de compatibilidade.`,upstream_timeout:'A origem demorou demais para responder.',upstream_request_failed:'Não foi possível obter uma resposta da origem.',destination_rejected:'O endereço da origem foi recusado pelas proteções de segurança.',redirect_rejected:'A origem redirecionou para um destino não aceito.',relay_request_limit:'O limite de requisições do modo de compatibilidade foi atingido.',upstream_read_failed:'Não foi possível ler os primeiros dados enviados pela origem.',unsupported_content_type:'A origem informou um tipo de mídia não compatível.',unrecognized_media_data:'A resposta não tem um formato HLS ou MP4 reconhecido.'};const detail=messages[error.diagnostic]||'Não foi possível iniciar pelo modo de compatibilidade.';playerMessage('Modo de compatibilidade indisponível',detail);});
     return;
   }
   if(useHls){
-     const instance=new Hls({enableWorker:true,backBufferLength:90,enableSoftwareAES:true});hls=instance;window.currentHlsInstance=instance;instance.loadSource(ch.url);instance.attachMedia(v);instance.on(Hls.Events.MANIFEST_PARSED,()=>{start();updateHlsQualityBadge(instance);});instance.on(Hls.Events.LEVEL_SWITCHED,()=>updateHlsQualityBadge(instance));instance.on(Hls.Events.ERROR,(_,data)=>{if(generation!==playbackGeneration||!data.fatal)return;instance.destroy();if(hls===instance){hls=null;window.currentHlsInstance=null;}clearTimeout(playbackTimer);playbackTimer=null;playerMessage('Não foi possível reproduzir','A transmissão HLS falhou ou não é compatível. Confira a disponibilidade no provedor, sem alterar suas proteções de acesso.',true);});
+     const instance=new Hls({enableWorker:true,backBufferLength:90,enableSoftwareAES:true});hls=instance;window.currentHlsInstance=instance;instance.loadSource(ch.url);instance.attachMedia(v);instance.on(Hls.Events.MANIFEST_PARSED,()=>{start();updateHlsQualityBadge(instance);});instance.on(Hls.Events.LEVEL_SWITCHED,()=>updateHlsQualityBadge(instance));instance.on(Hls.Events.ERROR,(_,data)=>{
+       if(generation!==playbackGeneration)return;
+       const isAuth=data.response?.code===401||data.response?.code===403||(typeof data.response?.text==='string'&&data.response.text.includes('INVALID_CREDENTIALS'));
+       if(isAuth){
+         instance.destroy();
+         if(hls===instance){hls=null;window.currentHlsInstance=null;}
+         clearTimeout(playbackTimer);
+         playbackTimer=null;
+         playerMessage('Teste de 6h Expirado (401)','As credenciais de teste da lista Vapty expiraram no provedor. Alterne para a Lista Demo Online para assistir canais.',true);
+         return;
+       }
+       if(!state.relayMode && state.relayEnabled){
+         instance.destroy();
+         if(hls===instance){hls=null;window.currentHlsInstance=null;}
+         clearTimeout(playbackTimer);
+         playbackTimer=null;
+         console.log('[Player] Erro direto (CORS/rede). Ativando modo de compatibilidade Relay...');
+         state.relayMode = true;
+         try { localStorage.setItem('m3u-relay', 'true'); } catch {}
+         updateRelayControl();
+         playChannel(ch);
+         return;
+       }
+       if(!data.fatal)return;
+       trySmartFailover(ch, instance, generation).then(recovered => {
+         if (recovered) return;
+         instance.destroy();
+         if(hls===instance){hls=null;window.currentHlsInstance=null;}
+         clearTimeout(playbackTimer);
+         playbackTimer=null;
+         playerMessage('Transmissão indisponível','A transmissão HLS falhou ou está offline na fonte. Tente outro canal ou reconecte.',true);
+       }).catch(() => {
+         instance.destroy();
+         if(hls===instance){hls=null;window.currentHlsInstance=null;}
+         clearTimeout(playbackTimer);
+         playbackTimer=null;
+         playerMessage('Transmissão indisponível','A transmissão HLS falhou ou está offline na fonte. Tente outro canal ou reconecte.',true);
+       });
+     });
   }else direct();
 }
 function updateNowFavorite(){const b=$('#now-favorite');if(!b||!state.selected)return;const on=isFavorite(state.selected);b.classList.toggle('is-favorite',on);b.style.color=on?'#fc6382':'';b.setAttribute('aria-pressed',String(on));b.setAttribute('aria-label',on?'Remover canal dos favoritos':'Favoritar canal atual');}
@@ -2043,7 +3375,83 @@ function backToChannels(){stopPlayback();state.selected=null;updateEpisodeContro
 const barName=document.getElementById('now-bar-name');const barMeta=document.getElementById('now-bar-meta');if(barName)barName.textContent='Nada em reprodução';if(barMeta)barMeta.textContent='Escolha um canal para começar';renderChannels();}
 async function toggleFavorite(ch,id=state.activePlaylist){state.favorites=await api('/favorites','PUT',{playlistId:id,channel:ch})||[];if(state.page==='player'){renderChannels();updateNowFavorite();}else if(state.page==='favorites')$('#content').innerHTML=savedPage('favorites');}
 
-function openModal(title,content){const modal=$('#modal');modal.innerHTML=`<div class="dialog-heading"><h2 id="modal-title">${title}</h2><button class="icon-btn" data-action="close-modal" aria-label="Fechar">${icon('close')}</button></div>${content}`;if(!modal.open)modal.showModal();}
+function openModal(title,content){
+  const modal=$('#modal');
+  if(!modal) return;
+  modal.style.maxWidth = '620px';
+  modal.innerHTML=`<div class="dialog-heading"><h2 id="modal-title">${title}</h2><button class="icon-btn" data-action="close-modal" aria-label="Fechar">${icon('close')}</button></div>${content}`;
+  if(!modal.open)modal.showModal();
+}
+
+async function openManagePlaylistsModal(){
+  if(!state.playlists || !state.playlists.length){
+    try { await loadLibrary(); } catch {}
+  }
+  const list = state.playlists || [];
+  const enabledCount = list.filter(p => p.isEnabled !== false).length;
+  const totalCount = list.length;
+
+  const content = `
+    <div style="padding:0.25rem 0 0.5rem 0;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:1px solid rgba(255,255,255,0.1); flex-wrap:wrap; gap:0.5rem;">
+        <div>
+          <span style="font-size:0.88rem; color:rgba(255,255,255,0.8);">
+            Visibilidade do Acervo: <strong style="color:#ff4d58;">${enabledCount} ativas</strong> de ${totalCount} cadastradas
+          </span>
+          <p style="margin:0.2rem 0 0 0; font-size:0.75rem; color:rgba(255,255,255,0.5);">
+            Listas ocultadas não se misturam no catálogo nem no player. Ative sob demanda.
+          </p>
+        </div>
+        <div style="display:flex; gap:0.5rem;">
+          <button class="btn small secondary" data-action="manage-pls-enable-all" title="Habilitar todas as listas">${icon('eye')} Habilitar Todas</button>
+          <button class="btn small secondary" data-action="manage-pls-disable-all" title="Ocultar todas as listas">${icon('close')} Ocultar Todas</button>
+        </div>
+      </div>
+
+      <div style="max-height:55vh; overflow-y:auto; display:flex; flex-direction:column; gap:0.5rem; padding-right:0.25rem;">
+        ${list.map(pl => {
+          const isEn = pl.isEnabled !== false;
+          const isAct = pl.id === state.activePlaylist;
+          return `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:0.65rem 0.9rem; background:${isEn ? 'rgba(229,9,20,0.06)' : 'rgba(255,255,255,0.02)'}; border:1px solid ${isEn ? 'rgba(229,9,20,0.25)' : 'rgba(255,255,255,0.07)'}; border-radius:10px; transition:all 0.15s ease;">
+              <div style="display:flex; align-items:center; gap:0.75rem; min-width:0;">
+                <div class="iptv-pl-card-icon ${isEn ? 'enabled' : 'hidden'}">
+                  ${icon('playlist')}
+                </div>
+                <div style="min-width:0;">
+                  <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                    <strong style="color:${isEn ? '#fff' : 'rgba(255,255,255,0.45)'}; font-size:0.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:300px;" title="${esc(pl.name)}">${esc(pl.name)}</strong>
+                    ${isAct ? `<span style="font-size:0.62rem; padding:0.1rem 0.35rem; background:#8b5cf6; color:#fff; border-radius:4px; font-weight:700;">ATIVA</span>` : ''}
+                    <span style="font-size:0.62rem; padding:0.1rem 0.35rem; background:${isEn ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.08)'}; color:${isEn ? '#34d399' : 'rgba(255,255,255,0.4)'}; border-radius:4px; font-weight:600;">
+                      ${isEn ? 'HABILITADA' : 'OCULTADA'}
+                    </span>
+                  </div>
+                  <div style="font-size:0.72rem; color:rgba(255,255,255,0.4); margin-top:0.15rem;">
+                    ${number(pl.total || 0)} itens • ${number(pl.live || 0)} canais • ${number(pl.vod || 0)} filmes • ${number(pl.series || 0)} séries
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:flex; align-items:center; gap:0.5rem; flex-shrink:0;">
+                <button class="btn small ${isEn ? 'btn-danger-outline' : 'btn-success'}" data-action="toggle-pl-enabled" data-id="${pl.id}" data-enabled="${isEn ? '0' : '1'}" style="min-width:96px; font-size:0.75rem; padding:0.35rem 0.75rem;">
+                  ${isEn ? 'Ocultar' : 'Habilitar'}
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem; padding-top:0.75rem; border-top:1px solid rgba(255,255,255,0.1);">
+        <button class="btn small secondary" data-action="add-playlist">${icon('plus')} Nova Playlist</button>
+        <button class="btn" data-action="close-modal">Salvar & Fechar</button>
+      </div>
+    </div>
+  `;
+
+  openModal('Gerenciador de Playlists', content);
+}
+
 function playlistModal(){openModal('Adicionar playlist',`
   <div class="iptv-auth-tabs" style="margin-bottom:1.25rem;">
     <button type="button" class="iptv-auth-tab active" data-action="playlist-tab" data-tab="m3u">${icon('playlist')} Lista M3U / Arquivo</button>
@@ -2324,6 +3732,127 @@ async function triggerGoogleLogin(){
 document.addEventListener('click',async event=>{
   const b=event.target.closest('[data-action]');if(!b||b.disabled)return;const action=b.dataset.action;
   try{
+    // Gerenciador de Playlists (Ocultar / Habilitar sob demanda)
+    if(action==='open-manage-playlists-modal'){
+      try {
+        await openManagePlaylistsModal();
+      } catch(err) {
+        console.error('[Modal] Erro ao abrir gerenciador de playlists:', err);
+        toast('Erro ao abrir gerenciador: ' + err.message, true);
+      }
+      return;
+    }
+    if(action==='toggle-pl-enabled'){
+      const plId = b.dataset.id;
+      const enable = b.dataset.enabled === '1';
+      b.disabled = true;
+      try {
+        await api(`/playlists/${plId}/toggle-enabled`, 'PATCH', { enabled: enable });
+        const targetPl = state.playlists.find(p => p.id === plId);
+        if(targetPl) targetPl.isEnabled = enable;
+        const enabledList = state.playlists.filter(p => p.isEnabled !== false);
+        if(!enable && state.activePlaylist === plId && enabledList.length){
+          state.activePlaylist = enabledList[0].id;
+          try { localStorage.setItem('m3u-active-playlist', state.activePlaylist); } catch {}
+        }
+        openManagePlaylistsModal();
+        await renderRoute();
+        toast(`Playlist ${enable ? 'habilitada' : 'ocultada'} com sucesso.`);
+      } catch(err) {
+        toast(err.message, true);
+      }
+      return;
+    }
+    if(action==='manage-pls-enable-all' || action==='manage-pls-disable-all'){
+      const enable = action==='manage-pls-enable-all';
+      b.disabled = true;
+      try {
+        for(const pl of state.playlists){
+          if(Boolean(pl.isEnabled !== false) !== enable){
+            await api(`/playlists/${pl.id}/toggle-enabled`, 'PATCH', { enabled: enable });
+            pl.isEnabled = enable;
+          }
+        }
+        if(!enable && state.playlists.length){
+          const first = state.playlists.find(p => p.name.includes('TurboX')) || state.playlists[0];
+          await api(`/playlists/${first.id}/toggle-enabled`, 'PATCH', { enabled: true });
+          first.isEnabled = true;
+          state.activePlaylist = first.id;
+        }
+        openManagePlaylistsModal();
+        await renderRoute();
+        toast(`Playlists ${enable ? 'habilitadas' : 'ocultadas'} com sucesso.`);
+      } catch(err) {
+        toast(err.message, true);
+      }
+      return;
+    }
+
+    // Ações Next-Gen v8.3.0: Hero Banner, PiP e Mosaico Multi-View
+    if(action==='play-featured-hero'){
+      const hero = (state.dashMovies && state.dashMovies.length) ? state.dashMovies[0] : (state.channels && state.channels[0]);
+      if(hero){
+        if(hero.streamType === 'live') {
+          state.selected = hero;
+          navigate('live');
+        } else {
+          openVodTheater(hero);
+        }
+      } else {
+        navigate('live');
+      }
+      return;
+    }
+    if(action==='close-pip'){
+      if(window.pipModule) window.pipModule.exit();
+      return;
+    }
+    if(action==='expand-pip'){
+      const ch = window.pipModule?.activeChannel;
+      if(window.pipModule) window.pipModule.exit();
+      if(ch) {
+        state.selected = ch;
+        navigate('live');
+      }
+      return;
+    }
+    if(action==='toggle-pip-play'){
+      const v = document.getElementById('pip-video');
+      const btn = document.querySelector('[data-action="toggle-pip-play"]');
+      if(v) {
+        if(v.paused) {
+          v.play().catch(()=>{});
+          if(btn) btn.innerHTML = icon('pause');
+        } else {
+          v.pause();
+          if(btn) btn.innerHTML = icon('play');
+        }
+      }
+      return;
+    }
+    if(action==='mv-sound'){
+      const slotIdx = Number(b.dataset.slot || 0);
+      if(window.multiviewModule) window.multiviewModule.setSound(slotIdx);
+      return;
+    }
+    if(action==='mv-expand'){
+      const slotIdx = Number(b.dataset.slot || 0);
+      const select = document.getElementById(`mv-select-${slotIdx}`);
+      const chId = select?.value;
+      const ch = (state.channels || []).find(c => c.id === chId);
+      if(window.multiviewModule) window.multiviewModule.destroy();
+      if(ch) {
+        state.selected = ch;
+        navigate('live');
+      }
+      return;
+    }
+    if(action==='mv-reset'){
+      if(window.multiviewModule) window.multiviewModule.initSlots();
+      toast('Mosaico reiniciado com os canais padrão.');
+      return;
+    }
+
     if(action==='google-login'){await triggerGoogleLogin();return;}
     if(action==='google-demo-login'){
       b.disabled=true;
@@ -2347,7 +3876,19 @@ document.addEventListener('click',async event=>{
     }
     if(action==='theme'){applyTheme(theme==='dark'?'light':'dark');if(state.user)state.user=await api('/account','PATCH',{theme});return;}
     if(action==='menu'){setMenu(!$('.shell').classList.contains('menu-open'));return;}
-    if(action==='toggle-sidebar'){toggleSidebar();return;}
+    if(action==='toggle-iptv-sidebar' || action==='toggle-sidebar'){
+      const sb = $('.iptv-master-sidebar') || $('#account-sidebar');
+      if(sb){
+        sb.classList.toggle('collapsed');
+        const isCollapsed = sb.classList.contains('collapsed');
+        try { localStorage.setItem('iptv-sidebar-collapsed', String(isCollapsed)); } catch {}
+        const toggleBtn = sb.querySelector('.iptv-sidebar-toggle-btn');
+        if(toggleBtn) toggleBtn.setAttribute('title', isCollapsed ? 'Expandir menu' : 'Recolher menu');
+      } else {
+        toggleSidebar();
+      }
+      return;
+    }
     if(action==='close-modal'){$('#modal').close();return;}
     if(action==='password'){const input=document.getElementById(b.dataset.target);input.type=input.type==='password'?'text':'password';b.setAttribute('aria-label',input.type==='password'?'Mostrar senha':'Ocultar senha');return;}
     if(action==='forgot'){openModal('Recuperar acesso',`<p>Solicite ao administrador da plataforma uma nova senha. Depois de entrar, você pode alterá-la em Configurações.</p><p class="help-text">Se você é o administrador, consulte o procedimento de recuperação no README do servidor.</p><button class="btn" data-action="close-modal">Entendi</button>`);return;}
@@ -2417,8 +3958,156 @@ document.addEventListener('click',async event=>{
     if(action==='previous'||action==='next'){queuePageTurn(action==='next'?1:-1);return;}
     if(action==='play'){playChannel(visibleChannels[Number(b.dataset.index)]);return;}
     if(action==='toggle-relay'){state.relayMode=!state.relayMode;updateRelayControl();const selected=state.selected;if(selected)playChannel(selected);return;}
+    if(action==='switch-working-list'){
+      const demoPl = state.playlists.find(p => p.id === 'pl_1791134136320') || state.playlists.find(p => !p.name.toLowerCase().includes('teste') && !p.name.toLowerCase().includes('vapty')) || state.playlists[0];
+      if(demoPl){
+        state.activePlaylist = demoPl.id;
+        try{ localStorage.setItem('m3u-active-playlist', demoPl.id); }catch{}
+        toast('Alternando para: ' + demoPl.name);
+        await renderRoute();
+      }
+      return;
+    }
     if(action==='toggle-data-saver'){if(typeof window.healthModule!=='undefined')window.healthModule.toggleDataSaver(b);return;}
-    if(action==='switch-playlist'){if(b.dataset.id&&b.dataset.id!==state.activePlaylist){pendingChannel=null;state.activePlaylist=b.dataset.id;navigate('player');}return;}
+    if(action==='switch-playlist'){if(b.dataset.id&&b.dataset.id!==state.activePlaylist){pendingChannel=null;state.activePlaylist=b.dataset.id;localStorage.setItem('m3u-active-playlist',b.dataset.id);navigate('player');}return;}
+    if(action==='set-media-type'){
+      state.mediaType = b.dataset.type || 'live';
+      state.category = '';
+      state.channels = [];
+      await loadChannels(state.activePlaylist, routeGeneration, state.mediaType);
+      return;
+    }
+    if(action==='toggle-smart-sidebar'){
+      state.smartSidebarSlim = !state.smartSidebarSlim;
+      const sb = document.querySelector('.iptv-smart-sidebar');
+      if(sb){
+        sb.classList.toggle('slim-rail', state.smartSidebarSlim);
+        const toggleBtn = sb.querySelector('.iptv-sidebar-rail-toggle');
+        if(toggleBtn) toggleBtn.innerHTML = icon(state.smartSidebarSlim ? 'right' : 'left');
+      }
+      return;
+    }
+    if(action==='play-first-history'){
+      const hist = state.history?.[0]?.channel || state.currentMovies?.[0];
+      if(hist){
+        if(hist.streamType === 'live' || hist.program){
+          state.selected = hist;
+          location.hash = '#/live';
+          setTimeout(() => playChannel(hist), 120);
+        } else {
+          openVodTheater(hist);
+        }
+      }
+      return;
+    }
+    if(action==='filter-vod-cat'){state.selectedVodCategory=b.dataset.name||'';state.moviePage=1;await renderRoute();return;}
+    if(action==='filter-series-cat'){state.selectedSeriesCategory=b.dataset.name||'';state.seriesPage=1;await renderRoute();return;}
+    if(action==='load-more-catalog'){
+      const isSeries = b.dataset.type === 'series';
+      b.disabled = true;
+      const origText = b.innerHTML;
+      b.innerHTML = `${icon('refresh')} Carregando...`;
+      try {
+        const nextPage = isSeries ? ((state.seriesPage || 1) + 1) : ((state.moviePage || 1) + 1);
+        const curCat = isSeries ? (state.selectedSeriesCategory || '') : (state.selectedVodCategory || '');
+        const filterQuery = curCat ? `&group=${encodeURIComponent(curCat)}` : '';
+        const res = await api(`/playlists/${state.activePlaylist}/filter?type=${isSeries?'series':'vod'}&limit=100&page=${nextPage}${filterQuery}`);
+        if(res && res.channels && res.channels.length){
+          if(isSeries){
+            state.seriesPage = nextPage;
+            state.currentSeries = (state.currentSeries || []).concat(res.channels);
+          } else {
+            state.moviePage = nextPage;
+            state.currentMovies = (state.currentMovies || []).concat(res.channels);
+          }
+          await renderRoute();
+        } else {
+          toast('Todos os títulos disponíveis já foram carregados.');
+        }
+      } catch(err){
+        toast('Erro ao carregar mais títulos: ' + err.message, true);
+      } finally {
+        b.disabled = false;
+        b.innerHTML = origText;
+      }
+      return;
+    }
+    if(action==='catalog-card-click'){
+      const idx = Number(b.dataset.index);
+      const isSeries = b.dataset.type === 'series';
+      const pool = isSeries ? (state.currentSeries || []) : (state.currentMovies || []);
+      const item = pool[idx];
+      if(item) openVodModal(item);
+      return;
+    }
+    if(action==='enrich-catalog-batch'){
+      b.disabled = true;
+      const orig = b.innerHTML;
+      b.innerHTML = `${icon('refresh')} Atualizando via API…`;
+      try {
+        const type = b.dataset.type || null;
+        const res = await api(`/playlists/${state.activePlaylist}/enrich-batch`, 'POST', { limit: 60, delayMs: 250, type });
+        toast('Enriquecimento iniciado em segundo plano!');
+        let pollCount = 0;
+        const poll = setInterval(async () => {
+          pollCount++;
+          try {
+            const st = await api(`/playlists/${state.activePlaylist}/enrich-status`);
+            if(!st.job?.isRunning || pollCount > 25){
+              clearInterval(poll);
+              toast(`Metadados atualizados: ${st.stats.enriched} títulos com capas oficiais e sinopses.`);
+              await renderRoute();
+            }
+          } catch(e) {
+            clearInterval(poll);
+          }
+        }, 3000);
+      } catch(err) {
+        toast('Erro ao iniciar enriquecimento: ' + err.message, true);
+        b.disabled = false;
+        b.innerHTML = orig;
+      }
+      return;
+    }
+    if(action==='enrich-current-vod'){
+      const item = window._currentVodItem;
+      if(!item || !item.id) return;
+      b.disabled = true;
+      const orig = b.innerHTML;
+      b.innerHTML = `${icon('refresh')} Buscando…`;
+      try {
+        const res = await api(`/channels/${item.id}/enrich`, 'POST', {});
+        if(res.success && res.channel){
+          Object.assign(item, res.channel);
+          const synEl = document.getElementById('modal-vod-synopsis');
+          if(synEl && res.channel.overview) synEl.textContent = res.channel.overview;
+          const bgEl = document.getElementById('modal-vod-backdrop');
+          if(bgEl && (res.channel.backdropUrl || res.channel.posterUrl)){
+            bgEl.style.backgroundImage = `url('${esc(res.channel.backdropUrl || res.channel.posterUrl)}')`;
+          }
+          const metaEl = document.getElementById('modal-vod-meta');
+          if(metaEl){
+            metaEl.innerHTML = `
+              <span>⭐ ${res.channel.rating || '8.5'} / 10</span>
+              ${res.channel.year ? `<span>•</span><span>${res.channel.year}</span>` : ''}
+              <span>•</span>
+              <span>${esc(res.channel.genres || res.channel.group)}</span>
+              <span>•</span>
+              <span>Streaming HLS</span>
+            `;
+          }
+          toast('Metadados atualizados com sucesso via API!');
+        } else {
+          toast(res.message || 'Nenhum metadado adicional encontrado.');
+        }
+      } catch(e) {
+        toast('Erro ao buscar metadados: ' + e.message, true);
+      } finally {
+        b.disabled = false;
+        b.innerHTML = orig;
+      }
+      return;
+    }
     if(action==='nf-search-toggle'){const inp=$('#channel-search');if(inp){inp.classList.toggle('nf-search-input--open');if(inp.classList.contains('nf-search-input--open'))inp.focus();}return;}
     if(action==='nf-browse'){const dd=document.getElementById('nf-browse-dropdown');if(dd)dd.hidden=!dd.hidden;return;}
     if(action==='hero-play'){const ch=state.selected||state.channels[0];if(ch)playChannel(ch);return;}
@@ -2568,12 +4257,294 @@ document.addEventListener('click',async event=>{
       return;
     }
     if(action==='select-live-ch'){
-      document.querySelectorAll('.iptv-tri-channel-row').forEach(c=>c.classList.toggle('active', c===b));
+      document.querySelectorAll('.iptv-tri-channel-row, .iptv-master-channel-row').forEach(c=>c.classList.toggle('active', c===b));
       const idx = Number(b.dataset.index);
       const pool = (state.channels && state.channels.length) ? state.channels : (window._liveChannels || []);
       const ch = pool[idx] || pool.find(c=>c.name===b.dataset.name) || pool[0];
       if(ch){
+        state.selected = ch;
+        const nameEl = document.getElementById('preview-ch-name');
+        if(nameEl) nameEl.textContent = ch.name;
+        const progEl = document.getElementById('preview-prog-title');
+        if(progEl) progEl.textContent = ch.program || ch.group || 'Brasileirão Série A';
+        const timeEl = document.getElementById('preview-prog-time');
+        if(timeEl) timeEl.textContent = ch.time || '16:00 - 18:00';
         playChannel(ch);
+      }
+      return;
+    }
+    if(action==='live-tab-filter'){
+      state.liveCategory = b.dataset.category || 'Todos';
+      const contentEl = document.getElementById('content');
+      if(contentEl) contentEl.innerHTML = livePage();
+      return;
+    }
+    if(action==='filter-master-cat'){
+      const cat = (b.dataset.name || '').trim();
+      if(cat.toLowerCase() === 'filmes'){
+        location.hash = '#/movies';
+        return;
+      }
+      if(cat.toLowerCase() === 'séries' || cat.toLowerCase() === 'series'){
+        location.hash = '#/series';
+        return;
+      }
+      state.liveCategory = cat || 'Todos';
+      location.hash = '#/live';
+      return;
+    }
+    if(action==='select-marathon'){
+      const id = b.dataset.id;
+      if(id){
+        state.activeMarathonId = id;
+        renderRoute();
+      }
+      return;
+    }
+    if(action==='play-marathon-item'){
+      const itemId = b.dataset.itemId;
+      const marathon = state.currentMarathon;
+      const item = marathon?.items?.find(it => it.id === itemId);
+      if(item){
+        const target = {
+          name: item.title,
+          title: item.title,
+          url: item.streamUrl,
+          streamUrl: item.streamUrl,
+          notes: item.notes,
+          group: `Maratona - ${marathon.title}`,
+          posterUrl: item.posterUrl,
+          backdropUrl: item.backdropUrl,
+          streamType: 'vod'
+        };
+        openVodTheater(target);
+      }
+      return;
+    }
+    if(action==='start-marathon'){
+      const marathon = state.currentMarathon;
+      if(marathon?.items?.length){
+        const first = marathon.items[0];
+        const target = {
+          name: first.title,
+          title: first.title,
+          url: first.streamUrl,
+          streamUrl: first.streamUrl,
+          notes: first.notes,
+          group: `Maratona - ${marathon.title}`,
+          posterUrl: first.posterUrl,
+          backdropUrl: first.backdropUrl,
+          streamType: 'vod'
+        };
+        openVodTheater(target);
+      }
+      return;
+    }
+    if(action==='export-marathon-m3u'){
+      const slug = b.dataset.slug || state.currentMarathon?.slug;
+      if(slug){
+        window.open(`/api/marathons/${slug}/export.m3u`, '_blank');
+      }
+      return;
+    }
+    if(action==='search-tab'){
+      state.searchTab = b.dataset.tab || 'channels';
+      const contentEl = document.getElementById('content');
+      if(contentEl) contentEl.innerHTML = searchPage();
+      return;
+    }
+    if(action==='epg-day-select'){
+      state.selectedEpgDay = b.dataset.day || 'today';
+      document.querySelectorAll('.iptv-epg-day-pill').forEach(p => p.classList.toggle('active', p === b));
+      return;
+    }
+    if(action==='clear-app-cache'){
+      try{
+        localStorage.removeItem('m3u-cache');
+        localStorage.removeItem('cached-m3u-url');
+        localStorage.removeItem('m3u-epg-cache');
+        localStorage.removeItem('m3u-categories-cache');
+        if('caches' in window){
+          caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+        }
+      }catch{}
+      toast('Cache limpo com sucesso! Favoritos e credenciais preservados.');
+      return;
+    }
+    if(action==='about-app'){
+      toast('JstudioPlay IPTV PLAY Pro v7.9.9 — Smart TV Edition');
+      return;
+    }
+    if(action==='toggle-dark-mode'){
+      toast('Modo escuro oficial mantido ativo.');
+      return;
+    }
+    if(action==='hero-play'){
+      location.hash = '#/movies';
+      return;
+    }
+    if(action==='hero-info'){
+      openVodModal({
+        name: 'John Wick 4: Baba Yaga',
+        group: 'Ação • 2023 • 2h 49m',
+        img: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80',
+        description: 'John Wick descobre um caminho para derrotar a Alta Cúpula. Mas antes que ele possa conquistar sua liberdade, Wick deve enfrentar um novo inimigo com alianças poderosas em todo o mundo e forças que transformam velhos amigos em inimigos.'
+      });
+      return;
+    }
+    if(action==='vod-card-click'){
+      const idx = Number(b.dataset.index);
+      const isSeries = b.dataset.type === 'series';
+      const pool = isSeries ? (state.dashSeries || []) : (state.dashMovies || []);
+      const item = pool[idx] || { name: b.title || 'Conteúdo', group: isSeries ? 'Série' : 'Filme' };
+      openVodModal(item);
+      return;
+    }
+    if(action==='resume-vod'){
+      const title = b.dataset.title;
+      const historyItem = (state.history || []).find(h => (h.channel?.name === title) || (h.title === title));
+      const target = historyItem?.channel || { name: title, title: title };
+      if(target.streamType === 'live' || target.program){
+        state.selected = target;
+        location.hash = '#/live';
+        setTimeout(() => playChannel(target), 120);
+      } else {
+        openVodTheater(target);
+      }
+      return;
+    }
+    if(action==='open-epg-detail'){
+      const name = b.dataset.name;
+      const prog = b.dataset.prog;
+      const time = b.dataset.time;
+      const hasEpg = b.dataset.hasepg === 'true';
+      const pool = state.channels || [];
+      const ch = pool.find(c => c.name === name) || { name };
+      openModal('Programação do Canal', `
+        <div style="display:flex; flex-direction:column; gap:1.25rem; max-width:540px;">
+          <div style="display:flex; align-items:center; gap:1rem;">
+            <div class="iptv-round-logo" style="width:48px; height:48px;">
+              ${ch.logo ? `<img src="${esc(ch.logo)}" alt="${esc(name)}">` : initials(name)}
+            </div>
+            <div>
+              <h2 style="font-size:1.35rem; font-weight:800; color:#fff; margin:0;">${esc(name)}</h2>
+              <span style="font-size:0.85rem; color:var(--iptv-text-sec);">${esc(ch.group || 'Geral')}</span>
+            </div>
+          </div>
+          <div style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:1.1rem;">
+            ${hasEpg ? `
+              <span class="iptv-badge-live" style="margin-bottom:0.5rem;">AO VIVO AGORA</span>
+              <strong style="display:block; font-size:1.1rem; color:#fff; margin-bottom:4px;">${esc(prog)}</strong>
+              <span style="font-size:0.85rem; color:rgba(255,255,255,0.6);">${esc(time)}</span>
+              <p style="font-size:0.88rem; color:rgba(255,255,255,0.7); margin:0.75rem 0 0; line-height:1.5;">
+                Transmissão em tempo real. Acompanhe a cobertura ao vivo diretamente no player de vídeo.
+              </p>
+            ` : `
+              <span class="iptv-badge-live" style="margin-bottom:0.5rem; background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.6); box-shadow:none;">SEM TABELA XMLTV</span>
+              <strong style="display:block; font-size:1.05rem; color:#fff; margin-bottom:4px;">Grade de horários indisponível</strong>
+              <p style="font-size:0.88rem; color:rgba(255,255,255,0.65); margin:0.5rem 0 0; line-height:1.5;">
+                Esta fonte de transmissão ainda não possui metadados EPG XMLTV sincronizados. O sinal ao vivo do canal está operacional e disponível para reprodução imediata.
+              </p>
+            `}
+          </div>
+          <button class="iptv-btn-play-red" data-action="watch-epg-channel" data-name="${esc(name)}" style="justify-content:center; height:48px;">
+            ${icon('play')} Assistir Este Canal Agora
+          </button>
+        </div>
+      `);
+      return;
+    }
+    if(action==='watch-epg-channel'){
+      const name = b.dataset.name;
+      const pool = state.channels || [];
+      const ch = pool.find(c => c.name === name) || { name };
+      state.selected = ch;
+      $('#modal')?.close();
+      location.hash = '#/live';
+      return;
+    }
+    if(action==='start-vod-theater' || action==='play-vod-item' || action==='play-series-item'){
+      const name = b.dataset.name || b.title;
+      $('#modal')?.close();
+      const current = window._currentVodItem;
+      const pool = [...(state.dashMovies || []), ...(state.dashSeries || []), ...(state.currentMovies || []), ...(state.currentSeries || [])];
+      let target = (current && (current.name === name || current.title === name)) ? current : pool.find(c => c.name === name || c.title === name);
+      if(!target){
+        target = current || { name, title: name, streamType: 'vod' };
+      }
+      openVodTheater(target);
+      return;
+    }
+    if(action==='close-vod-theater'){
+      closeVodTheater();
+      return;
+    }
+    if(action==='theater-play-toggle'){
+      const v = document.getElementById('video');
+      if(v){
+        if(v.paused) v.play().catch(()=>{});
+        else v.pause();
+      }
+      return;
+    }
+    if(action==='theater-skip-back'){
+      skipVodTime(-10);
+      return;
+    }
+    if(action==='theater-skip-forward'){
+      skipVodTime(10);
+      return;
+    }
+    if(action==='hero-dot'){
+      const idx = parseInt(b.dataset.idx, 10);
+      if(!isNaN(idx)) changeHeroSlide(idx);
+      return;
+    }
+    if(action==='resume-current-playing'){
+      if(window._currentPlaying?.type === 'live'){
+        location.hash = '#/live';
+      } else if(window._currentPlaying?.target){
+        openVodTheater(window._currentPlaying.target);
+      }
+      return;
+    }
+    if(action==='toggle-aspect-ratio'){
+      toggleAspectRatio();
+      return;
+    }
+    if(action==='theater-fullscreen'){
+      const v = document.getElementById('video');
+      if(v){
+        if(v.requestFullscreen) v.requestFullscreen();
+        else if(v.webkitEnterFullscreen) v.webkitEnterFullscreen();
+      }
+      return;
+    }
+    if(action==='load-more-live-channels'){
+      location.hash = '#/categories';
+      return;
+    }
+    if(action==='toggle-favorite-search'){
+      const name = b.dataset.name;
+      const pool = state.channels || [];
+      const item = pool.find(c => c.name === name) || window._currentVodItem || { name, group: 'Geral' };
+      b.disabled = true;
+      try {
+        await toggleFavorite(item);
+        const isFav = state.favorites && state.favorites.some(f => 
+          (f.channel && (f.channel.name === name || f.channel.url === item.url || f.channel.id === item.id)) || 
+          f.name === name || f.url === item.url
+        );
+        b.classList.toggle('is-favorite', isFav);
+        b.classList.toggle('is-favorited', isFav);
+        b.style.color = isFav ? '#e50914' : 'rgba(255,255,255,0.7)';
+        b.title = isFav ? 'Remover dos Favoritos' : 'Adicionar aos Favoritos';
+        b.setAttribute('aria-label', b.title);
+        toast(isFav ? `❤️ "${name}" adicionado aos Favoritos!` : `Removido dos Favoritos.`);
+      } catch(err) {
+        toast('Erro ao atualizar favoritos: ' + err.message, true);
+      } finally {
+        b.disabled = false;
       }
       return;
     }
@@ -2593,8 +4564,18 @@ document.addEventListener('click',async event=>{
     }
     if(action==='iptv-live-cat'){
       const cat = b.dataset.name;
-      state.category = (cat === 'Todos os canais' || !cat) ? '' : cat;
-      await renderRoute();
+      state.category = (cat === 'Todos os canais' || cat === 'Todos os títulos' || !cat) ? '' : cat;
+      if(state.mediaType && state.mediaType !== 'live'){
+        const curGroup = state.category;
+        const filterQuery = curGroup ? `&group=${encodeURIComponent(curGroup)}` : '';
+        const itemsRes = await api(`/playlists/${state.activePlaylist}/filter?type=${state.mediaType}&limit=150${filterQuery}`).catch(()=>({channels:[]}));
+        state.channels = itemsRes.channels || [];
+        const contentEl = document.getElementById('content');
+        if(contentEl) contentEl.innerHTML = livePage();
+        if(state.channels.length) playChannel(state.channels[0]);
+      } else {
+        await renderRoute();
+      }
       return;
     }
     if(action==='run-speedtest'){
@@ -2621,20 +4602,19 @@ document.addEventListener('click',async event=>{
 });
 document.addEventListener('input',event=>{
   if(event.target.id==='iptv-search-input'){
-    const q=event.target.value.toLowerCase().trim();
-    const res=$('#iptv-search-results');
-    if(res){
-      if(!q){
-        res.innerHTML='<p style="color:var(--iptv-text-sec); font-size:0.95rem;">Busque pelo nome ou selecione as teclas acima para filtrar.</p>';
-      } else {
-        const matches = (state.channels||[]).filter(c=>c.name.toLowerCase().includes(q)).slice(0, 12);
-        if(matches.length){
-          res.innerHTML=`<div class="iptv-tri-col-channels" style="width:100%; max-height:360px;">${matches.map(c=>`<button class="iptv-tri-channel-item" data-action="open-first-live" tabindex="0"><span class="iptv-tri-ch-num">▶</span><div class="iptv-tri-ch-meta"><span class="iptv-tri-ch-name">${esc(c.name)}</span><span class="iptv-tri-ch-prog">${esc(c.group||'Geral')}</span></div></button>`).join('')}</div>`;
-        } else {
-          res.innerHTML=`<p style="color:var(--iptv-text-sec); font-size:0.95rem;">Nenhum canal encontrado para "${esc(q)}".</p>`;
+    state.searchQuery = event.target.value;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      const contentEl = document.getElementById('content');
+      if(contentEl && state.page === 'search'){
+        contentEl.innerHTML = searchPage();
+        const input = document.getElementById('iptv-search-input');
+        if(input){
+          input.focus();
+          input.setSelectionRange(input.value.length, input.value.length);
         }
       }
-    }
+    }, 180);
   }
   if(event.target.id==='channel-search'){clearTimeout(searchTimer);searchTimer=setTimeout(()=>{state.query=event.target.value;state.channelPage=1;renderChannels();},160);}
   if(event.target.id==='user-search')$('#user-rows').innerHTML=userRows(event.target.value);
@@ -2645,20 +4625,102 @@ document.addEventListener('change',event=>{
   if(event.target.id==='category-select')selectCategory(Number(event.target.value));
   if(event.target.id==='quick-audio-track'&&hls){hls.audioTrack=Number(event.target.value);toast('Faixa de áudio alterada');}
 });
-document.addEventListener('keydown',event=>{
-  if(!tvMode){if(event.key==='Escape')setMenu(false);return;}
-  const target=event.target;
-  if(['Escape','BrowserBack'].includes(event.key)||[4,461,10009].includes(event.keyCode)){
-    if($('#modal')?.open){event.preventDefault();$('#modal').close();return;}
-    if($('.shell.menu-open')){event.preventDefault();setMenu(false);return;}
-    if(event.key!=='Escape'&&state.page==='player'&&state.selected){event.preventDefault();backToChannels();focusTV($('#channel-list .channel-select'));}
+document.addEventListener('keydown', event => {
+  const target = event.target;
+  const isInput = target?.matches?.('input, textarea, select, [contenteditable="true"]');
+
+  // Tecla Escape fecha modais/menus/theater
+  if (['Escape', 'BrowserBack'].includes(event.key) || [4, 461, 10009].includes(event.keyCode)) {
+    if ($('#modal')?.open) { event.preventDefault(); $('#modal').close(); return; }
+    if ($('.shell.menu-open')) { event.preventDefault(); setMenu(false); return; }
+    if (document.getElementById('vod-theater')) { closeVodTheater(); return; }
+    if (event.key !== 'Escape' && state.page === 'player' && state.selected) {
+      event.preventDefault(); backToChannels(); focusTV($('#channel-list .channel-select'));
+    }
     return;
   }
-  if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key))return;
-  if(target?.matches?.('video,[contenteditable="true"]'))return;
-  if(target?.matches?.('input,textarea')&&['ArrowLeft','ArrowRight'].includes(event.key))return;
-  if(target?.matches?.('select')&&['ArrowUp','ArrowDown'].includes(event.key))return;
-  event.preventDefault();moveTVFocus(event.key);
+
+  // Se estiver digitando em campo de texto, não intercepta atalhos de controle
+  if (isInput) return;
+
+  const activeVideo = document.getElementById('vod-player') || document.getElementById('video') || document.getElementById('pip-video');
+
+  // Atalho 'F' ou 'f': Alternar Fullscreen
+  if (event.key === 'f' || event.key === 'F') {
+    event.preventDefault();
+    if (!document.fullscreenElement) {
+      (activeVideo?.parentElement || activeVideo || document.documentElement).requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+    return;
+  }
+
+  // Atalho 'M' ou 'm': Alternar Mudo
+  if (event.key === 'm' || event.key === 'M') {
+    event.preventDefault();
+    if (activeVideo) {
+      activeVideo.muted = !activeVideo.muted;
+      toast(activeVideo.muted ? '🔇 Áudio mutado' : '🔊 Áudio ativado');
+    }
+    return;
+  }
+
+  // Atalho 'P' ou 'p': Alternar Miniplayer PiP
+  if (event.key === 'p' || event.key === 'P') {
+    event.preventDefault();
+    if (window.pipModule?.activeChannel) {
+      window.pipModule.exit();
+    } else if (state.selected) {
+      window.pipModule?.enter(state.selected);
+    }
+    return;
+  }
+
+  // Atalho 'Space': Play / Pause
+  if (event.code === 'Space' || event.key === ' ') {
+    if (activeVideo) {
+      event.preventDefault();
+      if (activeVideo.paused) {
+        activeVideo.play().catch(() => {});
+      } else {
+        activeVideo.pause();
+      }
+      return;
+    }
+  }
+
+  // Zapping ao vivo com ArrowUp / ArrowDown quando assistindo TV
+  if (['live', 'player'].includes(state.page) && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+    const list = state.channels || [];
+    if (list.length > 0) {
+      event.preventDefault();
+      const curIdx = state.selected ? list.findIndex(c => c.id === state.selected.id) : 0;
+      let nextIdx = event.key === 'ArrowDown' ? curIdx + 1 : curIdx - 1;
+      if (nextIdx < 0) nextIdx = list.length - 1;
+      if (nextIdx >= list.length) nextIdx = 0;
+      const nextCh = list[nextIdx];
+      if (nextCh) {
+        playChannel(nextCh);
+      }
+      return;
+    }
+  }
+
+  // Seek de 10s no VOD com ArrowLeft / ArrowRight
+  if (activeVideo && Number.isFinite(activeVideo.duration) && activeVideo.duration > 0 && ['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+    event.preventDefault();
+    const delta = event.key === 'ArrowRight' ? 10 : -10;
+    activeVideo.currentTime = Math.max(0, Math.min(activeVideo.duration, activeVideo.currentTime + delta));
+    toast(`${delta > 0 ? '+10s' : '-10s'} (${Math.round(activeVideo.currentTime)}s)`);
+    return;
+  }
+
+  // Modo Smart TV D-Pad Focus
+  if (tvMode && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+    event.preventDefault();
+    moveTVFocus(event.key);
+  }
 });
 document.addEventListener('error',event=>{if(event.target.matches?.('.channel-logo img')){const parent=event.target.parentElement;parent.textContent='▶';}},true);
 document.addEventListener('submit',async event=>{
@@ -2711,6 +4773,68 @@ document.addEventListener('submit',async event=>{
   }catch(error){errorEl.textContent=error.message;}
   finally{button.disabled=false;button.textContent=original;}
 });
+document.addEventListener('change', async e => {
+  const t = e.target;
+  if(t && t.dataset.action === 'change-active-playlist'){
+    const plId = t.value;
+    if(plId && plId !== state.activePlaylist){
+      state.activePlaylist = plId;
+      try{ localStorage.setItem('m3u-active-playlist', plId); }catch{}
+      state.channels = [];
+      state.movieCategories = null;
+      state.seriesCategories = null;
+      state.selectedVodCategory = '';
+      state.selectedSeriesCategory = '';
+      state.moviePage = 1;
+      state.seriesPage = 1;
+      state.currentMovies = [];
+      state.currentSeries = [];
+      state.dashboardLoaded = false;
+      await renderRoute();
+      toast('Playlist alterada para: ' + (state.playlists.find(p=>p.id===plId)?.name || ''));
+    }
+  }
+});
+document.addEventListener('input', e => {
+  if(e.target && e.target.id === 'catalog-search-input'){
+    state.catalogQuery = e.target.value;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      const query = (state.catalogQuery || '').toLowerCase().trim();
+      const isSeries = state.page === 'series';
+      const raw = (isSeries ? state.currentSeries : state.currentMovies) || [];
+      const filtered = query ? raw.filter(it => (it.name && it.name.toLowerCase().includes(query)) || (it.group && it.group.toLowerCase().includes(query))) : raw;
+      const grid = document.querySelector('.iptv-ref-grid');
+      if(grid){
+        grid.innerHTML = filtered.length ? filtered.map((m, idx) => {
+          const coverImg = m.posterUrl || m.logo;
+          return `
+          <div class="iptv-ref-poster-card" data-action="catalog-card-click" data-type="${isSeries?'series':'movies'}" data-index="${idx}" tabindex="0" title="${esc(m.name)}">
+            <div class="iptv-ref-poster-thumb">
+              ${coverImg ? `<img src="${esc(coverImg)}" alt="${esc(m.name)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">` : ''}
+              <div class="iptv-ref-poster-fallback" style="${coverImg?'display:none;':''}">
+                ${icon(isSeries?'tv':'film')}
+              </div>
+              ${m.rating ? `<span class="iptv-poster-badge iptv-rating-badge">⭐ ${m.rating}</span>` : ''}
+              ${m.year ? `<span class="iptv-poster-badge iptv-year-badge">${m.year}</span>` : ''}
+            </div>
+            <div class="iptv-ref-poster-info">
+              <div class="iptv-ref-poster-title">${esc(m.name)}</div>
+              <div class="iptv-ref-poster-sub">${esc(m.genres || m.group || (isSeries?'SÉRIE':'FILMES'))}</div>
+            </div>
+          </div>
+        `;}).join('') : `
+          <div style="grid-column: 1 / -1; padding:3rem; text-align:center; color:var(--iptv-text-sec);">
+            ${icon('search')}
+            <p style="margin-top:0.75rem;">Nenhum título encontrado com os filtros atuais.</p>
+          </div>
+        `;
+      }
+      const counter = document.querySelector('.iptv-ref-counter');
+      if(counter) counter.textContent = `(${number(filtered.length)})`;
+    }, 180);
+  }
+});
 window.addEventListener('hashchange',renderRoute);
 window.addEventListener('pagehide',()=>{const v=$('#video');if(v&&state.selected&&Number.isFinite(v.duration)&&v.currentTime>0)savePlaybackProgress(state.selected,v).catch(()=>{});});
 let sessionCheckTimer=null;
@@ -2756,5 +4880,108 @@ async function boot(){
     setTimeout(boot, 4000);
   }
 }
+
+document.addEventListener('keydown', (e) => {
+  const isTheater = Boolean(document.getElementById('vod-theater'));
+  if (e.key === 'Escape' || e.keyCode === 27 || e.keyCode === 461 || e.keyCode === 10009) {
+    if (isTheater) {
+      closeVodTheater();
+      return;
+    }
+  }
+
+  // Atalhos de teclado dedicados para VOD Theater
+  if (isTheater && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+    if (e.code === 'Space' || e.key === ' ') {
+      e.preventDefault();
+      const v = document.getElementById('video');
+      if (v) {
+        if (v.paused) v.play().catch(() => {});
+        else v.pause();
+      }
+      return;
+    }
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      skipVodTime(-10);
+      return;
+    }
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      skipVodTime(10);
+      return;
+    }
+    if (e.key === 'm' || e.key === 'M') {
+      e.preventDefault();
+      const v = document.getElementById('video');
+      if (v) {
+        v.muted = !v.muted;
+        toast(v.muted ? 'Mudo ativado' : 'Áudio ativado');
+        resetVodIdleTimer();
+      }
+      return;
+    }
+    if (e.key === 'f' || e.key === 'F') {
+      e.preventDefault();
+      const v = document.getElementById('video');
+      if (v) {
+        if (v.requestFullscreen) v.requestFullscreen();
+        else if (v.webkitEnterFullscreen) v.webkitEnterFullscreen();
+      }
+      return;
+    }
+  }
+});
+
+document.addEventListener('change', (e) => {
+  const target = e.target;
+  if(target && target.dataset.action === 'vod-change-speed') {
+    setVodPlaybackRate(target.value);
+    return;
+  }
+  if(target && target.dataset.action === 'mv-select-ch') {
+    const slotIdx = Number(target.dataset.slot || 0);
+    const chId = target.value;
+    const ch = (state.channels || []).find(c => c.id === chId);
+    if(ch && window.multiviewModule) {
+      window.multiviewModule.playSlot(slotIdx, ch);
+    }
+  }
+});
+
+// ==========================================================================
+// Subscrições Reativas de Componentes (EventBus v8.3.3)
+// ==========================================================================
+if (window.eventBus) {
+  window.eventBus.on('playback:started', (data) => {
+    const container = document.getElementById('topbar-now-playing-container');
+    const titleEl = document.getElementById('topbar-now-playing-title');
+    if (container && titleEl && data) {
+      titleEl.textContent = data.title || 'Reproduzindo';
+      container.style.display = 'inline-flex';
+    }
+  });
+
+  window.eventBus.on('playback:stopped', () => {
+    const container = document.getElementById('topbar-now-playing-container');
+    if (container) {
+      container.style.display = 'none';
+    }
+  });
+
+  window.eventBus.on('playback:progress', (data) => {
+    if (!data || !data.item) return;
+    const name = data.item.title || data.item.name || '';
+    if (!name) return;
+    const cards = document.querySelectorAll('.iptv-ref-continue-card');
+    cards.forEach(card => {
+      if (card.dataset.title === name) {
+        const bar = card.querySelector('.iptv-ref-continue-bar');
+        if (bar) bar.style.width = `${Math.min(100, Math.round(data.percent || 0))}%`;
+      }
+    });
+  });
+}
+
 boot();
 

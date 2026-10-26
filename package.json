@@ -1,12 +1,12 @@
 {
   "name": "jstudioplay",
-  "version": "1.0.0",
+  "version": "8.3.11",
   "description": "JstudioPlay Pro — Central IPTV self-hosted com sincronização M3U, validação de canais, proxy HLS e integração n8n",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "node --watch server/index.js",
-    "test": "node scripts/test_system.js",
+    "test": "node scripts/test_system.js && node scripts/test_audit_v798.js && node scripts/test_vod_isolation_v799.js && node scripts/test_enrichment_v800.js && node scripts/test_marathons_v820.js && node scripts/test_nextgen_v830.js && node scripts/test_cinema_v832.js && node scripts/test_components_v833.js && node scripts/test_visuals_v834.js && node scripts/test_cards_components_v835.js && node scripts/test_visual_refinements_v837.js && node scripts/test_icon_manage_playlists_v838.js && node scripts/test_topbar_refinements_v839.js && node scripts/test_clean_player_v8310.js && node scripts/test_vod_favorite_button_v8311.js",
+    "audit": "node scripts/test_audit_v798.js",
     "vercel-build": "echo 'Static only — no build needed'"
   },
   "dependencies": {

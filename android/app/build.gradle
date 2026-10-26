@@ -1,14 +1,14 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "com.jstudioplay.app"
+    namespace = "br.com.jstudioplay.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.jstudioplay.app"
+        applicationId "br.com.jstudioplay.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 3
+        versionName "8.3.11"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -18,10 +18,10 @@ android {
     }
     signingConfigs {
         release {
-            storeFile file(System.getenv('ANDROID_KEYSTORE_PATH') ?: 'jstudioplay-release-key.jks')
-            storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD') ?: project.findProperty('RELEASE_STORE_PASSWORD') ?: 'JstudioPlay2026'
-            keyAlias System.getenv('ANDROID_KEY_ALIAS') ?: project.findProperty('RELEASE_KEY_ALIAS') ?: 'jstudioplay'
-            keyPassword System.getenv('ANDROID_KEY_PASSWORD') ?: project.findProperty('RELEASE_KEY_PASSWORD') ?: 'JstudioPlay2026'
+            storeFile file('jstudioplay-release.jks')
+            storePassword 'jstudioplay2026'
+            keyAlias 'jstudioplay'
+            keyPassword 'jstudioplay2026'
         }
     }
     buildTypes {

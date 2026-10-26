@@ -24,6 +24,7 @@ const m3uScraper      = require('./services/m3uScraper');
 const integrationHub  = require('./services/integrationHub');
 const xtreamClient    = require('./services/xtreamClient');
 const pushService     = require('./services/pushService');
+const metadataService = require('./services/metadataService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -379,7 +380,19 @@ apiRouter.get('/library', requireAuth, (req, res) => {
 
 apiRouter.get('/playlists', requireAuth, (req, res) => {
     const user = req.user;
-    res.json(db.getPlaylists(user.id));
+    const onlyEnabled = req.query.enabled === '1' || req.query.enabled === 'true';
+    res.json(db.getPlaylists(user.id, { onlyEnabled }));
+});
+
+apiRouter.patch('/playlists/:id/toggle-enabled', requireAuth, (req, res) => {
+    try {
+        const { id } = req.params;
+        const { enabled } = req.body;
+        const updated = db.togglePlaylistEnabled(id, Boolean(enabled));
+        res.json({ success: true, playlist: updated });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 apiRouter.post('/playlists', requireAuth, async (req, res) => {
@@ -460,8 +473,198 @@ apiRouter.post('/playlists/xtream', requireAuth, async (req, res) => {
 });
 
 apiRouter.get('/playlists/:id/channels', requireAuth, (req, res) => {
-    const channels = db.getChannels(req.params.id);
-    res.json(channels);
+    const { id } = req.params;
+    const { type, streamType, group, category, q, search, status, page, limit, offset, format } = req.query;
+
+    const filterType = type || streamType;
+    const filterGroup = group || category;
+    const filterSearch = q || search;
+
+    // Se nenhum filtro ou paginação for solicitado, mantém comportamento legado
+    const hasFilter = !!(filterType || filterGroup || filterSearch || status || page !== undefined || limit !== undefined || offset !== undefined || format === 'structured');
+
+    if (!hasFilter) {
+        const channels = db.getChannels(id);
+        return res.json(channels);
+    }
+
+    const result = db.getChannelsFiltered(id, {
+        type: filterType,
+        group: filterGroup,
+        search: filterSearch,
+        status,
+        page: page !== undefined ? parseInt(page, 10) : undefined,
+        limit: limit !== undefined ? parseInt(limit, 10) : undefined,
+        offset: offset !== undefined ? parseInt(offset, 10) : undefined
+    });
+
+    if (format === 'structured' || page !== undefined || limit !== undefined) {
+        return res.json({
+            playlistId: id,
+            channels: result.items,
+            total: result.total,
+            page: result.page,
+            limit: result.limit,
+            totalPages: result.totalPages,
+            type: result.type,
+            group: result.group
+        });
+    }
+
+    res.set('X-Total-Count', String(result.total));
+    res.set('X-Media-Type', String(result.type));
+    res.json(result.items);
+});
+
+// Busca canal ou item VOD diretamente pelo seu ID persistente
+apiRouter.get('/channels/:id', requireAuth, (req, res) => {
+    const channel = db.getChannelById(req.params.id);
+    if (!channel) return res.status(404).json({ error: 'Item não encontrado.' });
+    res.json(channel);
+});
+
+// Retorna streams alternativos para Smart Failover quando há instabilidade na transmissão
+apiRouter.get('/channels/:id/alternatives', requireAuth, (req, res) => {
+    const { id } = req.params;
+    const { playlistId, limit } = req.query;
+    const channel = db.getChannelById(id);
+    if (!channel) return res.status(404).json({ error: 'Item não encontrado.' });
+    const alternatives = db.findAlternativeStreams(id, playlistId, Number(limit) || 5);
+    res.json({
+        channelId: id,
+        channelName: channel.name,
+        total: alternatives.length,
+        alternatives
+    });
+});
+
+// Sumário quantitativo de tipos de mídia (TV, Filmes, Séries) da playlist
+apiRouter.get('/playlists/:id/types', requireAuth, (req, res) => {
+    const { id } = req.params;
+    const p = db.getPlaylistById(id);
+    if (!p) return res.status(404).json({ error: 'Playlist não encontrada.' });
+    const summary = db.getPlaylistMediaSummary(id);
+    res.json(summary);
+});
+
+// Categorias indexadas por tipo de mídia da playlist
+apiRouter.get('/playlists/:id/categories', requireAuth, (req, res) => {
+    const { id } = req.params;
+    const { type, streamType } = req.query;
+    const p = db.getPlaylistById(id);
+    if (!p) return res.status(404).json({ error: 'Playlist não encontrada.' });
+    const categories = db.getCategoriesByType(id, type || streamType);
+    res.json({
+        playlistId: id,
+        type: type || streamType || 'all',
+        categories
+    });
+});
+
+// -----------------------------------------------------------------------------
+// Enriquecimento Automático de Metadados (v8.0.0)
+// -----------------------------------------------------------------------------
+
+// Enriquecimento sob demanda de um item específico (canal, filme ou série)
+apiRouter.post('/channels/:id/enrich', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const channel = db.getChannelById(id);
+        if (!channel) return res.status(404).json({ error: 'Item não encontrado.' });
+
+        const meta = await metadataService.enrich(channel.name, channel.streamType);
+        if (!meta) {
+            return res.json({ success: false, message: 'Nenhum metadado encontrado nas APIs externas.', channel });
+        }
+
+        db.updateChannelMetadata(id, null, meta);
+        const updated = db.getChannelById(id);
+        res.json({ success: true, channel: updated });
+    } catch (err) {
+        res.status(500).json({ error: err.message || 'Erro ao enriquecer metadados.' });
+    }
+});
+
+// Disparo de enriquecimento em lote para uma playlist
+apiRouter.post('/playlists/:id/enrich-batch', requireAuth, security.requireAdmin(), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { limit, delayMs, type } = req.body;
+        const p = db.getPlaylistById(id);
+        if (!p) return res.status(404).json({ error: 'Playlist não encontrada.' });
+
+        const result = await metadataService.runBatch(id, db, {
+            limit: limit ? Number(limit) : 50,
+            delayMs: delayMs ? Number(delayMs) : 250,
+            type: type || null
+        });
+
+        res.json({ started: result.status === 'started' || result.status === 'already_running', ...result });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Telemetria do progresso de enriquecimento da playlist
+apiRouter.get('/playlists/:id/enrich-status', requireAuth, (req, res) => {
+    const { id } = req.params;
+    const p = db.getPlaylistById(id);
+    if (!p) return res.status(404).json({ error: 'Playlist não encontrada.' });
+
+    const job = metadataService.getJobStatus(id);
+    const stats = db.getEnrichmentStats(id);
+    res.json({
+        playlistId: id,
+        job,
+        stats
+    });
+});
+
+// Cancelamento de job em lote ativo
+apiRouter.post('/playlists/:id/enrich-cancel', requireAuth, security.requireAdmin(), (req, res) => {
+    const { id } = req.params;
+    const cancelled = metadataService.cancelJob(id);
+    res.json({ success: cancelled, canceled: cancelled });
+});
+
+// Busca avulsa de metadados
+apiRouter.get('/metadata/search', requireAuth, async (req, res) => {
+    try {
+        const { q, type } = req.query;
+        if (!q) return res.status(400).json({ error: 'Parâmetro q é obrigatório.' });
+        const meta = await metadataService.enrich(q, type || 'vod');
+        res.json(meta || { notFound: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Endpoint dedicado com paginação estruturada para players e consumo externo
+apiRouter.get('/playlists/:id/filter', requireAuth, (req, res) => {
+    const { id } = req.params;
+    const { type, streamType, group, category, q, search, status, page = 1, limit = 50 } = req.query;
+    const p = db.getPlaylistById(id);
+    if (!p) return res.status(404).json({ error: 'Playlist não encontrada.' });
+
+    const result = db.getChannelsFiltered(id, {
+        type: type || streamType,
+        group: group || category,
+        search: q || search,
+        status,
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10)
+    });
+
+    res.json({
+        playlistId: id,
+        channels: result.items,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+        type: result.type,
+        group: result.group
+    });
 });
 
 apiRouter.post('/playlists/:id/refresh', requireAuth, async (req, res) => {
@@ -1552,6 +1755,11 @@ apiRouter.get('/integrations/scraper-analysis', requireAuth, async (req, res) =>
         res.status(500).json({ error: e.message });
     }
 });
+
+// Montagem de Rotas
+const marathonsRouter = require('./routes/marathons');
+app.use('/api/marathons', marathonsRouter);
+app.use('/api/v1/playlists', marathonsRouter);
 
 app.use('/api', apiRouter);
 app.use('/', apiRouter);

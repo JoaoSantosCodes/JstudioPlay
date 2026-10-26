@@ -104,12 +104,13 @@ class StreamRelay {
 
         try {
             const isHttps = targetUrl.startsWith('https://');
+            const isM3u8Target = /\.m3u8(\?.*)?$/i.test(targetUrl);
             const response = await axios({
                 method: req.method,
                 url: targetUrl,
                 headers: clientHeaders,
                 responseType: 'stream',
-                timeout: 10000,
+                timeout: isM3u8Target ? 15000 : 45000,
                 maxRedirects: 5,
                 httpAgent,
                 httpsAgent,
@@ -119,8 +120,15 @@ class StreamRelay {
             const latency = Date.now() - startTime;
             res.setHeader('X-Stream-Latency', `${latency}ms`);
 
+            // Liberar stream upstream caso o cliente feche a aba / mude de canal (essencial para max_connections: 1)
+            req.on('close', () => {
+                if (!response.data.destroyed) {
+                    response.data.destroy();
+                }
+            });
+
             const contentType = response.headers['content-type'] || '';
-            const isM3u8 = contentType.includes('mpegurl') || /\.m3u8(\?.*)?$/i.test(targetUrl);
+            const isM3u8 = contentType.includes('mpegurl') || isM3u8Target;
 
             if (isM3u8 && req.method === 'GET') {
                 let bodyData = '';
@@ -175,7 +183,7 @@ class StreamRelay {
                             'User-Agent': 'VLC/3.0.20 LibVLC/3.0.20'
                         },
                         responseType: 'stream',
-                        timeout: 10000,
+                        timeout: 30000,
                         httpAgent,
                         httpsAgent,
                         validateStatus: (status) => status >= 200 && status < 400

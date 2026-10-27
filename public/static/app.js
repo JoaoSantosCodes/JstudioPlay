@@ -1070,7 +1070,7 @@ function renderNetflixTop10(rawItems, isSeries = false, sectionTitle = 'Top 10 H
             <div class="netflix-top10-card" data-action="top10-card-click" data-type="${isSeries?'series':'movies'}" data-index="${idx}" tabindex="0" title="#${rank} ${esc(itemName)}">
               <div class="netflix-top10-num">${rank}</div>
               <div class="netflix-top10-poster">
-                ${coverImg ? `<img src="${esc(coverImg)}" alt="${esc(itemName)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">` : ''}
+                ${coverImg ? `<img src="${esc(coverImg)}" alt="${esc(itemName)}" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">` : ''}
                 <div class="netflix-top10-fallback" style="${coverImg?'display:none;':''}">
                   ${icon(isSeries?'tv':'film')}
                 </div>
@@ -1784,7 +1784,7 @@ function catalogPage(type = 'movies'){
           f.name === m.name || f.url === m.url
         );
         return `
-        <div class="iptv-ref-poster-card" data-action="catalog-card-click" data-type="${isSeries?'series':'movies'}" data-index="${idx}" tabindex="0" title="${esc(m.name)}">
+        <div class="iptv-ref-poster-card" style="--item-idx:${idx % 24};" data-action="catalog-card-click" data-type="${isSeries?'series':'movies'}" data-index="${idx}" tabindex="0" title="${esc(m.name)}">
           <div class="iptv-ref-poster-thumb">
             ${coverImg ? `<img src="${esc(coverImg)}" alt="${esc(m.name)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">` : ''}
             <div class="iptv-ref-poster-fallback" style="${coverImg?'display:none;':''}">

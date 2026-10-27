@@ -9438,3 +9438,189 @@ dialog#modal::backdrop {
   }
 }
 
+/* ========================================================================== */
+/* 28.8 ULTRA-REFINAMENTO, ANIMAÇÕES 60FPS, OTIMIZAÇÕES & RESPONSIVIDADE (v8.3.15) */
+/* ========================================================================== */
+
+/* --- 1. Shimmer Skeleton Placeholder para Imagens --- */
+.iptv-ref-poster-thumb,
+.netflix-top10-poster,
+.iptv-ref-continue-thumb {
+  background: linear-gradient(110deg, #161822 8%, #252836 18%, #161822 33%) !important;
+  background-size: 200% 100% !important;
+  animation: skeletonShimmer 1.8s linear infinite !important;
+}
+
+@keyframes skeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* --- 2. Otimização de Performance: content-visibility --- */
+.iptv-ref-grid > .iptv-ref-poster-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 180px 270px;
+}
+
+/* --- 3. Animação Stagger Fade-In de Entrada --- */
+@keyframes cardStaggerFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.iptv-ref-grid > .iptv-ref-poster-card {
+  animation: cardStaggerFadeIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--item-idx, 0) * 0.025s);
+  will-change: transform, opacity;
+}
+
+/* --- 4. Micro-feedback Tátil de Toque (Haptic Feel) --- */
+@media (hover: none) and (pointer: coarse) {
+  .iptv-ref-poster-card:active,
+  .netflix-top10-card:active,
+  .iptv-quick-btn:active,
+  .btn:active,
+  .iptv-btn-play-red:active,
+  .iptv-cat-card-master:active {
+    transform: scale(0.96) !important;
+    transition: transform 0.08s ease !important;
+  }
+}
+
+/* --- 5. Reflexo Luminoso Cinemático (Glass Sheen) no Desktop --- */
+@media (hover: hover) and (pointer: fine) {
+  .iptv-ref-poster-thumb::after,
+  .netflix-top10-poster::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -120%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+    transform: skewX(-22deg);
+    transition: none;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  .iptv-ref-poster-card:hover .iptv-ref-poster-thumb::after,
+  .netflix-top10-card:hover .netflix-top10-poster::after {
+    left: 180%;
+    transition: left 0.75s ease-in-out;
+  }
+}
+
+/* --- 6. Redimensionamento Inteligente & Proporcional da Grade --- */
+@media (max-width: 480px) {
+  .iptv-ref-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.85rem 0.6rem !important;
+  }
+  .iptv-ref-poster-title {
+    font-size: 0.82rem !important;
+  }
+  .iptv-ref-poster-sub {
+    font-size: 0.68rem !important;
+  }
+  .iptv-poster-badge {
+    font-size: 0.65rem !important;
+    padding: 2px 5px !important;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .iptv-ref-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 1rem 0.75rem !important;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1200px) {
+  .iptv-ref-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 1.25rem 0.85rem !important;
+  }
+}
+
+@media (min-width: 1201px) and (max-width: 1600px) {
+  .iptv-ref-grid {
+    grid-template-columns: repeat(5, 1fr) !important;
+    gap: 1.5rem 1rem !important;
+  }
+}
+
+@media (min-width: 1601px) {
+  .iptv-ref-grid {
+    grid-template-columns: repeat(6, 1fr) !important;
+    gap: 1.75rem 1.15rem !important;
+  }
+}
+
+/* --- 7. Redimensionamento Responsivo do Top 10 Netflix --- */
+@media (max-width: 600px) {
+  .netflix-top10-card {
+    width: 168px !important;
+    height: 160px !important;
+  }
+  .netflix-top10-num {
+    font-size: 5.4rem !important;
+    margin-right: -16px !important;
+    -webkit-text-stroke: 3px #595e6d !important;
+  }
+  .netflix-top10-poster {
+    width: 102px !important;
+    height: 153px !important;
+  }
+}
+
+/* --- 8. Redimensionamento Responsivo do Hero Banner --- */
+@media (max-width: 680px) {
+  .iptv-master-hero {
+    min-height: 330px !important;
+    height: auto !important;
+    padding: 1.5rem 1rem !important;
+    border-radius: 12px !important;
+  }
+  .iptv-master-hero-title {
+    font-size: 1.6rem !important;
+    line-height: 1.15 !important;
+  }
+  .iptv-master-hero-desc {
+    font-size: 0.85rem !important;
+    -webkit-line-clamp: 2 !important;
+    line-clamp: 2 !important;
+    margin-bottom: 1rem !important;
+  }
+  .iptv-master-hero-actions {
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+  .iptv-btn-play-red,
+  .iptv-btn-info-glass {
+    flex: 1 1 calc(50% - 0.5rem) !important;
+    min-width: 125px !important;
+    height: 42px !important;
+    font-size: 0.88rem !important;
+    justify-content: center !important;
+  }
+}
+
+/* --- 9. Scroll Snap Suave nas Prateleiras --- */
+.iptv-ref-shelf-track,
+.netflix-top10-track {
+  scroll-snap-type: x proximity;
+  scroll-padding-left: var(--iptv-safe-x, 1rem);
+}
+
+.iptv-ref-shelf-track > *,
+.netflix-top10-track > * {
+  scroll-snap-align: start;
+}
+

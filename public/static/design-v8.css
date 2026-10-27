@@ -10040,3 +10040,160 @@ dialog#modal::backdrop {
   }
 }
 
+
+/* ========================================================================== */
+/* 30. PADRONIZAÇÃO UNIFORME DE TAMANHO DE CARDS & IMAGENS NETFLIX (v8.3.17)  */
+/* ========================================================================== */
+
+/* --- 1. Proporção Canônica Universal 2:3 para TODOS os Thumbs de Catálogo e Continuar Assistindo --- */
+.iptv-ref-poster-thumb,
+.netflix-continue-thumb,
+.iptv-vod-similar-thumb,
+.channel-card-poster {
+  aspect-ratio: 2 / 3 !important;
+  width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: auto !important;
+  border-radius: 6px !important;
+  overflow: hidden !important;
+  position: relative !important;
+  background: #14161f !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-sizing: border-box !important;
+}
+
+/* --- 2. Cobertura Total sem Deformação e sem Espaço Preto em NENHUM Card --- */
+.iptv-ref-poster-thumb img,
+.netflix-continue-thumb img,
+.iptv-vod-similar-thumb img,
+.channel-card-poster img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: cover !important;
+  object-position: center top !important;
+  display: block !important;
+  border-radius: inherit !important;
+}
+
+/* --- 3. Alinhamento Uniforme dos Cards no Grid (Elimina Qualquer Degrau ou Variação de Altura) --- */
+.iptv-ref-poster-card {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  align-self: stretch !important;
+  cursor: pointer !important;
+  position: relative !important;
+  box-sizing: border-box !important;
+}
+
+.iptv-ref-poster-info {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  margin-top: 6px !important;
+  min-height: 38px !important;
+  max-height: 38px !important;
+  overflow: hidden !important;
+}
+
+.iptv-ref-poster-title {
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  line-height: 1.25 !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 1 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  margin: 0 !important;
+}
+
+.iptv-ref-poster-sub {
+  font-size: 0.68rem !important;
+  font-weight: 600 !important;
+  color: rgba(255, 255, 255, 0.45) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  margin: 0 !important;
+}
+
+/* --- 4. Larguras Homogêneas da Prateleira Continuar Assistindo em 2:3 --- */
+.netflix-continue-card {
+  width: 145px !important;
+  min-width: 145px !important;
+  max-width: 145px !important;
+  flex: 0 0 145px !important;
+  border-radius: 6px !important;
+  overflow: hidden !important;
+  background: #121318 !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6) !important;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease !important;
+}
+
+@media (min-width: 1024px) {
+  .netflix-continue-card {
+    width: 175px !important;
+    min-width: 175px !important;
+    max-width: 175px !important;
+    flex: 0 0 175px !important;
+  }
+}
+
+/* --- 5. Responsividade Proporcional da Grade de Filmes e Séries --- */
+@media (max-width: 480px) {
+  .iptv-ref-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 0.75rem 0.5rem !important;
+  }
+  .iptv-ref-poster-thumb,
+  .netflix-continue-thumb {
+    border-radius: 4px !important;
+  }
+  .iptv-ref-poster-title {
+    font-size: 0.76rem !important;
+  }
+  .iptv-ref-poster-sub {
+    font-size: 0.62rem !important;
+  }
+  .netflix-continue-card {
+    width: 120px !important;
+    min-width: 120px !important;
+    max-width: 120px !important;
+    flex: 0 0 120px !important;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .iptv-ref-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 0.85rem 0.65rem !important;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1100px) {
+  .iptv-ref-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 1.15rem 0.85rem !important;
+  }
+}
+
+@media (min-width: 1101px) and (max-width: 1440px) {
+  .iptv-ref-grid {
+    grid-template-columns: repeat(5, 1fr) !important;
+    gap: 1.35rem 1rem !important;
+  }
+}
+
+@media (min-width: 1441px) {
+  .iptv-ref-grid {
+    grid-template-columns: repeat(6, 1fr) !important;
+    gap: 1.5rem 1.15rem !important;
+  }
+}

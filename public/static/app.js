@@ -1393,10 +1393,6 @@ function dashboard(){
               </button>
             </div>
           </div>
-            </div>
-            <div class="iptv-ref-continue-title">${esc(c.title)}</div>
-            <div class="iptv-ref-continue-meta">${esc(c.subtitle)}</div>
-          </div>
         `).join('') : `
           <div style="width:100%; background:rgba(255,255,255,0.03); border:1px dashed rgba(255,255,255,0.08); border-radius:12px; padding:1.75rem; text-align:center; color:rgba(255,255,255,0.5);">
             <p style="margin:0 0 0.35rem; font-size:0.95rem; font-weight:600; color:#fff;">Nenhum conteúdo em andamento</p>
@@ -1746,19 +1742,31 @@ function catalogPage(type = 'movies'){
     
     <!-- 1. Prateleira Superior: Continuar Assistindo (se houver histórico do tipo) -->
     ${continueItems.length ? `
-      <div class="iptv-ref-shelf-wrap">
-        <h3 style="font-size:1.1rem; font-weight:700; color:#fff; margin:0 0 0.75rem;">Continuar Assistindo</h3>
+      <div class="iptv-ref-shelf-wrap" style="margin-bottom:2rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.85rem;">
+          <h3 style="font-size:1.15rem; font-weight:800; color:#fff; margin:0;">Continuar Assistindo</h3>
+        </div>
         <div class="iptv-ref-shelf-track">
-          ${continueItems.map(c => `
-            <div class="iptv-ref-continue-card" data-action="resume-vod" data-title="${esc(c.title)}" tabindex="0">
-              <div class="iptv-ref-continue-thumb">
-                <img src="${c.img || ''}" alt="${esc(c.title)}" loading="lazy">
-                <div class="iptv-ref-continue-progress">
-                  <div class="iptv-ref-continue-bar" style="width:${c.progress}%;"></div>
+          ${continueItems.map((c, cIdx) => `
+            <div class="netflix-continue-card" data-action="resume-vod" data-title="${esc(c.title)}" tabindex="0">
+              <div class="netflix-continue-thumb">
+                <img src="${c.img}" alt="${esc(c.title)}" loading="lazy" decoding="async" onerror="window.handlePosterError(this, '${esc(c.title)}')">
+                <div class="netflix-continue-play-circle" title="Continuar">
+                  <svg viewBox="0 0 24 24"><path d="m8 5 11 7-11 7V5z"/></svg>
+                </div>
+                <div class="netflix-continue-progress-bg">
+                  <div class="netflix-continue-progress-fill" style="width:${c.progress}%;"></div>
                 </div>
               </div>
-              <div class="iptv-ref-continue-title">${esc(c.title)}</div>
-              <div class="iptv-ref-continue-meta">${esc(c.subtitle)}</div>
+              <div class="netflix-continue-footer">
+                <button class="netflix-continue-footer-btn" data-action="catalog-card-click" data-type="${isSeries?'series':'movies'}" data-index="${cIdx}" title="Detalhes" aria-label="Detalhes">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                </button>
+                <div class="netflix-continue-divider"></div>
+                <button class="netflix-continue-footer-btn" data-action="resume-vod" data-title="${esc(c.title)}" title="Opções" aria-label="Opções">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                </button>
+              </div>
             </div>
           `).join('')}
         </div>
@@ -1818,7 +1826,7 @@ function catalogPage(type = 'movies'){
         return `
         <div class="iptv-ref-poster-card" style="--item-idx:${idx % 24};" data-action="catalog-card-click" data-type="${isSeries?'series':'movies'}" data-index="${idx}" tabindex="0" title="${esc(m.name)}">
           <div class="iptv-ref-poster-thumb">
-            ${coverImg ? `<img src="${esc(coverImg)}" alt="${esc(m.name)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">` : ''}
+            ${coverImg ? `<img src="${esc(coverImg)}" alt="${esc(m.name)}" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">` : ''}
             <div class="iptv-ref-poster-fallback" style="${coverImg?'display:none;':''}">
               ${icon(isSeries?'tv':'film')}
             </div>

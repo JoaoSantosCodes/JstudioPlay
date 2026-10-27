@@ -33,6 +33,28 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    /**
+     * Intercepta o botão voltar físico/gestual do Android.
+     * Se o usuário estiver assistindo a um vídeo ou com modal aberto,
+     * fecha o vídeo/modal e volta para o catálogo sem fechar o app!
+     */
+    @Override
+    public void onBackPressed() {
+        if (bridge != null && bridge.getWebView() != null) {
+            bridge.getWebView().evaluateJavascript(
+                "(function() { return (typeof window.handleAndroidBackButton === 'function') ? window.handleAndroidBackButton() : false; })();",
+                value -> {
+                    // Se o JS retornou "false" (nenhum vídeo/modal aberto), aí sim volta normalmente
+                    if ("false".equals(value) || value == null) {
+                        runOnUiThread(() -> MainActivity.super.onBackPressed());
+                    }
+                }
+            );
+        } else {
+            super.onBackPressed();
+        }
+    }
+
     private void applyImmersiveStickyMode() {
         WindowInsetsControllerCompat controller = 
             WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());

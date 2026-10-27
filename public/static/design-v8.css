@@ -10625,3 +10625,67 @@ video:-webkit-full-screen.fit-cover,
     height: 100vh !important;
   }
 }
+
+/* ========================================================================== */
+/* 34. BOTÃO VOLTAR FLUTUANTE UNIVERSAL & ERGONOMIA MOBILE DO PLAYER (v8.3.21) */
+/* ========================================================================== */
+
+/* Botão Voltar Flutuante no Topo Esquerdo do Vídeo (Estilo Netflix / YouTube) */
+.iptv-floating-back-btn {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  left: max(16px, env(safe-area-inset-left));
+  z-index: 10005;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  background: rgba(15, 17, 23, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 30px;
+  color: #ffffff;
+  font-family: var(--iptv-font, sans-serif);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  transition: opacity 0.25s ease, transform 0.2s ease, background 0.2s ease;
+  pointer-events: auto;
+}
+
+.iptv-floating-back-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.iptv-floating-back-btn:hover,
+.iptv-floating-back-btn:focus-visible {
+  background: #e50914;
+  border-color: #e50914;
+  transform: scale(1.05);
+  box-shadow: 0 0 16px rgba(229, 9, 20, 0.6);
+}
+
+.iptv-floating-back-btn:active {
+  transform: scale(0.95);
+}
+
+/* Quando o player estiver ocioso (idle-hidden), o botão voltar e o header esmaecem suavemente */
+.iptv-vod-theater.idle-hidden .iptv-floating-back-btn {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-8px);
+}
+
+/* No mobile em paisagem, botão voltar grande e confortável para o toque */
+@media (max-width: 900px) and (orientation: landscape) {
+  .iptv-floating-back-btn {
+    top: max(12px, env(safe-area-inset-top));
+    left: max(16px, env(safe-area-inset-left));
+    padding: 0.65rem 1.15rem;
+    font-size: 0.95rem;
+  }
+}

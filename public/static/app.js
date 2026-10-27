@@ -853,12 +853,21 @@ function setVodPlaybackRate(rate){
 function closeVodTheater(){
   clearTimeout(vodIdleTimer);
   vodIdleTimer = null;
+  
+  // Sair de tela cheia se estiver ativa
+  if(document.fullscreenElement){
+    if(document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+  }
+
   window._currentVodItem = null;
   window._currentPlaying = null;
   window.eventBus.emit('playback:stopped');
+  
   const ytIframe = document.getElementById('vod-yt-iframe');
   if(ytIframe) ytIframe.src = '';
+  
   stopPlayback();
+  
   const theater = document.getElementById('vod-theater');
   if(theater) theater.remove();
 }
@@ -882,6 +891,10 @@ function openVodTheater(target){
   theater.id = 'vod-theater';
   theater.className = 'iptv-vod-theater';
   theater.innerHTML = `
+    <!-- Botão Voltar Flutuante Universal (Sempre Acessível por Toque) -->
+    <button class="iptv-floating-back-btn" data-action="close-vod-theater" title="Voltar ao Catálogo (ESC)" aria-label="Voltar" tabindex="0">
+      ${icon('left')} <span>Voltar</span>
+    </button>
     <div class="iptv-vod-theater-header">
       <button class="iptv-vod-back-btn" data-action="close-vod-theater" title="Voltar ao Catálogo (ESC)" tabindex="0">
         ${icon('left')} <span>Voltar</span>
@@ -969,6 +982,8 @@ function openVodTheater(target){
 
   theater.addEventListener('mousemove', resetVodIdleTimer);
   theater.addEventListener('click', resetVodIdleTimer);
+  theater.addEventListener('touchstart', resetVodIdleTimer, { passive: true });
+  theater.addEventListener('pointerdown', resetVodIdleTimer, { passive: true });
   
   // Duplo toque / duplo clique para alternar "Preencher Tela Cheia (Sem Bordas)" vs "Ajustar Original"
   let lastVideoClick = 0;
@@ -5355,3 +5370,40 @@ function startAutoEnrichmentBackground() {
   }, FIVE_MINUTES_MS);
 }
 startAutoEnrichmentBackground();
+
+// ==========================================================================
+// CONTROLE INTELIGENTE DE VOLTAR DO ANDROID & TECLADO (v8.3.21)
+// ==========================================================================
+window.handleAndroidBackButton = function() {
+  // 1. Se estiver com player VOD aberto (#vod-theater), fecha o player e volta ao catálogo
+  if (document.getElementById('vod-theater')) {
+    closeVodTheater();
+    return true; // consumiu o evento, impede fechar o app!
+  }
+  // 2. Se estiver em tela cheia HTML5
+  if (document.fullscreenElement) {
+    if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+    return true;
+  }
+  // 3. Se houver modal aberto
+  const modal = document.getElementById('modal');
+  if (modal && modal.open) {
+    modal.close();
+    return true;
+  }
+  // 4. Se estiver em página secundária, volta para o início
+  if (location.hash && location.hash !== '#/' && location.hash !== '#/dashboard') {
+    location.hash = '#/dashboard';
+    return true;
+  }
+  return false; // Permite fechar o app se o usuário já estiver na tela inicial
+};
+
+// Integração com Capacitor App Plugin se disponível
+if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+  try {
+    window.Capacitor.Plugins.App.addListener('backButton', () => {
+      window.handleAndroidBackButton();
+    });
+  } catch(e) {}
+}

@@ -550,26 +550,41 @@ function iptvTopBar(active='dashboard'){
 function iptvBottomNav(active='dashboard'){
   const isMovies = ['catalog','movies'].includes(active);
   const isLive = ['live','channels'].includes(active);
-  return `<nav class="iptv-bottom-bar" aria-label="Navegação Rápida">
+  const isSeries = active === 'series';
+  const isSettings = ['settings','profile','users'].includes(active);
+  const avatarUrl = state.user?.avatar;
+  const initial = (state.user?.name || state.user?.username || 'J')[0].toUpperCase();
+
+  return `<nav class="iptv-bottom-bar" aria-label="Navegação Flutuante Netflix">
     <a class="iptv-bottom-item ${active==='dashboard'?'active':''}" href="#/dashboard" tabindex="0">
-      ${icon('home')}
+      <div class="iptv-bottom-icon-wrap">
+        ${icon('home')}
+      </div>
       <span>Início</span>
     </a>
     <a class="iptv-bottom-item ${isLive?'active':''}" href="#/live" tabindex="0">
-      ${icon('tv')}
+      <div class="iptv-bottom-icon-wrap">
+        ${icon('tv')}
+      </div>
       <span>Ao Vivo</span>
     </a>
     <a class="iptv-bottom-item ${isMovies?'active':''}" href="#/movies" tabindex="0">
-      ${icon('film')}
+      <div class="iptv-bottom-icon-wrap">
+        ${icon('film')}
+      </div>
       <span>Filmes</span>
     </a>
-    <a class="iptv-bottom-item ${active==='series'?'active':''}" href="#/series" tabindex="0">
-      ${icon('grid')}
+    <a class="iptv-bottom-item ${isSeries?'active':''}" href="#/series" tabindex="0">
+      <div class="iptv-bottom-icon-wrap">
+        ${icon('grid')}
+      </div>
       <span>Séries</span>
     </a>
-    <a class="iptv-bottom-item ${active==='settings'?'active':''}" href="#/settings" tabindex="0">
-      ${icon('settings')}
-      <span>Ajustes</span>
+    <a class="iptv-bottom-item ${isSettings?'active':''}" href="#/settings" tabindex="0">
+      <div class="iptv-bottom-icon-wrap">
+        ${avatarUrl ? `<img src="${esc(avatarUrl)}" class="netflix-nav-avatar" alt="Perfil">` : `<div class="netflix-nav-avatar" style="background:#e50914; color:#fff; display:flex; align-items:center; justify-content:center; font-size:0.65rem; font-weight:800;">${initial}</div>`}
+      </div>
+      <span>Minha Conta</span>
     </a>
   </nav>`;
 }
@@ -1332,11 +1347,14 @@ function dashboard(){
           ${esc(heroOverview)}
         </p>
         <div class="iptv-master-hero-actions">
-          <button class="iptv-btn-play-red" data-action="play-featured-hero" tabindex="0">
-            ${icon('play')} Assistir Agora
+          <button class="netflix-btn-play-white" data-action="play-featured-hero" tabindex="0">
+            <svg viewBox="0 0 24 24"><path d="m8 5 11 7-11 7V5z"/></svg> <span>Assistir</span>
           </button>
-          <a class="iptv-btn-info-glass" href="#/multiview" tabindex="0">
-            ${icon('monitor')} Mosaico 2x2
+          <button class="netflix-btn-mylist" data-action="quick-fav-catalog" data-name="${esc(heroTitle)}" tabindex="0">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg> <span>Minha lista</span>
+          </button>
+          <a class="iptv-btn-info-glass" href="#/multiview" tabindex="0" title="Mosaico Multi-Telas">
+            ${icon('monitor')}
           </a>
         </div>
         <!-- Indicadores Dots de Carrossel -->
@@ -1355,12 +1373,26 @@ function dashboard(){
       </div>
       <div class="iptv-ref-shelf-track">
         ${continueItems.length ? continueItems.map(c => `
-          <div class="iptv-ref-continue-card" data-action="resume-vod" data-title="${esc(c.title)}" tabindex="0" style="cursor:pointer;">
-            <div class="iptv-ref-continue-thumb">
-              <img src="${c.img}" alt="${esc(c.title)}" loading="lazy" onerror="window.handlePosterError(this, '${esc(c.title)}')">
-              <div class="iptv-ref-continue-progress">
-                <div class="iptv-ref-continue-bar" style="width:${c.progress}%;"></div>
+          <div class="netflix-continue-card" data-action="resume-vod" data-title="${esc(c.title)}" tabindex="0">
+            <div class="netflix-continue-thumb">
+              <img src="${c.img}" alt="${esc(c.title)}" loading="lazy" decoding="async" onerror="window.handlePosterError(this, '${esc(c.title)}')">
+              <div class="netflix-continue-play-circle" title="Continuar">
+                <svg viewBox="0 0 24 24"><path d="m8 5 11 7-11 7V5z"/></svg>
               </div>
+              <div class="netflix-continue-progress-bg">
+                <div class="netflix-continue-progress-fill" style="width:${c.progress}%;"></div>
+              </div>
+            </div>
+            <div class="netflix-continue-footer">
+              <button class="netflix-continue-footer-btn" data-action="catalog-card-click" data-type="movies" data-index="0" title="Detalhes" aria-label="Detalhes">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              </button>
+              <div class="netflix-continue-divider"></div>
+              <button class="netflix-continue-footer-btn" data-action="resume-vod" data-title="${esc(c.title)}" title="Reproduzir" aria-label="Reproduzir">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+              </button>
+            </div>
+          </div>
             </div>
             <div class="iptv-ref-continue-title">${esc(c.title)}</div>
             <div class="iptv-ref-continue-meta">${esc(c.subtitle)}</div>
@@ -1790,6 +1822,8 @@ function catalogPage(type = 'movies'){
             <div class="iptv-ref-poster-fallback" style="${coverImg?'display:none;':''}">
               ${icon(isSeries?'tv':'film')}
             </div>
+            ${idx < 10 ? `<div class="netflix-badge-top10"><span>TOP</span><strong>10</strong></div>` : ''}
+            ${idx % 3 === 0 ? `<span class="netflix-badge-bottom">${isSeries ? "Nova temporada" : "Novidade"}</span>` : ''}
             ${m.rating ? `<span class="iptv-poster-badge iptv-rating-badge">⭐ ${m.rating}</span>` : ''}
             ${m.year ? `<span class="iptv-poster-badge iptv-year-badge">${m.year}</span>` : ''}
             <div class="iptv-card-hover-actions">

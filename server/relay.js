@@ -44,7 +44,10 @@ class StreamRelay {
             const isKnownMedia = /\.(mp4|m4v|mov|webm|ogv|ogg|mp3|m4a|aac|wav|flac|ts)$/i.test(parsed.pathname);
             const isHls = /\.m3u8(\?.*)?$/i.test(targetUrl) || !isKnownMedia;
 
-            const proxyUrl = `/proxy/stream?url=${encodeURIComponent(targetUrl)}`;
+            const host = req.get('x-forwarded-host') || req.get('host') || '';
+            const proto = req.get('x-forwarded-proto') || req.protocol || 'http';
+            const originBase = host ? `${proto}://${host}` : '';
+            const proxyUrl = `${originBase}/proxy/stream?url=${encodeURIComponent(targetUrl)}`;
 
             return res.json({
                 mode: isHls ? 'hls' : 'media',
@@ -138,9 +141,11 @@ class StreamRelay {
 
                 response.data.on('end', () => {
                     const finalType = 'application/vnd.apple.mpegurl';
-                    res.setHeader('Content-Type', finalType);
-                    res.setHeader('X-Proxy-Cache', 'MISS');
-                    const rewritten = this.rewriteM3U8(bodyData, targetUrl);
+                    const host = req.get('x-forwarded-host') || req.get('host') || '';
+                    const proto = req.get('x-forwarded-proto') || req.protocol || 'http';
+                    const originBase = host ? `${proto}://${host}` : '';
+                    const proxyBase = originBase ? `${originBase}/proxy/stream` : '/proxy/stream';
+                    const rewritten = this.rewriteM3U8(bodyData, targetUrl, proxyBase);
 
                     // Cache manifest for 2.5s (live) or 45s (VOD)
                     const isVod = bodyData.includes('#EXT-X-ENDLIST');
@@ -207,7 +212,7 @@ class StreamRelay {
     /**
      * Rewrite .m3u8 manifest URLs so all segments and audio tracks flow through our proxy
      */
-    rewriteM3U8(manifest, baseUrl) {
+    rewriteM3U8(manifest, baseUrl, proxyBase = '/proxy/stream') {
         const lines = manifest.split(/\r?\n/);
         const rewritten = [];
 
@@ -225,7 +230,7 @@ class StreamRelay {
                         const rawUri = p1 || p2;
                         try {
                             const abs = new URL(rawUri, baseUrl).href;
-                            return `URI="/proxy/stream?url=${encodeURIComponent(abs)}"`;
+                            return `URI="${proxyBase}?url=${encodeURIComponent(abs)}"`;
                         } catch (e) {
                             return m;
                         }
@@ -235,7 +240,7 @@ class StreamRelay {
             } else {
                 try {
                     const absoluteUrl = new URL(trimmed, baseUrl).href;
-                    rewritten.push(`/proxy/stream?url=${encodeURIComponent(absoluteUrl)}`);
+                    rewritten.push(`${proxyBase}?url=${encodeURIComponent(absoluteUrl)}`);
                 } catch (e) {
                     rewritten.push(line);
                 }

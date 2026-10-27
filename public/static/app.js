@@ -3284,7 +3284,12 @@ function playChannel(ch){
   updateNowFavorite();updateEpisodeControls(ch);updateStreamingHero(ch);renderChannels();
   if($('#video-empty')) $('#video-empty').hidden = true;
   let url;try{url=new URL(ch.url);if(!['http:','https:'].includes(url.protocol))throw new Error();}catch{playerMessage('Endereço inválido','Este conteúdo não possui uma URL de reprodução válida.');return;}
-  if(location.protocol==='https:'&&url.protocol==='http:'&&!state.relayMode){playerMessage('Esta fonte usa HTTP','Solicite ao provedor uma transmissão HTTPS para assistir diretamente nesta página.',true);return;}
+  if(location.protocol==='https:'&&url.protocol==='http:'&&!state.relayMode){
+    state.relayMode = true;
+    try { localStorage.setItem('m3u-relay', 'true'); } catch {}
+    if(typeof updateRelayControl === 'function') updateRelayControl();
+    console.log('[Player] Contexto HTTPS detectado para stream HTTP. Ativando Relay automaticamente.');
+  }
   // Never put the source URL in text, attributes or error messages; the media
   // element receives it only because direct playback requires the browser.
   playbackTimer=setTimeout(()=>{if(generation!==playbackGeneration) return;playerMessage('Transmissão indisponível','A fonte demorou para responder ou o teste expirou no provedor. Tente reconectar ou escolher outro canal.',true);},25000);
@@ -3323,28 +3328,49 @@ function playChannel(ch){
     const channelIndex=state.channels.indexOf(ch);
     api('/playback','POST',{playlistId:playbackPlaylist,channelIndex,channelUrl:ch.url}).then(result=>{
       if(generation!==playbackGeneration)return;
-      if(result.mode==='media'){v.src=result.url;start();return;}
+      const resolveStreamUrl = (u) => {
+        if (!u) return '';
+        if (u.startsWith('http://') || u.startsWith('https://')) return u;
+        const base = typeof getBackendBase === 'function' ? getBackendBase() : '';
+        return u.startsWith('/') ? (base + u) : (base + '/' + u);
+      };
+      const streamTarget = resolveStreamUrl(result.url);
+      if(result.mode==='media'){v.src=streamTarget;start();return;}
       if(result.mode==='hls'&&window.Hls?.isSupported()){
-        const instance=new Hls({
-          enableWorker:true,
-          backBufferLength:90,
-          enableSoftwareAES:true,
-          manifestLoadingTimeOut: 20000,
-          levelLoadingTimeOut: 20000,
-          fragLoadingTimeOut: 45000
+        const isMobileApp = window.Capacitor !== undefined || /Android|iPhone|iPad/i.test(navigator.userAgent);
+        const instance = new Hls({
+          enableWorker: !isMobileApp,
+          backBufferLength: 60,
+          enableSoftwareAES: true,
+          manifestLoadingTimeOut: 25000,
+          levelLoadingTimeOut: 25000,
+          fragLoadingTimeOut: 45000,
+          xhrSetup: function(xhr, segmentUrl) {
+            if (segmentUrl && segmentUrl.startsWith('/')) {
+              xhr.open('GET', resolveStreamUrl(segmentUrl), true);
+            }
+          }
         });
-        hls=instance;
-        window.currentHlsInstance=instance;
-        instance.loadSource(result.url);
+        hls = instance;
+        window.currentHlsInstance = instance;
+        instance.loadSource(streamTarget);
         instance.attachMedia(v);
-        instance.on(Hls.Events.MANIFEST_PARSED,start);
-        instance.on(Hls.Events.ERROR,(_,data)=>{
-          if(generation===playbackGeneration&&data.fatal)
-            playerMessage('Não foi possível reproduzir','O relay interrompeu a transmissão ou o formato HLS não é compatível.');
+        instance.on(Hls.Events.MANIFEST_PARSED, start);
+        instance.on(Hls.Events.ERROR, (_, data) => {
+          if(generation === playbackGeneration && data.fatal) {
+            console.warn('[Player] HLS fatal error, tentando playback nativo:', data);
+            instance.destroy();
+            if(v.canPlayType('application/vnd.apple.mpegurl') || v.canPlayType('video/mp4')){
+              v.src = streamTarget;
+              start();
+            } else {
+              playerMessage('Não foi possível reproduzir','O relay interrompeu a transmissão ou o formato HLS não é compatível.');
+            }
+          }
         });
         return;
       }
-      if(result.mode==='hls'&&v.canPlayType('application/vnd.apple.mpegurl')){v.src=result.url;start();return;}
+      if(result.mode==='hls'&&(v.canPlayType('application/vnd.apple.mpegurl')||v.canPlayType('video/mp4'))){v.src=streamTarget;start();return;}
        playerMessage('Formato incompatível','O modo de compatibilidade não identificou um formato HLS ou MP4 compatível.');
      }).catch(error=>{if(generation!==playbackGeneration)return;const messages={upstream_http_status:`A origem respondeu HTTP ${error.upstreamStatus||'não informado'} ao modo de compatibilidade.`,upstream_timeout:'A origem demorou demais para responder.',upstream_request_failed:'Não foi possível obter uma resposta da origem.',destination_rejected:'O endereço da origem foi recusado pelas proteções de segurança.',redirect_rejected:'A origem redirecionou para um destino não aceito.',relay_request_limit:'O limite de requisições do modo de compatibilidade foi atingido.',upstream_read_failed:'Não foi possível ler os primeiros dados enviados pela origem.',unsupported_content_type:'A origem informou um tipo de mídia não compatível.',unrecognized_media_data:'A resposta não tem um formato HLS ou MP4 reconhecido.'};const detail=messages[error.diagnostic]||'Não foi possível iniciar pelo modo de compatibilidade.';playerMessage('Modo de compatibilidade indisponível',detail);});
     return;

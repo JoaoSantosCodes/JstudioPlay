@@ -1068,11 +1068,25 @@ function renderNetflixTop10(rawItems, isSeries = false, sectionTitle = 'Top 10 H
   const top10 = pool.slice(0, 10);
   return `
     <section class="netflix-top10-section">
-      <div class="netflix-top10-header">
-        <span class="netflix-top10-badge">TOP 10</span>
-        <h2 class="netflix-top10-title">${esc(sectionTitle)}</h2>
+      <div class="netflix-top10-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:0.6rem;">
+          <span class="netflix-top10-badge">TOP 10</span>
+          <h2 class="netflix-top10-title">${esc(sectionTitle)}</h2>
+        </div>
+        <div class="netflix-slider-controls">
+          <button class="netflix-slider-arrow prev" data-action="scroll-carousel-left" data-target="netflix-top10-track" title="Anterior (1 a 5)" aria-label="Anterior">
+            ${icon('left')}
+          </button>
+          <button class="netflix-slider-arrow next" data-action="scroll-carousel-right" data-target="netflix-top10-track" title="Ver Próximos (6 a 10)" aria-label="Próximo">
+            ${icon('right')}
+          </button>
+        </div>
       </div>
-      <div class="netflix-top10-track">
+      <div class="netflix-carousel-container">
+        <button class="netflix-side-arrow prev" data-action="scroll-carousel-left" data-target="netflix-top10-track" aria-label="Rolar para esquerda">
+          ${icon('left')}
+        </button>
+        <div class="netflix-top10-track" id="netflix-top10-track">
         ${top10.map((item, idx) => {
           const rank = idx + 1;
           const coverImg = item.posterUrl || item.logo || item.img;
@@ -1105,6 +1119,10 @@ function renderNetflixTop10(rawItems, isSeries = false, sectionTitle = 'Top 10 H
             </div>
           `;
         }).join('')}
+        </div>
+        <button class="netflix-side-arrow next" data-action="scroll-carousel-right" data-target="netflix-top10-track" aria-label="Rolar para direita">
+          ${icon('right')}
+        </button>
       </div>
     </section>
   `;
@@ -1790,16 +1808,20 @@ function catalogPage(type = 'movies'){
       </div>
     </div>
 
-    <!-- 3. Chips Horizontais de Filtro (Categorias) -->
-    <div class="iptv-ref-chips-scroll">
-      <button class="iptv-ref-chip ${!selectedCat?'active':''}" data-action="${isSeries?'filter-series-cat':'filter-vod-cat'}" data-name="" tabindex="0">
-        Todos
-      </button>
+    <!-- 3. Chips Horizontais de Filtro com Botões de Navegação -->
+    <div class="iptv-ref-chips-wrapper">
+      <button class="iptv-chips-arrow prev" data-action="scroll-chips-left" title="Rolar Categorias para Esquerda">${icon('left')}</button>
+      <div class="iptv-ref-chips-scroll" id="iptv-ref-chips-scroll">
+        <button class="iptv-ref-chip ${!selectedCat?'active':''}" data-action="${isSeries?'filter-series-cat':'filter-vod-cat'}" data-name="" tabindex="0">
+          Todos
+        </button>
       ${categories.slice(0, 45).map(c => `
         <button class="iptv-ref-chip ${selectedCat===c.name?'active':''}" data-action="${isSeries?'filter-series-cat':'filter-vod-cat'}" data-name="${esc(c.name)}" tabindex="0">
           ${esc(c.name)}
         </button>
       `).join('')}
+      </div>
+      <button class="iptv-chips-arrow next" data-action="scroll-chips-right" title="Rolar Categorias para Direita">${icon('right')}</button>
     </div>
 
     <!-- Top 10 Catálogo Netflix (v8.3.13) -->
@@ -4205,6 +4227,25 @@ document.addEventListener('click',async event=>{
       } finally {
         b.disabled = false;
         b.innerHTML = origText;
+      }
+      return;
+    }
+    if(action==='scroll-carousel-left' || action==='scroll-carousel-right'){
+      const targetId = b.dataset.target || 'netflix-top10-track';
+      const el = document.getElementById(targetId) || b.closest('.netflix-top10-section')?.querySelector('.netflix-top10-track');
+      if(el){
+        const scrollAmount = Math.max(320, Math.floor(el.clientWidth * 0.75));
+        const direction = action === 'scroll-carousel-left' ? -1 : 1;
+        el.scrollBy({ left: scrollAmount * direction, behavior: 'smooth' });
+      }
+      return;
+    }
+    if(action==='scroll-chips-left' || action==='scroll-chips-right'){
+      const el = document.getElementById('iptv-ref-chips-scroll');
+      if(el){
+        const scrollAmount = 300;
+        const direction = action === 'scroll-chips-left' ? -1 : 1;
+        el.scrollBy({ left: scrollAmount * direction, behavior: 'smooth' });
       }
       return;
     }

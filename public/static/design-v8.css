@@ -10197,3 +10197,223 @@ dialog#modal::backdrop {
     gap: 1.5rem 1.15rem !important;
   }
 }
+
+/* ========================================================================== */
+/* 31. EQUILÍBRIO DE TAMANHO DE CARDS & NAVEGAÇÃO COMPLETA NETFLIX (v8.3.18) */
+/* ========================================================================== */
+
+/* --- 1. Controles e Setas de Navegação do Carrossel Top 10 --- */
+.netflix-carousel-container {
+  position: relative;
+  width: 100%;
+}
+
+.netflix-slider-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.netflix-slider-arrow {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.netflix-slider-arrow:hover {
+  background: #e50914;
+  border-color: #e50914;
+  transform: scale(1.08);
+  box-shadow: 0 0 12px rgba(229, 9, 20, 0.6);
+}
+
+.netflix-slider-arrow svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+/* Setas Laterais Flutuantes Estilo Netflix Desktop */
+.netflix-side-arrow {
+  position: absolute;
+  top: 0;
+  bottom: 1.25rem;
+  width: 48px;
+  background: rgba(10, 11, 15, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: none;
+  color: #fff;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.25s ease, background-color 0.2s ease;
+}
+
+.netflix-side-arrow.prev {
+  left: 0;
+  border-top-right-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
+.netflix-side-arrow.next {
+  right: 0;
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+
+.netflix-carousel-container:hover .netflix-side-arrow {
+  opacity: 1;
+}
+
+.netflix-side-arrow:hover {
+  background: rgba(229, 9, 20, 0.85);
+  color: #fff;
+}
+
+.netflix-side-arrow svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+@media (max-width: 768px) {
+  .netflix-side-arrow {
+    display: none !important;
+  }
+}
+
+/* --- 2. Track do Top 10 com Rolagem Suave & Scroll Snap --- */
+.netflix-top10-track {
+  display: flex !important;
+  gap: 1.5rem !important;
+  overflow-x: auto !important;
+  scroll-behavior: smooth !important;
+  scroll-snap-type: x mandatory !important;
+  padding: 0.5rem 0.5rem 1.25rem !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(229, 9, 20, 0.4) transparent !important;
+}
+
+.netflix-top10-track::-webkit-scrollbar {
+  height: 6px !important;
+  display: block !important;
+}
+
+.netflix-top10-track::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-radius: 3px !important;
+}
+
+.netflix-top10-track::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-radius: 3px !important;
+}
+
+.netflix-top10-track::-webkit-scrollbar-thumb:hover {
+  background: #e50914 !important;
+}
+
+.netflix-top10-card {
+  scroll-snap-align: start !important;
+}
+
+/* --- 3. Wrapper e Setas para os Chips de Categorias --- */
+.iptv-ref-chips-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  width: 100%;
+}
+
+.iptv-ref-chips-scroll {
+  flex: 1;
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  padding: 4px 2px;
+}
+
+.iptv-ref-chips-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.iptv-chips-arrow {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.iptv-chips-arrow:hover {
+  background: #e50914;
+  border-color: #e50914;
+}
+
+.iptv-chips-arrow svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+/* --- 4. EQUILÍBRIO HARMONIOSO DO TAMANHO DOS CARDS DO CATÁLOGO (PADRÃO NETFLIX) --- */
+/* Em telas grandes (como 1600px), distribuir em 6 ou 7 colunas elegantes (~175px de largura por card) */
+@media (min-width: 1200px) and (max-width: 1440px) {
+  .iptv-ref-grid {
+    grid-template-columns: repeat(6, 1fr) !important;
+    gap: 1.25rem 0.85rem !important;
+  }
+}
+
+@media (min-width: 1441px) and (max-width: 1750px) {
+  .iptv-ref-grid {
+    grid-template-columns: repeat(7, 1fr) !important;
+    gap: 1.35rem 0.95rem !important;
+  }
+}
+
+@media (min-width: 1751px) {
+  .iptv-ref-grid {
+    grid-template-columns: repeat(8, 1fr) !important;
+    gap: 1.5rem 1rem !important;
+  }
+}
+
+/* Proporção Harmonizada dos Pôsteres no Top 10 */
+@media (min-width: 1024px) {
+  .netflix-top10-poster {
+    width: 138px !important;
+    height: 207px !important;
+  }
+  .netflix-top10-card {
+    width: 220px !important;
+    height: 215px !important;
+  }
+  .netflix-top10-num {
+    font-size: 8.5rem !important;
+    margin-right: -26px !important;
+  }
+}

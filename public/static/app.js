@@ -797,17 +797,37 @@ function showTheaterRipple(delta){
   window._rippleTimer = setTimeout(() => overlay.classList.remove('active'), 550);
 }
 
-function toggleAspectRatio(){
+function toggleAspectRatio(forcedMode){
   const v = document.getElementById('video');
+  const theater = document.getElementById('vod-theater');
+  const wrapper = document.querySelector('.iptv-vod-video-wrapper') || v?.parentElement;
   const lbl = document.getElementById('aspect-ratio-label');
   if(!v) return;
-  const modes = ['contain', 'cover', 'fill'];
-  const labels = { contain: 'Auto', cover: 'Preencher', fill: 'Esticar' };
-  const current = v.style.objectFit || 'contain';
-  const next = modes[(modes.indexOf(current) + 1) % modes.length];
+
+  const modes = ['cover', 'contain', 'fill'];
+  const labels = { 
+    cover: 'Preencher Tela (Sem Bordas)', 
+    contain: 'Ajustar Original', 
+    fill: 'Esticar' 
+  };
+  
+  let current = v.dataset.fitMode || (v.classList.contains('fit-cover') ? 'cover' : 'contain');
+  let next = forcedMode || modes[(modes.indexOf(current) + 1) % modes.length];
+  
+  v.dataset.fitMode = next;
+  v.style.setProperty('--video-object-fit', next);
   v.style.objectFit = next;
-  if(lbl) lbl.textContent = labels[next];
-  toast(`Enquadramento: ${labels[next]}`);
+
+  // Atualizar classes no elemento de vídeo e no wrapper
+  v.classList.remove('fit-cover', 'fit-contain', 'fit-fill');
+  v.classList.add(`fit-${next}`);
+  if(wrapper){
+    wrapper.classList.remove('fit-cover', 'fit-contain', 'fit-fill');
+    wrapper.classList.add(`fit-${next}`);
+  }
+
+  if(lbl) lbl.textContent = (next === 'cover' ? 'Preencher' : (next === 'contain' ? 'Auto' : 'Esticar'));
+  toast(`⛶ ${labels[next]}`);
   resetVodIdleTimer();
 }
 
@@ -949,6 +969,22 @@ function openVodTheater(target){
 
   theater.addEventListener('mousemove', resetVodIdleTimer);
   theater.addEventListener('click', resetVodIdleTimer);
+  
+  // Duplo toque / duplo clique para alternar "Preencher Tela Cheia (Sem Bordas)" vs "Ajustar Original"
+  let lastVideoClick = 0;
+  theater.addEventListener('click', (e) => {
+    // Ignorar cliques nos botões de controle
+    if (e.target.closest('button, select, input, .iptv-vod-timeline-row')) return;
+    const now = Date.now();
+    if (now - lastVideoClick < 350) {
+      // Duplo clique detectado: alternar entre Preencher (cover) e Ajustar (contain)
+      const v = document.getElementById('video');
+      const cur = v?.dataset.fitMode || 'contain';
+      toggleAspectRatio(cur === 'cover' ? 'contain' : 'cover');
+    }
+    lastVideoClick = now;
+  });
+
   resetVodIdleTimer();
 
   window._currentPlaying = { title, type: 'vod', target };
@@ -4788,10 +4824,18 @@ document.addEventListener('click',async event=>{
       return;
     }
     if(action==='theater-fullscreen'){
+      const theater = document.getElementById('vod-theater');
       const v = document.getElementById('video');
-      if(v){
-        if(v.requestFullscreen) v.requestFullscreen();
-        else if(v.webkitEnterFullscreen) v.webkitEnterFullscreen();
+      const targetEl = theater || v;
+      if(targetEl){
+        if(document.fullscreenElement){
+          if(document.exitFullscreen) document.exitFullscreen();
+        } else {
+          // Ativar tela cheia com barra de navegação do sistema oculta (Immersive Web)
+          const opts = { navigationUI: 'hide' };
+          if(targetEl.requestFullscreen) targetEl.requestFullscreen(opts).catch(() => targetEl.requestFullscreen());
+          else if(v && v.webkitEnterFullscreen) v.webkitEnterFullscreen();
+        }
       }
       return;
     }

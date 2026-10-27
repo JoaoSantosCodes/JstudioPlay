@@ -1,6 +1,6 @@
 {
   "name": "jstudioplay",
-  "version": "8.3.19",
+  "version": "8.3.20",
   "description": "JstudioPlay Pro — Central IPTV self-hosted com sincronização M3U, validação de canais, proxy HLS e integração n8n",
   "main": "server/index.js",
   "scripts": {

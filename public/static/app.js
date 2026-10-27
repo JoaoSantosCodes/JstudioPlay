@@ -116,6 +116,10 @@ function applyTheme(value) {
 applyTheme(theme);
 function themeButton() {return `<button class="theme-toggle" data-action="theme" aria-label="${theme==='dark'?'Ativar modo claro':'Ativar modo escuro'}" aria-pressed="${theme==='light'}">${icon('sun')}<span class="theme-dot"></span></button>`;}
 function toast(message,error=false) {const el=$('#toast');el.textContent=message;el.className=error?'error':'';el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{el.hidden=true;},6000);}
+const DEFAULT_CLOUD_BACKEND = 'https://stop-frame-coming-receptors.trycloudflare.com';
+const LOCAL_WIFI_BACKEND = 'http://192.168.0.101:3030';
+const EMULATOR_BACKEND = 'http://10.0.2.2:3030';
+
 function getBackendBase() {
   const custom = localStorage.getItem('m3u-backend-url');
   if (custom && custom.trim()) return custom.trim().replace(/\/+$/, '');
@@ -123,7 +127,8 @@ function getBackendBase() {
   // Se estiver no aplicativo nativo Android (Capacitor)
   const isNativeApp = window.Capacitor || location.protocol === 'capacitor:' || (location.hostname === 'localhost' && !location.port);
   if (isNativeApp) {
-    return 'http://10.0.2.2:3030';
+    // No app Android (celular físico ou emulador), prioriza o túnel HTTPS em nuvem
+    return DEFAULT_CLOUD_BACKEND;
   }
   return '';
 }
@@ -4861,23 +4866,56 @@ async function boot(){
     await renderRoute();
     if(!sessionCheckTimer)sessionCheckTimer=setInterval(verifySession,15000);
   }catch(error){
-    console.error('Falha na inicialização:', error);
+    const currentBase = getBackendBase();
     $('#app').innerHTML=`
-      <div class="boot-reconnect" style="max-width:440px; margin:7rem auto; padding:2.5rem 2rem; background:rgba(20,21,23,0.95); border:1px solid rgba(255,255,255,0.08); border-radius:24px; box-shadow:0 24px 60px rgba(0,0,0,0.6); text-align:center; backdrop-filter:blur(20px);">
+      <div class="boot-reconnect" style="max-width:440px; margin:5rem auto; padding:2.5rem 2rem; background:rgba(20,21,23,0.95); border:1px solid rgba(255,255,255,0.08); border-radius:24px; box-shadow:0 24px 60px rgba(0,0,0,0.6); text-align:center; backdrop-filter:blur(20px);">
         <div style="width:64px; height:64px; margin:0 auto 1.25rem; border-radius:50%; background:rgba(59,130,246,0.12); display:flex; align-items:center; justify-content:center; color:#3b82f6;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:32px; height:32px;"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
         </div>
         <h2 style="margin:0 0 0.5rem; font-size:1.35rem; color:#fff; font-weight:700;">Conectando ao JstudioPlay</h2>
-        <p style="margin:0 0 1.5rem; color:rgba(255,255,255,0.6); font-size:0.9rem; line-height:1.5;">
+        <p style="margin:0 0 1.25rem; color:rgba(255,255,255,0.6); font-size:0.9rem; line-height:1.5;">
           Aguardando conexão com o servidor. O sistema tentará reconectar automaticamente.
         </p>
-        <button class="btn primary" id="boot-retry" style="width:100%; justify-content:center; padding:0.85rem 1.5rem; font-size:0.95rem; border-radius:12px;">
+        <button class="btn primary" id="boot-retry" style="width:100%; justify-content:center; padding:0.85rem 1.5rem; font-size:0.95rem; border-radius:12px; margin-bottom:0.75rem;">
           Tentar agora
         </button>
+        <button id="boot-toggle-config" style="background:none; border:none; color:#60a5fa; font-size:0.85rem; cursor:pointer; padding:0.5rem; display:inline-flex; align-items:center; gap:0.4rem;">
+          ⚙️ Configurar Servidor Backend
+        </button>
+        <div id="boot-config-panel" style="display:none; margin-top:1.25rem; padding-top:1.25rem; border-top:1px solid rgba(255,255,255,0.08); text-align:left;">
+          <label style="display:block; font-size:0.8rem; color:rgba(255,255,255,0.6); margin-bottom:0.4rem;">URL do Servidor:</label>
+          <input type="text" id="boot-server-url" value="${esc(currentBase)}" placeholder="https://... ou http://192.168.0.101:3030" style="width:100%; box-sizing:border-box; padding:0.75rem 1rem; border-radius:10px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); color:#fff; font-size:0.85rem; margin-bottom:0.75rem;">
+          <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem; flex-wrap:wrap;">
+            <button id="btn-quick-cloud" style="flex:1; min-width:120px; font-size:0.75rem; padding:0.4rem 0.6rem; border-radius:8px; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.3); color:#93c5fd; cursor:pointer;">🌐 Nuvem (Cloudflare)</button>
+            <button id="btn-quick-wifi" style="flex:1; min-width:120px; font-size:0.75rem; padding:0.4rem 0.6rem; border-radius:8px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); color:#6ee7b7; cursor:pointer;">📶 Wi-Fi (192.168.0.101)</button>
+          </div>
+          <button id="boot-save-url" class="btn small" style="width:100%; justify-content:center; padding:0.7rem; border-radius:10px;">
+            Salvar e Conectar
+          </button>
+        </div>
       </div>
     `;
     $('#boot-retry')?.addEventListener('click', boot);
-    setTimeout(boot, 4000);
+    $('#boot-toggle-config')?.addEventListener('click', () => {
+      const panel = $('#boot-config-panel');
+      if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    });
+    $('#btn-quick-cloud')?.addEventListener('click', () => {
+      const input = $('#boot-server-url');
+      if (input) input.value = DEFAULT_CLOUD_BACKEND;
+    });
+    $('#btn-quick-wifi')?.addEventListener('click', () => {
+      const input = $('#boot-server-url');
+      if (input) input.value = LOCAL_WIFI_BACKEND;
+    });
+    $('#boot-save-url')?.addEventListener('click', () => {
+      const input = $('#boot-server-url');
+      const val = (input?.value || '').trim();
+      if (val) localStorage.setItem('m3u-backend-url', val);
+      else localStorage.removeItem('m3u-backend-url');
+      boot();
+    });
+    setTimeout(boot, 6000);
   }
 }
 

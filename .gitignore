@@ -13,10 +13,7 @@ cloudflared.exe
 *.log
 
 # Dados locais
-data/*.db
-data/*.db-journal
-data/*.db-wal
-data/*.db-shm
+data/
 
 # Builds Web e Android
 dist/

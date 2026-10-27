@@ -9232,5 +9232,209 @@ dialog#modal::backdrop {
   margin-top: 2px;
 }
 
+/* ========================================================================== */
+/* 28.7 FILEIRA TOP 10 NETFLIX & BOTTOM SHEET MODAL MOBILE (v8.3.13)          */
+/* ========================================================================== */
 
+/* --- 1. Seção e Carrossel Top 10 Netflix --- */
+.netflix-top10-section {
+  margin-bottom: 2.5rem;
+  position: relative;
+}
+
+.netflix-top10-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.netflix-top10-badge {
+  background: #e50914;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(229, 9, 20, 0.4);
+}
+
+.netflix-top10-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+.netflix-top10-track {
+  display: flex;
+  gap: 1.25rem;
+  overflow-x: auto;
+  padding: 0.5rem 0.25rem 1.25rem;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+.netflix-top10-track::-webkit-scrollbar {
+  display: none;
+}
+
+/* Card do Top 10: Numeral + Pôster */
+.netflix-top10-card {
+  display: flex;
+  align-items: flex-end;
+  position: relative;
+  flex: 0 0 auto;
+  width: 210px;
+  height: 200px;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .netflix-top10-card:hover {
+    transform: scale(1.06) translateY(-4px);
+    z-index: 20;
+  }
+  .netflix-top10-card:hover .netflix-top10-num {
+    -webkit-text-stroke: 4px #e50914;
+    color: #1a0a0c;
+    text-shadow: 0 0 20px rgba(229, 9, 20, 0.4);
+  }
+  .netflix-top10-card:hover .netflix-top10-poster {
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.2);
+  }
+  .netflix-top10-card:hover .iptv-card-hover-actions {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+}
+
+/* Numeral Gigante Netflix (1 a 10) */
+.netflix-top10-num {
+  font-size: 8rem;
+  font-weight: 900;
+  line-height: 0.8;
+  letter-spacing: -5px;
+  color: #14151a;
+  -webkit-text-stroke: 4px #595e6d;
+  position: relative;
+  z-index: 1;
+  margin-right: -24px;
+  margin-bottom: -4px;
+  transition: color 0.25s ease, -webkit-text-stroke 0.25s ease, text-shadow 0.25s ease;
+  font-family: 'Impact', 'Montserrat', 'Arial Black', sans-serif;
+  flex-shrink: 0;
+  text-shadow: 0 4px 16px rgba(0, 0, 0, 0.8);
+}
+
+/* Pôster do Top 10 */
+.netflix-top10-poster {
+  width: 124px;
+  height: 186px;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+  background: #1b1d26;
+  flex-shrink: 0;
+  transition: box-shadow 0.25s ease;
+}
+
+.netflix-top10-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.netflix-top10-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1f222e 0%, #12141a 100%);
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* --- 2. Bottom Sheet Modal no Mobile --- */
+.iptv-sheet-handle-bar {
+  display: none;
+  width: 100%;
+  justify-content: center;
+  padding: 8px 0 6px;
+  cursor: grab;
+}
+
+.iptv-sheet-handle {
+  width: 44px;
+  height: 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.35);
+  transition: background 0.2s ease;
+}
+
+.iptv-sheet-handle-bar:active .iptv-sheet-handle {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+@media (max-width: 680px) {
+  dialog#modal.iptv-bottom-sheet-mode {
+    position: fixed !important;
+    bottom: 0 !important;
+    top: auto !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 86vh !important;
+    border-radius: 20px 20px 0 0 !important;
+    margin: 0 !important;
+    padding: 0 1.25rem calc(env(safe-area-inset-bottom, 20px) + 24px) 1.25rem !important;
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.9) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-bottom: none !important;
+    background: #14151a !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    animation: netflixSheetSlideUp 0.32s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    z-index: 1000 !important;
+  }
+
+  dialog#modal.iptv-bottom-sheet-mode .dialog-heading {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: #14151a;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .iptv-sheet-handle-bar {
+    display: flex;
+  }
+
+  #modal-vod-backdrop {
+    height: 200px !important;
+  }
+}
+
+@keyframes netflixSheetSlideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
 

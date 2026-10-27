@@ -1047,8 +1047,58 @@ function openVodTheater(target){
   }
 }
 
+function renderNetflixTop10(rawItems, isSeries = false, sectionTitle = 'Top 10 Hoje no JstudioPlay'){
+  const pool = (rawItems && rawItems.length) ? rawItems : (isSeries ? (state.currentSeries || state.dashSeries) : (state.currentMovies || state.dashMovies)) || [];
+  if (!pool || !pool.length) return '';
+  const top10 = pool.slice(0, 10);
+  return `
+    <section class="netflix-top10-section">
+      <div class="netflix-top10-header">
+        <span class="netflix-top10-badge">TOP 10</span>
+        <h2 class="netflix-top10-title">${esc(sectionTitle)}</h2>
+      </div>
+      <div class="netflix-top10-track">
+        ${top10.map((item, idx) => {
+          const rank = idx + 1;
+          const coverImg = item.posterUrl || item.logo || item.img;
+          const itemName = item.name || item.title || `Título ${rank}`;
+          const isFav = state.favorites && state.favorites.some(f => 
+            (f.channel && (f.channel.name === itemName || f.channel.url === item.url)) ||
+            f.name === itemName || f.url === item.url
+          );
+          return `
+            <div class="netflix-top10-card" data-action="top10-card-click" data-type="${isSeries?'series':'movies'}" data-index="${idx}" tabindex="0" title="#${rank} ${esc(itemName)}">
+              <div class="netflix-top10-num">${rank}</div>
+              <div class="netflix-top10-poster">
+                ${coverImg ? `<img src="${esc(coverImg)}" alt="${esc(itemName)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">` : ''}
+                <div class="netflix-top10-fallback" style="${coverImg?'display:none;':''}">
+                  ${icon(isSeries?'tv':'film')}
+                </div>
+                ${item.rating ? `<span class="iptv-poster-badge iptv-rating-badge">⭐ ${item.rating}</span>` : ''}
+                <div class="iptv-card-hover-actions">
+                  <button class="iptv-quick-btn iptv-quick-play" data-action="quick-play-catalog" data-type="${isSeries?'series':'movies'}" data-index="${idx}" title="Assistir Agora" aria-label="Assistir Agora">
+                    ${icon('play')}
+                  </button>
+                  <button class="iptv-quick-btn iptv-quick-fav ${isFav ? 'is-favorited' : ''}" data-action="quick-fav-catalog" data-name="${esc(itemName)}" title="${isFav ? 'Remover dos Favoritos' : 'Adicionar aos Favoritos'}" aria-label="Favoritar">
+                    ${icon('heart')}
+                  </button>
+                  <button class="iptv-quick-btn iptv-quick-info" data-action="top10-card-click" data-type="${isSeries?'series':'movies'}" data-index="${idx}" title="Mais Informações" aria-label="Mais Informações">
+                    ${icon('right')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </section>
+  `;
+}
+
 function openVodModal(item){
   window._currentVodItem = item;
+  const modal = $('#modal');
+  if(modal) modal.classList.add('iptv-bottom-sheet-mode');
   const title = item.name || item.title || 'Detalhes do Título';
   const img = item.backdropUrl || item.posterUrl || item.logo || item.img || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=800&q=80';
   const group = item.genres || item.group || item.meta || 'Filme • VOD';
@@ -1064,6 +1114,7 @@ function openVodModal(item){
   );
 
   const html = `
+    <div class="iptv-sheet-handle-bar" data-action="close-modal"><div class="iptv-sheet-handle"></div></div>
     <div style="display:flex; flex-direction:column; gap:1.25rem; max-width:650px;">
       <div style="position:relative; width:100%; height:260px; border-radius:12px; overflow:hidden; background-image:url('${esc(img)}'); background-size:cover; background-position:center;" id="modal-vod-backdrop">
         <div style="position:absolute; inset:0; background:linear-gradient(to top, #14151a 0%, rgba(20,21,26,0.3) 100%);"></div>
@@ -1322,6 +1373,9 @@ function dashboard(){
         `}
       </div>
     </section>
+
+    <!-- Top 10 Mais Assistidos Estilo Netflix (v8.3.13) -->
+    ${renderNetflixTop10(trending, false, 'Top 10 Hoje no JstudioPlay')}
 
     <!-- 2. Carrossel: Filmes Populares na Biblioteca -->
     <section style="margin-bottom:2.25rem;">
@@ -1707,6 +1761,9 @@ function catalogPage(type = 'movies'){
         </button>
       `).join('')}
     </div>
+
+    <!-- Top 10 Catálogo Netflix (v8.3.13) -->
+    ${!query && items.length >= 5 ? renderNetflixTop10(items, isSeries, isSeries ? 'Top 10 Séries em Alta' : 'Top 10 Filmes em Alta') : ''}
 
     <!-- 4. Cabeçalho de Contagem de Catálogo e Ação de Enriquecimento -->
     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; margin-bottom:1.25rem;">
@@ -3940,7 +3997,7 @@ document.addEventListener('click',async event=>{
       }
       return;
     }
-    if(action==='close-modal'){$('#modal').close();return;}
+    if(action==='close-modal'){const m=$('#modal');if(m){m.classList.remove('iptv-bottom-sheet-mode');m.close();}return;}
     if(action==='password'){const input=document.getElementById(b.dataset.target);input.type=input.type==='password'?'text':'password';b.setAttribute('aria-label',input.type==='password'?'Mostrar senha':'Ocultar senha');return;}
     if(action==='forgot'){openModal('Recuperar acesso',`<p>Solicite ao administrador da plataforma uma nova senha. Depois de entrar, você pode alterá-la em Configurações.</p><p class="help-text">Se você é o administrador, consulte o procedimento de recuperação no README do servidor.</p><button class="btn" data-action="close-modal">Entendi</button>`);return;}
     if(action==='logout'){
@@ -4081,6 +4138,14 @@ document.addEventListener('click',async event=>{
         b.disabled = false;
         b.innerHTML = origText;
       }
+      return;
+    }
+    if(action==='top10-card-click'){
+      const idx = Number(b.dataset.index);
+      const isSeries = b.dataset.type === 'series';
+      const pool = isSeries ? (state.currentSeries || state.dashSeries || []) : (state.currentMovies || state.dashMovies || []);
+      const item = pool[idx];
+      if(item) openVodModal(item);
       return;
     }
     if(action==='catalog-card-click'){

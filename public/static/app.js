@@ -1827,14 +1827,15 @@ function catalogPage(type = 'movies'){
     <!-- Top 10 Catálogo Netflix (v8.3.13) -->
     ${!query && items.length >= 5 ? renderNetflixTop10(items, isSeries, isSeries ? 'Top 10 Séries em Alta' : 'Top 10 Filmes em Alta') : ''}
 
-    <!-- 4. Cabeçalho de Contagem de Catálogo e Ação de Enriquecimento -->
+    <!-- 4. Cabeçalho de Contagem de Catálogo (com status de sincronização automática) -->
     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; margin-bottom:1.25rem;">
       <h2 class="iptv-ref-heading" style="margin:0;">
         Explore o catálogo <span class="iptv-ref-counter">(${number(total)})</span>
       </h2>
-      <button class="btn small primary" data-action="enrich-catalog-batch" data-type="${isSeries?'series':'vod'}" style="gap:0.4rem; padding:0.45rem 1rem; font-size:0.82rem; border-radius:8px;">
-        ${icon('refresh')} Atualizar Capas & Sinopses (API)
-      </button>
+      <div style="display:inline-flex; align-items:center; gap:0.5rem; font-size:0.75rem; color:rgba(255,255,255,0.45); background:rgba(255,255,255,0.04); padding:0.35rem 0.75rem; border-radius:20px; border:1px solid rgba(255,255,255,0.08);">
+        <span style="width:6px; height:6px; border-radius:50%; background:#46d369; display:inline-block; box-shadow:0 0 6px rgba(70,211,105,0.6);"></span>
+        <span>Sincronização contínua de capas ativa</span>
+      </div>
     </div>
 
     <!-- 5. Grid de 4 Colunas com Pôsteres 2:3 e Legenda Inferior -->
@@ -4234,9 +4235,19 @@ document.addEventListener('click',async event=>{
       const targetId = b.dataset.target || 'netflix-top10-track';
       const el = document.getElementById(targetId) || b.closest('.netflix-top10-section')?.querySelector('.netflix-top10-track');
       if(el){
-        const scrollAmount = Math.max(320, Math.floor(el.clientWidth * 0.75));
-        const direction = action === 'scroll-carousel-left' ? -1 : 1;
-        el.scrollBy({ left: scrollAmount * direction, behavior: 'smooth' });
+        const cardWidth = el.querySelector('.netflix-top10-card')?.offsetWidth || 230;
+        const visibleCards = Math.max(1, Math.floor(el.clientWidth / cardWidth));
+        const scrollAmount = cardWidth * Math.max(1, visibleCards - 1);
+        if(action === 'scroll-carousel-right'){
+          // Se estiver próximo do fim, rola até o limite máximo para exibir o 10º card completo
+          if(el.scrollLeft + el.clientWidth >= el.scrollWidth - 300){
+            el.scrollTo({ left: el.scrollWidth, behavior: 'smooth' });
+          } else {
+            el.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+          }
+        } else {
+          el.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+        }
       }
       return;
     }
@@ -5282,3 +5293,21 @@ if (window.eventBus) {
 
 boot();
 
+
+// ==========================================================================
+// SINCRONIZAÇÃO AUTOMÁTICA EM SEGUNDO PLANO A CADA 5 MINUTOS (v8.3.19)
+// ==========================================================================
+function startAutoEnrichmentBackground() {
+  if (window._autoEnrichTimer) return;
+  const FIVE_MINUTES_MS = 5 * 60 * 1000;
+  window._autoEnrichTimer = setInterval(async () => {
+    try {
+      if (!state.user || !state.activePlaylist) return;
+      console.log('[AutoEnrich] Iniciando ciclo automático de metadados a cada 5min...');
+      await api(`/playlists/${state.activePlaylist}/enrich-batch`, 'POST', { limit: 40, delayMs: 200 });
+    } catch (e) {
+      // Falha silenciosa em background para não interromper a navegação
+    }
+  }, FIVE_MINUTES_MS);
+}
+startAutoEnrichmentBackground();

@@ -10689,3 +10689,98 @@ video:-webkit-full-screen.fit-cover,
     font-size: 0.95rem;
   }
 }
+
+/* ========================================================================== */
+/* 35. HUD DE GESTOS BRILHO/VOLUME & TELA BLOQUEADA ESTILO NETFLIX (v8.3.22)   */
+/* ========================================================================== */
+
+/* HUD Circular de Brilho & Volume */
+.iptv-gesture-hud {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.85);
+  background: rgba(12, 14, 20, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 20px;
+  padding: 1.25rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  z-index: 10010;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85);
+}
+
+.iptv-gesture-hud.active {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.iptv-gesture-icon {
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iptv-gesture-bar {
+  width: 120px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.iptv-gesture-fill {
+  height: 100%;
+  background: #e50914;
+  border-radius: 3px;
+  box-shadow: 0 0 10px rgba(229, 9, 20, 0.8);
+  transition: width 0.05s linear;
+}
+
+.iptv-gesture-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+  font-family: var(--iptv-font, sans-serif);
+}
+
+/* Badge Flutuante de Tela Bloqueada */
+.iptv-screen-locked-badge {
+  position: absolute;
+  top: max(20px, env(safe-area-inset-top));
+  right: max(20px, env(safe-area-inset-right));
+  z-index: 10020;
+  background: rgba(229, 9, 20, 0.85);
+  color: #ffffff;
+  border-radius: 30px;
+  padding: 0.6rem 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+  animation: pulseLock 2s infinite ease-in-out;
+}
+
+@keyframes pulseLock {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+/* Quando a tela estiver bloqueada, oculta todos os outros controles */
+.iptv-vod-theater.screen-locked .iptv-vod-theater-header,
+.iptv-vod-theater.screen-locked .iptv-vod-theater-controls,
+.iptv-vod-theater.screen-locked .iptv-floating-back-btn {
+  display: none !important;
+}

@@ -907,12 +907,33 @@ function openVodTheater(target){
       </div>
       <div class="iptv-vod-top-actions">
         ${state.relayEnabled && !ytId ? `<button class="iptv-vod-action-btn" data-action="toggle-relay" title="Modo de compatibilidade" tabindex="0">${icon('refresh')}</button>` : ''}
+        <button class="iptv-vod-action-btn" data-action="toggle-screen-lock" id="btn-screen-lock" title="Bloquear Toques na Tela" tabindex="0">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </button>
         <button class="iptv-vod-action-btn" data-action="theater-fullscreen" title="Tela Cheia" tabindex="0">${icon('fullscreen')}</button>
         <button class="iptv-vod-action-btn" data-action="close-vod-theater" title="Fechar" tabindex="0">${icon('close')}</button>
       </div>
     </div>
-    <div class="iptv-vod-video-wrapper">
+    <div class="iptv-vod-video-wrapper" id="vod-video-wrapper">
       <video id="video" playsinline controls autoplay class="iptv-vod-video-element" ${ytId ? 'style="display:none;"' : ''}></video>
+      
+      <!-- HUD de Gestos: Brilho & Volume (Estilo MX Player / VLC) -->
+      <div class="iptv-gesture-hud" id="gesture-hud">
+        <div class="iptv-gesture-icon" id="gesture-hud-icon">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </div>
+        <div class="iptv-gesture-bar">
+          <div class="iptv-gesture-fill" id="gesture-hud-fill" style="width:100%;"></div>
+        </div>
+        <span class="iptv-gesture-label" id="gesture-hud-label">100%</span>
+      </div>
+
+      <!-- Botão Flutuante de Desbloqueio quando a tela estiver travada -->
+      <div class="iptv-screen-locked-badge" id="screen-locked-badge" data-action="toggle-screen-lock" style="display:none;" title="Toque para desbloquear controles">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>
+        <span>Tela Bloqueada</span>
+      </div>
+
       <div class="seek-ripple-overlay" id="seek-ripple-overlay">
         <div class="seek-ripple-circle" id="seek-ripple-icon">
           <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
@@ -984,6 +1005,7 @@ function openVodTheater(target){
   theater.addEventListener('click', resetVodIdleTimer);
   theater.addEventListener('touchstart', resetVodIdleTimer, { passive: true });
   theater.addEventListener('pointerdown', resetVodIdleTimer, { passive: true });
+  if(v && !ytId) setupMobileVideoGestures(theater, v);
   
   // Duplo toque / duplo clique para alternar "Preencher Tela Cheia (Sem Bordas)" vs "Ajustar Original"
   let lastVideoClick = 0;
@@ -4838,6 +4860,17 @@ document.addEventListener('click',async event=>{
       toggleAspectRatio();
       return;
     }
+    if(action==='toggle-screen-lock'){
+      const theater = document.getElementById('vod-theater');
+      const badge = document.getElementById('screen-locked-badge');
+      if(theater){
+        theater._screenLocked = !theater._screenLocked;
+        theater.classList.toggle('screen-locked', theater._screenLocked);
+        if(badge) badge.style.display = theater._screenLocked ? 'flex' : 'none';
+        toast(theater._screenLocked ? '🔒 Toques na tela bloqueados' : '🔓 Tela desbloqueada');
+      }
+      return;
+    }
     if(action==='theater-fullscreen'){
       const theater = document.getElementById('vod-theater');
       const v = document.getElementById('video');
@@ -5406,4 +5439,121 @@ if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App
       window.handleAndroidBackButton();
     });
   } catch(e) {}
+}
+
+// ==========================================================================
+// GESTOS MOBILE PREMIUM (BRILHO, VOLUME E DOUBLE-TAP SEEK) (v8.3.22)
+// ==========================================================================
+function setupMobileVideoGestures(theater, video) {
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let isSwiping = false;
+  let gestureType = null; // 'brightness' | 'volume'
+  let initialBrightness = 1.0;
+  let initialVolume = video.volume || 1.0;
+  let lastTapTime = 0;
+  let lastTapX = 0;
+
+  theater._screenLocked = false;
+
+  const hud = document.getElementById('gesture-hud');
+  const hudIcon = document.getElementById('gesture-hud-icon');
+  const hudFill = document.getElementById('gesture-hud-fill');
+  const hudLabel = document.getElementById('gesture-hud-label');
+  let hudTimer = null;
+
+  function showHud(type, perc) {
+    if (!hud) return;
+    clearTimeout(hudTimer);
+    const p = Math.max(0, Math.min(100, Math.round(perc * 100)));
+    if (hudLabel) hudLabel.textContent = `${p}%`;
+    if (hudFill) hudFill.style.width = `${p}%`;
+    if (hudIcon) {
+      if (type === 'brightness') {
+        hudIcon.innerHTML = `<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`;
+      } else {
+        hudIcon.innerHTML = p === 0 
+          ? `<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>`
+          : `<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`;
+      }
+    }
+    hud.classList.add('active');
+    hudTimer = setTimeout(() => hud.classList.remove('active'), 1200);
+  }
+
+  theater.addEventListener('touchstart', (e) => {
+    if (theater._screenLocked) return;
+    if (e.target.closest('button, select, input, .iptv-vod-timeline-row, #screen-locked-badge')) return;
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+      isSwiping = false;
+      gestureType = touchStartX < (window.innerWidth / 2) ? 'brightness' : 'volume';
+      initialVolume = video.volume;
+      initialBrightness = parseFloat(video.dataset.brightness || '1.0');
+    }
+  }, { passive: true });
+
+  theater.addEventListener('touchmove', (e) => {
+    if (theater._screenLocked) return;
+    if (e.target.closest('button, select, input, .iptv-vod-timeline-row, #screen-locked-badge')) return;
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      const deltaY = touchStartY - touch.clientY;
+      const deltaX = touch.clientX - touchStartX;
+
+      if (!isSwiping && Math.abs(deltaY) > 12 && Math.abs(deltaY) > Math.abs(deltaX)) {
+        isSwiping = true;
+      }
+
+      if (isSwiping) {
+        const factor = deltaY / (window.innerHeight * 0.7);
+        if (gestureType === 'brightness') {
+          const newBright = Math.max(0.15, Math.min(1.0, initialBrightness + factor));
+          video.dataset.brightness = newBright.toString();
+          video.style.filter = `brightness(${newBright})`;
+          showHud('brightness', (newBright - 0.15) / 0.85);
+        } else {
+          const newVol = Math.max(0, Math.min(1.0, initialVolume + factor));
+          video.volume = newVol;
+          showHud('volume', newVol);
+        }
+      }
+    }
+  }, { passive: true });
+
+  theater.addEventListener('touchend', (e) => {
+    if (theater._screenLocked) return;
+    if (isSwiping) {
+      isSwiping = false;
+      return;
+    }
+    // Tratamento de Double-Tap para Avançar / Retroceder nas Bordas
+    if (e.changedTouches.length === 1) {
+      const touch = e.changedTouches[0];
+      const now = Date.now();
+      const clientX = touch.clientX;
+      const screenW = window.innerWidth;
+
+      if (now - lastTapTime < 340 && Math.abs(clientX - lastTapX) < 80) {
+        // Double tap detectado
+        if (clientX < screenW * 0.35) {
+          // Double-tap esquerda: volta 10s
+          skipVodTime(-10);
+        } else if (clientX > screenW * 0.65) {
+          // Double-tap direita: avança 10s
+          skipVodTime(10);
+        } else {
+          // Double-tap centro: alterna tela cheia sem bordas
+          const cur = video.dataset.fitMode || 'contain';
+          toggleAspectRatio(cur === 'cover' ? 'contain' : 'cover');
+        }
+        lastTapTime = 0;
+        return;
+      }
+      lastTapTime = now;
+      lastTapX = clientX;
+    }
+  }, { passive: true });
 }

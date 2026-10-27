@@ -1107,6 +1107,37 @@ function openVodModal(item){
           </div>
         </div>
       ` : ''}
+
+      ${(() => {
+        const pool = (isSeries ? (state.currentSeries || state.dashSeries) : (state.currentMovies || state.dashMovies)) || state.channels || [];
+        const cleanTitle = title.toLowerCase();
+        const similar = pool.filter(it => {
+          const t = (it.name || it.title || '').toLowerCase();
+          return t && t !== cleanTitle;
+        }).slice(0, 6);
+        if (!similar.length) return '';
+        return `
+          <div class="iptv-vod-similar-section">
+            <h3 class="iptv-vod-similar-heading">
+              ${icon('film')} Mais títulos como este
+            </h3>
+            <div class="iptv-vod-similar-grid">
+              ${similar.map(sim => `
+                <div class="iptv-vod-similar-card" data-action="open-similar-vod" data-title="${esc(sim.name || sim.title)}" tabindex="0" title="${esc(sim.name || sim.title)}">
+                  <div class="iptv-vod-similar-thumb">
+                    <img src="${sim.posterUrl || sim.logo || sim.img || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80'}" alt="${esc(sim.name || sim.title)}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=300&q=80';">
+                    ${sim.rating ? `<span class="iptv-similar-rating">⭐ ${sim.rating}</span>` : ''}
+                  </div>
+                  <div class="iptv-vod-similar-info">
+                    <div class="iptv-vod-similar-title">${esc(sim.name || sim.title)}</div>
+                    <div class="iptv-vod-similar-genre">${esc(sim.genres || sim.group || (isSeries ? 'Série' : 'Filme'))}</div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      })()}
     </div>
   `;
   openModal(title, html);
@@ -1691,6 +1722,10 @@ function catalogPage(type = 'movies'){
     <div class="iptv-ref-grid">
       ${items.length ? items.map((m, idx) => {
         const coverImg = m.posterUrl || m.logo;
+        const isFav = state.favorites && state.favorites.some(f => 
+          (f.channel && (f.channel.name === m.name || f.channel.url === m.url)) ||
+          f.name === m.name || f.url === m.url
+        );
         return `
         <div class="iptv-ref-poster-card" data-action="catalog-card-click" data-type="${isSeries?'series':'movies'}" data-index="${idx}" tabindex="0" title="${esc(m.name)}">
           <div class="iptv-ref-poster-thumb">
@@ -1700,6 +1735,17 @@ function catalogPage(type = 'movies'){
             </div>
             ${m.rating ? `<span class="iptv-poster-badge iptv-rating-badge">⭐ ${m.rating}</span>` : ''}
             ${m.year ? `<span class="iptv-poster-badge iptv-year-badge">${m.year}</span>` : ''}
+            <div class="iptv-card-hover-actions">
+              <button class="iptv-quick-btn iptv-quick-play" data-action="quick-play-catalog" data-type="${isSeries?'series':'movies'}" data-index="${idx}" title="Assistir Agora" aria-label="Assistir Agora">
+                ${icon('play')}
+              </button>
+              <button class="iptv-quick-btn iptv-quick-fav ${isFav ? 'is-favorited' : ''}" data-action="quick-fav-catalog" data-name="${esc(m.name)}" title="${isFav ? 'Remover dos Favoritos' : 'Adicionar aos Favoritos'}" aria-label="Favoritar">
+                ${icon('heart')}
+              </button>
+              <button class="iptv-quick-btn iptv-quick-info" data-action="catalog-card-click" data-type="${isSeries?'series':'movies'}" data-index="${idx}" title="Mais Informações" aria-label="Mais Informações">
+                ${icon('right')}
+              </button>
+            </div>
           </div>
           <div class="iptv-ref-poster-info">
             <div class="iptv-ref-poster-title">${esc(m.name)}</div>
@@ -4042,6 +4088,45 @@ document.addEventListener('click',async event=>{
       const isSeries = b.dataset.type === 'series';
       const pool = isSeries ? (state.currentSeries || []) : (state.currentMovies || []);
       const item = pool[idx];
+      if(item) openVodModal(item);
+      return;
+    }
+    if(action==='quick-play-catalog'){
+      e.stopPropagation();
+      const idx = Number(b.dataset.index);
+      const isSeries = b.dataset.type === 'series';
+      const pool = isSeries ? (state.currentSeries || []) : (state.currentMovies || []);
+      const item = pool[idx];
+      if(item) openVodTheater(item);
+      return;
+    }
+    if(action==='quick-fav-catalog'){
+      e.stopPropagation();
+      const name = b.dataset.name;
+      const pool = (state.currentMovies || []).concat(state.currentSeries || [], state.channels || []);
+      const item = pool.find(c => c.name === name) || { name, group: 'VOD' };
+      b.disabled = true;
+      try {
+        await toggleFavorite(item);
+        const isFav = state.favorites && state.favorites.some(f => 
+          (f.channel && (f.channel.name === name || f.channel.url === item.url)) || 
+          f.name === name || f.url === item.url
+        );
+        b.classList.toggle('is-favorited', isFav);
+        b.title = isFav ? 'Remover dos Favoritos' : 'Adicionar aos Favoritos';
+        b.setAttribute('aria-label', b.title);
+        toast(isFav ? `❤️ "${name}" adicionado aos Favoritos!` : `Removido dos Favoritos.`);
+      } catch(err) {
+        toast('Erro ao atualizar favoritos: ' + err.message, true);
+      } finally {
+        b.disabled = false;
+      }
+      return;
+    }
+    if(action==='open-similar-vod'){
+      const title = b.dataset.title;
+      const pool = (state.currentMovies || []).concat(state.currentSeries || [], state.channels || [], state.dashMovies || [], state.dashSeries || []);
+      const item = pool.find(it => (it.name || it.title) === title);
       if(item) openVodModal(item);
       return;
     }

@@ -9024,5 +9024,213 @@ dialog#modal::backdrop {
   stroke: #e50914 !important;
 }
 
+/* ==========================================================================
+   28.6 HOVER CARD EXPANDIDO & TÍTULOS SEMELHANTES PADRÃO NETFLIX (v8.3.12)
+   ========================================================================== */
+
+/* Card Container com Transição Fluida */
+.iptv-ref-poster-card {
+  position: relative;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+  will-change: transform;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .iptv-ref-poster-card:hover {
+    transform: scale(1.08) translateY(-6px);
+    z-index: 30;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.15);
+  }
+
+  .iptv-ref-poster-card:hover .iptv-card-hover-actions {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+}
+
+/* Overlay de Ações Rápidas Estilo Netflix */
+.iptv-card-hover-actions {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 1.25rem 0.6rem 0.6rem;
+  background: linear-gradient(to top, rgba(14, 16, 22, 0.95) 0%, rgba(14, 16, 22, 0.75) 60%, transparent 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  border-radius: 0 0 8px 8px;
+  z-index: 10;
+}
+
+.iptv-quick-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(30, 32, 40, 0.85);
+  color: #fff;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  padding: 0;
+}
+
+.iptv-quick-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.iptv-quick-btn:hover {
+  transform: scale(1.15);
+}
+
+/* Botão Play Rápido */
+.iptv-quick-btn.iptv-quick-play {
+  background: #fff;
+  color: #000;
+  border-color: #fff;
+}
+.iptv-quick-btn.iptv-quick-play:hover {
+  background: #e50914;
+  color: #fff;
+  border-color: #e50914;
+  box-shadow: 0 0 12px rgba(229, 9, 20, 0.5);
+}
+
+/* Botão Favorito Rápido */
+.iptv-quick-btn.iptv-quick-fav:hover {
+  border-color: rgba(229, 9, 20, 0.6);
+  color: #e50914;
+}
+.iptv-quick-btn.iptv-quick-fav.is-favorited {
+  background: rgba(229, 9, 20, 0.25);
+  border-color: #e50914;
+  color: #e50914;
+  box-shadow: 0 0 10px rgba(229, 9, 20, 0.4);
+}
+.iptv-quick-btn.iptv-quick-fav.is-favorited svg path {
+  fill: #e50914;
+  stroke: #e50914;
+}
+
+/* Botão Info Rápido */
+.iptv-quick-btn.iptv-quick-info:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: #fff;
+}
+
+/* Grade de Títulos Semelhantes no Modal VOD */
+.iptv-vod-similar-section {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.iptv-vod-similar-heading {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 0.85rem;
+  letter-spacing: -0.015em;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.iptv-vod-similar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 0.75rem;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.iptv-vod-similar-grid::-webkit-scrollbar {
+  width: 5px;
+}
+.iptv-vod-similar-grid::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.iptv-vod-similar-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.iptv-vod-similar-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  border-color: rgba(229, 9, 20, 0.5);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6);
+}
+
+.iptv-vod-similar-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  background: #101216;
+  overflow: hidden;
+}
+
+.iptv-vod-similar-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.iptv-vod-similar-card:hover .iptv-vod-similar-thumb img {
+  transform: scale(1.06);
+}
+
+.iptv-similar-rating {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fbbf24;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 4px;
+  backdrop-filter: blur(4px);
+}
+
+.iptv-vod-similar-info {
+  padding: 0.5rem 0.6rem;
+}
+
+.iptv-vod-similar-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.iptv-vod-similar-genre {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
 
 

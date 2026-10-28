@@ -758,6 +758,181 @@ function formatVodTime(sec){
   return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
 
+function formatVodDuration(sec){
+  if(!sec || isNaN(sec) || sec <= 0) return '0 min';
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  if(h > 0){
+    return `${h}h ${m > 0 ? m + 'm' : ''}`.trim();
+  }
+  if(m > 0){
+    return `${m} min ${s > 0 ? s + 's' : ''}`.trim();
+  }
+  return `${s}s`;
+}
+
+// --- SISTEMA CANÔNICO DE PERSISTÊNCIA & RESTAURAÇÃO DE PROGRESSO VOD (v8.3.23) ---
+const PROGRESS_STORAGE_KEY = 'jstudio_play_vod_progress_v1';
+
+function getVodProgressCache(){
+  try {
+    const raw = localStorage.getItem(PROGRESS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeTitle(t){
+  if(!t) return '';
+  return String(t)
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/g, '')
+    .trim();
+}
+
+function getStoredProgress(item){
+  if(!item) return null;
+  const targetUrl = item.url || item.streamUrl || '';
+  const targetTitle = normalizeTitle(item.name || item.title || '');
+
+  // 1. Cache Local Rápido (LocalStorage)
+  const cache = getVodProgressCache();
+  if(targetUrl && cache[targetUrl] && cache[targetUrl].position > 0) return cache[targetUrl];
+  if(targetTitle && cache[`title:${targetTitle}`] && cache[`title:${targetTitle}`].position > 0) {
+    return cache[`title:${targetTitle}`];
+  }
+  if(targetTitle){
+    for(const key in cache){
+      if(cache[key]?.normTitle === targetTitle && cache[key].position > 0){
+        return cache[key];
+      }
+    }
+  }
+
+  // 2. Memória / API (state.progress)
+  if(Array.isArray(state.progress)){
+    const found = state.progress.find(p => {
+      const ch = p.channel || {};
+      if(targetUrl && (ch.url === targetUrl || ch.streamUrl === targetUrl)) return true;
+      const chTitle = normalizeTitle(ch.name || ch.title || '');
+      return targetTitle && chTitle === targetTitle;
+    });
+    if(found && Number(found.position) > 0){
+      return {
+        position: Number(found.position),
+        duration: Number(found.duration) || 0,
+        percent: found.percent || (found.duration ? Math.round((found.position / found.duration) * 100) : 0),
+        title: item.name || item.title,
+        updated: found.updated || Date.now()
+      };
+    }
+  }
+
+  // 3. Histórico recente (state.history)
+  if(Array.isArray(state.history)){
+    const hist = state.history.find(h => {
+      const ch = h.channel || {};
+      if(targetUrl && ch.url === targetUrl) return true;
+      return targetTitle && normalizeTitle(ch.name || h.title || '') === targetTitle;
+    });
+    if(hist && Number(hist.position) > 0){
+      const pos = Number(hist.position);
+      const dur = Number(hist.duration) || 0;
+      return {
+        position: pos,
+        duration: dur,
+        percent: dur > 0 ? Math.round((pos / dur) * 100) : 15,
+        title: item.name || item.title,
+        updated: hist.updated || Date.now()
+      };
+    }
+  }
+
+  return null;
+}
+
+function setStoredProgress(item, position, duration){
+  if(!item || !Number.isFinite(position) || position <= 0) return;
+  const targetUrl = item.url || item.streamUrl || `vod_${normalizeTitle(item.name || item.title)}`;
+  const title = item.name || item.title || 'Conteúdo';
+  const normTitle = normalizeTitle(title);
+  const dur = Number.isFinite(duration) && duration > 0 ? duration : (getStoredProgress(item)?.duration || 0);
+  const percent = dur > 0 ? Math.min(100, Math.round((position / dur) * 100)) : 0;
+
+  const entry = {
+    url: targetUrl,
+    title,
+    normTitle,
+    position: Math.round(position),
+    duration: Math.round(dur),
+    percent,
+    updated: Date.now()
+  };
+
+  try {
+    const cache = getVodProgressCache();
+    cache[targetUrl] = entry;
+    if(normTitle) cache[`title:${normTitle}`] = entry;
+    localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(cache));
+  } catch {}
+
+  if(Array.isArray(state.progress)){
+    const filtered = state.progress.filter(p => {
+      const ch = p.channel || {};
+      return ch.url !== targetUrl && normalizeTitle(ch.name || ch.title || '') !== normTitle;
+    });
+    if(percent < 98){
+      state.progress = [{
+        playlistId: state.activePlaylist || 'default',
+        channel: { ...item, url: targetUrl, name: title },
+        position: Math.round(position),
+        duration: Math.round(dur),
+        percent,
+        updated: new Date().toISOString()
+      }, ...filtered].slice(0, 100);
+    } else {
+      state.progress = filtered;
+    }
+  }
+}
+
+function removeStoredProgress(titleOrUrl){
+  if(!titleOrUrl) return;
+  const norm = normalizeTitle(titleOrUrl);
+  try {
+    const cache = getVodProgressCache();
+    delete cache[titleOrUrl];
+    if(norm) delete cache[`title:${norm}`];
+    for(const key in cache){
+      if(cache[key]?.normTitle === norm || cache[key]?.url === titleOrUrl){
+        delete cache[key];
+      }
+    }
+    localStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(cache));
+  } catch {}
+
+  if(Array.isArray(state.progress)){
+    state.progress = state.progress.filter(p => {
+      const ch = p.channel || {};
+      return ch.url !== titleOrUrl && normalizeTitle(ch.name || ch.title || '') !== norm;
+    });
+  }
+  if(Array.isArray(state.history)){
+    state.history = state.history.filter(h => {
+      const ch = h.channel || {};
+      return ch.url !== titleOrUrl && normalizeTitle(ch.name || h.title || '') !== norm;
+    });
+  }
+}
+
+function currentProgress(ch){
+  return getStoredProgress(ch);
+}
+
+
 window.handlePosterError = function(img, title){
   if(!img || img._fallbackApplied) return;
   img._fallbackApplied = true;
@@ -853,7 +1028,18 @@ function setVodPlaybackRate(rate){
 function closeVodTheater(){
   clearTimeout(vodIdleTimer);
   vodIdleTimer = null;
+  if(window._vodWatchdogTimer){
+    clearTimeout(window._vodWatchdogTimer);
+    window._vodWatchdogTimer = null;
+  }
   
+  // Salvar progresso imediatamente antes de fechar
+  const v = document.getElementById('video');
+  const target = window._currentVodItem;
+  if(v && target && v.currentTime > 2){
+    setStoredProgress(target, v.currentTime, v.duration);
+  }
+
   // Sair de tela cheia se estiver ativa
   if(document.fullscreenElement){
     if(document.exitFullscreen) document.exitFullscreen().catch(()=>{});
@@ -917,6 +1103,19 @@ function openVodTheater(target){
     <div class="iptv-vod-video-wrapper" id="vod-video-wrapper">
       <video id="video" playsinline controls autoplay class="iptv-vod-video-element" ${ytId ? 'style="display:none;"' : ''}></video>
       
+      <!-- HUD de Buffering & Watchdog Anti-Tela Preta (v8.3.23) -->
+      <div class="iptv-vod-buffering-hud" id="vod-buffering-hud">
+        <div class="iptv-spinner-ring"></div>
+        <div class="iptv-buffering-text-wrap">
+          <strong class="iptv-buffering-title" id="vod-hud-title">Iniciando Transmissão...</strong>
+          <span class="iptv-buffering-sub" id="vod-hud-sub">Conectando aos servidores de streaming</span>
+        </div>
+        <div class="iptv-hud-btn-row" id="vod-hud-actions" style="display:none;">
+          <button class="btn small primary" data-action="theater-force-relay" id="vod-btn-force-relay">⚡ Ativar Modo de Compatibilidade (Relay)</button>
+          <button class="btn small secondary" data-action="close-vod-theater">✕ Voltar ao Catálogo</button>
+        </div>
+      </div>
+
       <!-- HUD de Gestos: Brilho & Volume (Estilo MX Player / VLC) -->
       <div class="iptv-gesture-hud" id="gesture-hud">
         <div class="iptv-gesture-icon" id="gesture-hud-icon">
@@ -1027,9 +1226,67 @@ function openVodTheater(target){
   window._currentPlaying = { title, type: 'vod', target };
   window.eventBus.emit('playback:started', window._currentPlaying);
 
+  const updateVodHud = (titleText, subText, showActions = false) => {
+    const hud = document.getElementById('vod-buffering-hud');
+    const t = document.getElementById('vod-hud-title');
+    const s = document.getElementById('vod-hud-sub');
+    const acts = document.getElementById('vod-hud-actions');
+    if(hud) hud.classList.remove('hud-hidden');
+    if(t) t.textContent = titleText;
+    if(s) s.textContent = subText;
+    if(acts) acts.style.display = showActions ? 'flex' : 'none';
+  };
+  const hideVodHud = () => {
+    const hud = document.getElementById('vod-buffering-hud');
+    if(hud) hud.classList.add('hud-hidden');
+    if(window._vodWatchdogTimer){
+      clearTimeout(window._vodWatchdogTimer);
+      window._vodWatchdogTimer = null;
+    }
+  };
+  window._updateVodHud = updateVodHud;
+  window._hideVodHud = hideVodHud;
+
+  // Watchdog de 6s: previne filmes congelados em tela preta
+  if(window._vodWatchdogTimer) clearTimeout(window._vodWatchdogTimer);
+  window._vodWatchdogTimer = setTimeout(() => {
+    const vid = document.getElementById('video');
+    if(vid && vid.currentTime === 0 && !vid.paused){
+      console.warn('[VodWatchdog] Vídeo não iniciou após 6s (possível tela preta/CORS). Disparando recuperação...');
+      updateVodHud('Otimizando Transmissão...', 'A rota direta demorou para responder. Ativando Modo de Compatibilidade...', false);
+      if(!state.relayMode && state.relayEnabled){
+        state.relayMode = true;
+        try { localStorage.setItem('m3u-relay', 'true'); } catch {}
+        if(typeof updateRelayControl === 'function') updateRelayControl();
+        playChannel(target);
+      } else {
+        updateVodHud('Transmissão Instável ou Indisponível', 'A fonte de vídeo demorou para responder. Tente a rota alternativa.', true);
+      }
+    }
+  }, 6000);
+
   const v = document.getElementById('video');
   if(v && !ytId){
+    let hasRestoredProgress = false;
+    const savedProg = getStoredProgress(target);
+    const restoreProgress = () => {
+      if(hasRestoredProgress) return;
+      if(target._resume !== false && savedProg && savedProg.position > 8){
+        const pos = savedProg.position;
+        if(v.duration > 0 && pos < v.duration - 15){
+          v.currentTime = pos;
+          hasRestoredProgress = true;
+          toast(`▶ Retomando ${title} de ${formatVodTime(pos)}`);
+        } else if(!v.duration || v.duration === Infinity) {
+          v.currentTime = pos;
+          hasRestoredProgress = true;
+          toast(`▶ Retomando ${title} de ${formatVodTime(pos)}`);
+        }
+      }
+    };
+
     v.onloadedmetadata = () => {
+      restoreProgress();
       const resBadge = document.getElementById('vod-res-badge');
       if(resBadge && v.videoWidth){
         if(v.videoWidth >= 3840){
@@ -1048,6 +1305,9 @@ function openVodTheater(target){
       }
     };
 
+    v.addEventListener('canplay', restoreProgress);
+
+    let lastPeriodicSave = 0;
     v.ontimeupdate = () => {
       const cur = v.currentTime || 0;
       const dur = v.duration || 0;
@@ -1058,6 +1318,14 @@ function openVodTheater(target){
       if(pBar) pBar.style.width = `${pct}%`;
       if(curTxt) curTxt.textContent = formatVodTime(cur);
       if(durTxt && dur > 0) durTxt.textContent = formatVodTime(dur);
+
+      if(cur > 0.5) hideVodHud();
+
+      // Gravar progresso continuamente a cada 3 segundos
+      if(cur > 2 && Math.abs(cur - lastPeriodicSave) >= 3){
+        lastPeriodicSave = cur;
+        setStoredProgress(target, cur, dur);
+      }
 
       window.eventBus.emit('playback:progress', { item: target, position: cur, duration: dur, percent: pct });
     };
@@ -1078,10 +1346,31 @@ function openVodTheater(target){
       window.eventBus.emit('playback:play', { item: target });
     };
 
+    v.onplaying = () => {
+      hideVodHud();
+      restoreProgress();
+    };
+
+    v.onwaiting = () => {
+      updateVodHud('Carregando Buffer...', 'Aguardando próximos dados de vídeo...');
+    };
+
+    v.onstalled = () => {
+      if(!v.paused && v.currentTime === 0){
+        updateVodHud('Conexão Lenta', 'Tentando restabelecer fluxo de dados...');
+      }
+    };
+
+    v.onerror = () => {
+      console.warn('[VodTheater] Erro nativo de vídeo detectado:', v.error);
+      updateVodHud('Falha na Reprodução Direta', 'Este formato de vídeo ou servidor IPTV não pôde ser reproduzido diretamente.', true);
+    };
+
     v.onpause = () => {
       const btn = document.getElementById('vod-play-btn');
       if(btn) btn.innerHTML = icon('play');
       theater.classList.remove('idle-hidden');
+      if(v.currentTime > 2) setStoredProgress(target, v.currentTime, v.duration);
       window.eventBus.emit('playback:pause', { item: target });
     };
 
@@ -1209,9 +1498,13 @@ function openVodModal(item){
   const img = item.backdropUrl || item.posterUrl || item.logo || item.img || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=800&q=80';
   const group = item.genres || item.group || item.meta || 'Filme • VOD';
   const isSeries = (item.streamType === 'series') || group.toLowerCase().includes('série') || group.toLowerCase().includes('temporada');
-  const prog = (typeof currentProgress === 'function') ? currentProgress(item) : null;
-  const progSec = prog?.position ? Math.floor(prog.position / 60) : 0;
-  const btnLabel = progSec > 0 ? `Continuar assistindo de ${progSec} min` : 'Assistir Agora';
+  const prog = getStoredProgress(item);
+  const hasValidProg = prog && prog.position > 8 && (!prog.duration || prog.duration - prog.position > 20);
+  const progPosFormatted = hasValidProg ? formatVodTime(prog.position) : '';
+  const progDurFormatted = (hasValidProg && prog.duration > 0) ? formatVodDuration(prog.duration) : '';
+  const timeLeftFormatted = (hasValidProg && prog.duration > prog.position) ? formatVodDuration(prog.duration - prog.position) : '';
+  const progPct = hasValidProg ? Math.min(100, Math.max(2, prog.percent || (prog.duration ? Math.round((prog.position / prog.duration) * 100) : 0))) : 0;
+
   const ratingText = item.rating ? `⭐ ${item.rating} / 10` : '⭐ 8.5 / 10';
   const yearText = item.year ? `• ${item.year}` : '';
   const isFav = state.favorites && state.favorites.some(f => 
@@ -1220,7 +1513,7 @@ function openVodModal(item){
   );
 
   const html = `
-    <div class="iptv-sheet-handle-bar" data-action="close-modal"><div class="iptv-sheet-handle"></div></div>
+    <div class="iptv-sheet-handle-bar" data-action="close-modal" title="Toque ou arraste para fechar"><div class="iptv-sheet-handle"></div></div>
     <div style="display:flex; flex-direction:column; gap:1.25rem; max-width:650px;">
       <div style="position:relative; width:100%; height:260px; border-radius:12px; overflow:hidden; background-image:url('${esc(img)}'); background-size:cover; background-position:center;" id="modal-vod-backdrop">
         <div style="position:absolute; inset:0; background:linear-gradient(to top, #14151a 0%, rgba(20,21,26,0.3) 100%);"></div>
@@ -1237,18 +1530,48 @@ function openVodModal(item){
         <span>•</span>
         <span>Streaming HLS</span>
       </div>
+
+      ${hasValidProg ? `
+        <!-- Banner de Progresso & Ponto de Parada do Filme -->
+        <div class="iptv-modal-progress-banner">
+          <div class="iptv-modal-prog-header">
+            <div class="iptv-modal-prog-time">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><polyline points="12 6 12 12 16 14" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+              <span>Você parou em <b>${progPosFormatted}</b>${progDurFormatted ? ` de ${progDurFormatted}` : ''} (${progPct}%)</span>
+            </div>
+            ${timeLeftFormatted ? `<span class="iptv-modal-prog-left">Restam ${timeLeftFormatted}</span>` : ''}
+          </div>
+          <div class="iptv-modal-prog-track">
+            <div class="iptv-modal-prog-bar" style="width:${progPct}%;"></div>
+          </div>
+        </div>
+      ` : ''}
+
       <p style="font-size:0.92rem; color:rgba(255,255,255,0.8); line-height:1.6; margin:0;" id="modal-vod-synopsis">
         ${esc(item.overview || item.synopsis || item.description || 'Buscando sinopse e detalhes oficiais…')}
       </p>
-      <div style="display:flex; gap:0.75rem; margin-top:0.5rem; align-items:center;">
-        <button class="iptv-btn-play-red" data-action="start-vod-theater" data-name="${esc(title)}" style="flex:1; justify-content:center; height:48px;" tabindex="0">
-          ${icon('play')} ${btnLabel}
-        </button>
-        <button class="btn secondary" data-action="enrich-current-vod" style="padding:0 1.25rem; height:48px; gap:0.4rem;" title="Buscar Metadados na API">
+      
+      <div style="display:flex; gap:0.6rem; margin-top:0.4rem; align-items:center; flex-wrap:wrap;">
+        ${hasValidProg ? `
+          <button class="iptv-btn-play-red" data-action="start-vod-theater" data-name="${esc(title)}" data-resume="true" style="flex:1; min-width:180px; justify-content:center; height:48px;" tabindex="0">
+            ${icon('play')} Continuar de ${progPosFormatted}
+          </button>
+          <button class="btn secondary" data-action="start-vod-theater" data-name="${esc(title)}" data-resume="false" style="padding:0 1rem; height:48px; gap:0.4rem;" title="Recomeçar do Início" tabindex="0">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> Do Início
+          </button>
+        ` : `
+          <button class="iptv-btn-play-red" data-action="start-vod-theater" data-name="${esc(title)}" style="flex:1; justify-content:center; height:48px;" tabindex="0">
+            ${icon('play')} Assistir Agora
+          </button>
+        `}
+        <button class="btn secondary" data-action="enrich-current-vod" style="padding:0 1.1rem; height:48px; gap:0.4rem;" title="Buscar Metadados na API">
           ${icon('refresh')} Atualizar
         </button>
         <button class="iptv-btn-info-glass iptv-vod-fav-btn ${isFav ? 'is-favorited' : ''}" id="modal-vod-fav-btn" data-action="toggle-favorite-search" data-name="${esc(title)}" style="height:48px; min-width:48px; padding:0 1rem; display:inline-flex; align-items:center; justify-content:center; color:${isFav ? '#e50914' : 'rgba(255,255,255,0.7)'};" title="${isFav ? 'Remover dos Favoritos' : 'Adicionar aos Favoritos'}" aria-label="${isFav ? 'Remover dos Favoritos' : 'Adicionar aos Favoritos'}" tabindex="0">
           ${icon('heart')}
+        </button>
+        <button class="btn ghost" data-action="close-modal" style="padding:0 1.1rem; height:48px; color:rgba(255,255,255,0.7);" title="Fechar Janela" tabindex="0">
+          ✕ Fechar
         </button>
       </div>
       ${isSeries ? `
@@ -1475,11 +1798,11 @@ function dashboard(){
               </div>
             </div>
             <div class="netflix-continue-footer">
-              <button class="netflix-continue-footer-btn" data-action="catalog-card-click" data-type="movies" data-index="0" title="Detalhes" aria-label="Detalhes">
+              <button class="netflix-continue-footer-btn" data-action="open-vod-detail-by-title" data-title="${esc(c.title)}" title="Ver Detalhes e Sinopse" aria-label="Ver Detalhes">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
               </button>
               <div class="netflix-continue-divider"></div>
-              <button class="netflix-continue-footer-btn" data-action="resume-vod" data-title="${esc(c.title)}" title="Reproduzir" aria-label="Reproduzir">
+              <button class="netflix-continue-footer-btn" data-action="open-continue-options" data-title="${esc(c.title)}" title="Opções do Conteúdo" aria-label="Opções">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
               </button>
             </div>
@@ -1850,11 +2173,11 @@ function catalogPage(type = 'movies'){
                 </div>
               </div>
               <div class="netflix-continue-footer">
-                <button class="netflix-continue-footer-btn" data-action="catalog-card-click" data-type="${isSeries?'series':'movies'}" data-index="${cIdx}" title="Detalhes" aria-label="Detalhes">
+                <button class="netflix-continue-footer-btn" data-action="open-vod-detail-by-title" data-title="${esc(c.title)}" title="Ver Detalhes e Sinopse" aria-label="Ver Detalhes">
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
                 </button>
                 <div class="netflix-continue-divider"></div>
-                <button class="netflix-continue-footer-btn" data-action="resume-vod" data-title="${esc(c.title)}" title="Opções" aria-label="Opções">
+                <button class="netflix-continue-footer-btn" data-action="open-continue-options" data-title="${esc(c.title)}" title="Opções do Conteúdo" aria-label="Opções">
                   <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
                 </button>
               </div>
@@ -3647,13 +3970,119 @@ function backToChannels(){stopPlayback();state.selected=null;updateEpisodeContro
 const barName=document.getElementById('now-bar-name');const barMeta=document.getElementById('now-bar-meta');if(barName)barName.textContent='Nada em reprodução';if(barMeta)barMeta.textContent='Escolha um canal para começar';renderChannels();}
 async function toggleFavorite(ch,id=state.activePlaylist){state.favorites=await api('/favorites','PUT',{playlistId:id,channel:ch})||[];if(state.page==='player'){renderChannels();updateNowFavorite();}else if(state.page==='favorites')$('#content').innerHTML=savedPage('favorites');}
 
+function setupModalGlobalListeners(){
+  const modal = document.getElementById('modal');
+  if(!modal || modal._hasBackdropClick) return;
+  modal._hasBackdropClick = true;
+
+  // 1. Fechar ao tocar/clicar fora (backdrop click universal)
+  modal.addEventListener('click', (e) => {
+    if(e.target === modal){
+      modal.classList.remove('iptv-bottom-sheet-mode');
+      modal.close();
+    }
+  });
+
+  // 2. Fechar com swipe down em telas touch mobile
+  let startTouchY = 0;
+  modal.addEventListener('touchstart', (e) => {
+    if(e.touches.length === 1 && e.target.closest('.iptv-sheet-handle-bar, .dialog-heading')){
+      startTouchY = e.touches[0].clientY;
+    }
+  }, { passive: true });
+
+  modal.addEventListener('touchend', (e) => {
+    if(startTouchY > 0 && e.changedTouches.length === 1){
+      const deltaY = e.changedTouches[0].clientY - startTouchY;
+      if(deltaY > 50){
+        modal.classList.remove('iptv-bottom-sheet-mode');
+        modal.close();
+      }
+      startTouchY = 0;
+    }
+  }, { passive: true });
+}
+
 function openModal(title,content){
   const modal=$('#modal');
   if(!modal) return;
   modal.style.maxWidth = '620px';
-  modal.innerHTML=`<div class="dialog-heading"><h2 id="modal-title">${title}</h2><button class="icon-btn" data-action="close-modal" aria-label="Fechar">${icon('close')}</button></div>${content}`;
+  modal.innerHTML=`<div class="dialog-heading"><h2 id="modal-title">${title}</h2><button class="icon-btn" data-action="close-modal" aria-label="Fechar" title="Fechar (ESC)">${icon('close')}</button></div>${content}`;
+  setupModalGlobalListeners();
   if(!modal.open)modal.showModal();
 }
+
+function openContinueOptions(title){
+  const historyItem = (state.history || []).find(h => (h.channel?.name === title) || (h.title === title));
+  const pool = [...(state.dashMovies || []), ...(state.dashSeries || []), ...(state.currentMovies || []), ...(state.currentSeries || [])];
+  const catalogItem = pool.find(c => c.name === title || c.title === title);
+  const target = historyItem?.channel || catalogItem || { name: title, title };
+
+  const prog = getStoredProgress(target) || (historyItem ? {
+    position: Number(historyItem.position) || 0,
+    duration: Number(historyItem.duration) || 0,
+    percent: historyItem.progress || 15
+  } : null);
+
+  const posFormatted = (prog && prog.position > 0) ? formatVodTime(prog.position) : 'Início';
+  const durFormatted = (prog && prog.duration > 0) ? formatVodDuration(prog.duration) : '';
+  const timeLeft = (prog && prog.duration > prog.position) ? formatVodDuration(prog.duration - prog.position) : '';
+  const pct = prog?.percent || 0;
+  const img = target.backdropUrl || target.posterUrl || target.logo || target.img || historyItem?.img || 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80';
+
+  const modal = $('#modal');
+  if(modal) modal.classList.add('iptv-bottom-sheet-mode');
+
+  const content = `
+    <div class="iptv-sheet-handle-bar" data-action="close-modal" title="Toque para fechar"><div class="iptv-sheet-handle"></div></div>
+    <div style="max-width:540px; margin:0 auto; padding-bottom:0.5rem;">
+      <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1rem; padding-bottom:0.75rem; border-bottom:1px solid rgba(255,255,255,0.08);">
+        <img src="${esc(img)}" alt="${esc(title)}" style="width:58px; height:82px; border-radius:6px; object-fit:cover; flex-shrink:0;" onerror="window.handlePosterError(this, '${esc(title)}')">
+        <div style="flex:1; min-width:0;">
+          <h3 style="font-size:1.15rem; font-weight:800; color:#fff; margin:0 0 0.25rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(title)}</h3>
+          <span style="font-size:0.82rem; color:rgba(255,255,255,0.6); display:block;">${esc(target.group || 'Conteúdo em andamento')}</span>
+          ${prog && prog.position > 8 ? `
+            <span style="font-size:0.82rem; color:#ff4d58; font-weight:700; margin-top:0.25rem; display:block;">
+              ⏱️ Parou em ${posFormatted}${durFormatted ? ` de ${durFormatted}` : ''} (${pct}%)
+            </span>
+          ` : ''}
+        </div>
+      </div>
+
+      <div class="iptv-options-list">
+        <button class="iptv-option-item-btn primary-action" data-action="start-vod-theater" data-name="${esc(title)}" data-resume="true" tabindex="0">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="m8 5 11 7-11 7V5z"/></svg>
+          <div style="flex:1;">
+            <div>Continuar Assistindo</div>
+            <small style="font-size:0.75rem; opacity:0.8; font-weight:normal;">Retomar de ${posFormatted}${timeLeft ? ` • Restam ${timeLeft}` : ''}</small>
+          </div>
+        </button>
+
+        <button class="iptv-option-item-btn" data-action="open-vod-detail-by-title" data-title="${esc(title)}" tabindex="0">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          <div>Ver Detalhes e Sinopse</div>
+        </button>
+
+        <button class="iptv-option-item-btn" data-action="start-vod-theater" data-name="${esc(title)}" data-resume="false" tabindex="0">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          <div>Assistir do Início (00:00)</div>
+        </button>
+
+        <button class="iptv-option-item-btn danger-action" data-action="remove-from-continue" data-title="${esc(title)}" tabindex="0">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <div>Remover do Histórico</div>
+        </button>
+
+        <button class="iptv-option-item-btn" data-action="close-modal" style="justify-content:center; color:rgba(255,255,255,0.7); margin-top:0.35rem;" tabindex="0">
+          ✕ Cancelar / Fechar
+        </button>
+      </div>
+    </div>
+  `;
+
+  openModal('Opções de ' + title, content);
+}
+
 
 async function openManagePlaylistsModal(){
   if(!state.playlists || !state.playlists.length){
@@ -4751,13 +5180,48 @@ document.addEventListener('click',async event=>{
     if(action==='resume-vod'){
       const title = b.dataset.title;
       const historyItem = (state.history || []).find(h => (h.channel?.name === title) || (h.title === title));
-      const target = historyItem?.channel || { name: title, title: title };
+      const pool = [...(state.dashMovies || []), ...(state.dashSeries || []), ...(state.currentMovies || []), ...(state.currentSeries || [])];
+      const target = historyItem?.channel || pool.find(c => c.name === title || c.title === title) || { name: title, title: title };
       if(target.streamType === 'live' || target.program){
         state.selected = target;
         location.hash = '#/live';
         setTimeout(() => playChannel(target), 120);
       } else {
+        target._resume = true;
         openVodTheater(target);
+      }
+      return;
+    }
+    if(action==='open-continue-options'){
+      const title = b.dataset.title;
+      openContinueOptions(title);
+      return;
+    }
+    if(action==='open-vod-detail-by-title'){
+      const title = b.dataset.title;
+      $('#modal')?.close();
+      const historyItem = (state.history || []).find(h => (h.channel?.name === title) || (h.title === title));
+      const pool = [...(state.dashMovies || []), ...(state.dashSeries || []), ...(state.currentMovies || []), ...(state.currentSeries || [])];
+      const target = historyItem?.channel || pool.find(c => c.name === title || c.title === title) || { name: title, title };
+      openVodModal(target);
+      return;
+    }
+    if(action==='remove-from-continue'){
+      const title = b.dataset.title;
+      removeStoredProgress(title);
+      $('#modal')?.close();
+      await renderRoute();
+      toast(`"${title}" removido de Continuar Assistindo.`);
+      return;
+    }
+    if(action==='theater-force-relay'){
+      state.relayMode = true;
+      try { localStorage.setItem('m3u-relay', 'true'); } catch {}
+      if(typeof updateRelayControl === 'function') updateRelayControl();
+      const target = window._currentVodItem;
+      if(target) {
+        toast('Ativando Modo de Compatibilidade (Relay)...');
+        playChannel(target);
       }
       return;
     }
@@ -4813,6 +5277,7 @@ document.addEventListener('click',async event=>{
     }
     if(action==='start-vod-theater' || action==='play-vod-item' || action==='play-series-item'){
       const name = b.dataset.name || b.title;
+      const isResume = b.dataset.resume !== 'false';
       $('#modal')?.close();
       const current = window._currentVodItem;
       const pool = [...(state.dashMovies || []), ...(state.dashSeries || []), ...(state.currentMovies || []), ...(state.currentSeries || [])];
@@ -4820,6 +5285,7 @@ document.addEventListener('click',async event=>{
       if(!target){
         target = current || { name, title: name, streamType: 'vod' };
       }
+      target._resume = isResume;
       openVodTheater(target);
       return;
     }

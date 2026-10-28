@@ -10784,3 +10784,174 @@ video:-webkit-full-screen.fit-cover,
 .iptv-vod-theater.screen-locked .iptv-floating-back-btn {
   display: none !important;
 }
+
+/* ========================================================================== */
+/* 28.11 WATCHDOG BUFFER HUD, BANNER DE PROGRESSO & MODAL OPTIONS (v8.3.23) */
+/* ========================================================================== */
+
+.iptv-vod-buffering-hud {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 11, 15, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 998;
+  padding: 1.5rem;
+  text-align: center;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+  pointer-events: auto;
+}
+
+.iptv-vod-buffering-hud.hud-hidden {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  display: none !important;
+}
+
+.iptv-spinner-ring {
+  width: 52px;
+  height: 52px;
+  border: 3.5px solid rgba(255, 255, 255, 0.12);
+  border-top-color: #e50914;
+  border-radius: 50%;
+  animation: netflixHudSpin 0.75s linear infinite;
+  margin-bottom: 1.15rem;
+  box-shadow: 0 0 16px rgba(229, 9, 20, 0.4);
+}
+
+@keyframes netflixHudSpin {
+  to { transform: rotate(360deg); }
+}
+
+.iptv-buffering-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 380px;
+}
+
+.iptv-buffering-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.2px;
+}
+
+.iptv-buffering-sub {
+  font-size: 0.86rem;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.45;
+}
+
+.iptv-hud-btn-row {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1.1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Banner de Progresso no Modal de Detalhes do Filme / VOD */
+.iptv-modal-progress-banner {
+  background: linear-gradient(135deg, rgba(229, 9, 20, 0.12) 0%, rgba(20, 21, 26, 0.8) 100%);
+  border: 1px solid rgba(229, 9, 20, 0.3);
+  border-radius: 10px;
+  padding: 0.85rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.25rem;
+}
+
+.iptv-modal-prog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.86rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.iptv-modal-prog-time {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #ffffff;
+}
+
+.iptv-modal-prog-time b {
+  color: #ff4d58;
+}
+
+.iptv-modal-prog-left {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+}
+
+.iptv-modal-prog-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.iptv-modal-prog-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #e50914 0%, #ff3b30 100%);
+  border-radius: 4px;
+  box-shadow: 0 0 8px rgba(229, 9, 20, 0.7);
+  transition: width 0.3s ease;
+}
+
+/* Opções de Continuar Assistindo (Modal Sheet) */
+.iptv-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.iptv-option-item-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  color: #ffffff;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.18s ease, transform 0.15s ease;
+}
+
+.iptv-option-item-btn:hover,
+.iptv-option-item-btn:active {
+  background: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.iptv-option-item-btn.primary-action {
+  background: rgba(229, 9, 20, 0.2);
+  border-color: rgba(229, 9, 20, 0.45);
+  color: #ff4d58;
+}
+
+.iptv-option-item-btn.danger-action {
+  color: #ff6b6b;
+  border-color: rgba(255, 107, 107, 0.25);
+}
+
+.iptv-option-item-btn svg {
+  flex-shrink: 0;
+}
+

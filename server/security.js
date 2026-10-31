@@ -4,7 +4,13 @@
  */
 
 const crypto = require('crypto');
-const bcrypt = require('bcrypt');
+let bcrypt;
+try {
+  bcrypt = require('bcrypt');
+  bcrypt.getRounds('$2a$12$e8N832fV..');
+} catch {
+  bcrypt = require('bcryptjs');
+}
 const fs = require('fs');
 const path = require('path');
 

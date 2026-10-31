@@ -13,7 +13,13 @@
 
 const path    = require('path');
 const crypto  = require('crypto');
-const bcrypt  = require('bcrypt');
+let bcrypt;
+try {
+  bcrypt = require('bcrypt');
+  bcrypt.getRounds('$2a$12$e8N832fV..');
+} catch {
+  bcrypt = require('bcryptjs');
+}
 const SQLite  = require('better-sqlite3');
 
 const { applyMigrations }  = require('./db-schema');

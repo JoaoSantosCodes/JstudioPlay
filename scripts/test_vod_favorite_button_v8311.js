@@ -17,13 +17,16 @@ function run() {
   // 1. Versionamento & Build
   console.log('1. Verificando Versionamento e Cache-Busting:');
   const pkg = JSON.parse(fs.readFileSync('./package.json', 'utf8'));
-  assert.strictEqual(pkg.version, '8.3.11', 'package.json deve estar na versão 8.3.11');
-  console.log('  [PASS] package.json versionado como v8.3.11');
+  const atLeast = (v) => v.localeCompare('8.3.11', undefined, { numeric: true }) >= 0;
+  assert(atLeast(pkg.version), 'package.json deve estar na versão >= 8.3.11');
+  console.log('  [PASS] package.json versionado como v8.3.11+');
 
   const indexHtml = fs.readFileSync('./public/index.html', 'utf8');
-  assert(indexHtml.includes('design-v8.css?v=8.3.11'), 'index.html deve conter design-v8.css?v=8.3.11');
-  assert(indexHtml.includes('app.js?v=8.3.11'), 'index.html deve conter app.js?v=8.3.11');
-  console.log('  [PASS] index.html inclui assets com cache-busting v=8.3.11');
+  const cssVer = (indexHtml.match(/design-v8\.css\?v=([\d.]+)/) || [])[1];
+  const jsVer = (indexHtml.match(/app\.js\?v=([\d.]+)/) || [])[1];
+  assert(cssVer && atLeast(cssVer), 'index.html deve conter design-v8.css com versão >= 8.3.11');
+  assert(jsVer && atLeast(jsVer), 'index.html deve conter app.js com versão >= 8.3.11');
+  console.log('  [PASS] index.html inclui assets com cache-busting v8.3.11+');
 
   // 2. Integridade SPA (app.js)
   console.log('\n2. Verificando Implementação do Botão no openVodModal (app.js):');

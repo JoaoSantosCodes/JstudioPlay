@@ -1,5 +1,17 @@
 apply plugin: 'com.android.application'
 
+// Lê um segredo de assinatura: primeiro do ambiente, depois de <raiz do projeto>/CREDENCIAIS/.env.
+def credenciaisEnv = rootProject.file('../CREDENCIAIS/.env')
+def releaseSecret = { String name ->
+    def fromEnv = System.getenv(name)
+    if (fromEnv) return fromEnv
+    if (credenciaisEnv.exists()) {
+        def line = credenciaisEnv.readLines('UTF-8').find { it.trim().startsWith("${name}=") }
+        if (line) return line.substring(line.indexOf('=') + 1).trim().replaceAll(/^["']|["']$/, '')
+    }
+    return null
+}
+
 android {
     namespace = "br.com.jstudioplay.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -18,15 +30,17 @@ android {
     }
     signingConfigs {
         release {
+            // Segredos fora do código (IAM): variáveis de ambiente ou CREDENCIAIS/.env.
             storeFile file('jstudioplay-release.jks')
-            storePassword 'jstudioplay2026'
-            keyAlias 'jstudioplay'
-            keyPassword 'jstudioplay2026'
+            storePassword releaseSecret('ANDROID_KEYSTORE_PASSWORD')
+            keyAlias releaseSecret('ANDROID_KEY_ALIAS') ?: 'jstudioplay'
+            keyPassword releaseSecret('ANDROID_KEY_PASSWORD')
         }
     }
     buildTypes {
         release {
-            signingConfig signingConfigs.release
+            // Sem senha disponível o release sai sem assinatura, em vez de quebrar builds de debug.
+            signingConfig releaseSecret('ANDROID_KEYSTORE_PASSWORD') ? signingConfigs.release : null
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

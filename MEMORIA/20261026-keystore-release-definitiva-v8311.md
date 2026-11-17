@@ -29,9 +29,9 @@ Durante a tentativa de upload do bundle anterior no Google Play Console para o p
 signingConfigs {
     release {
         storeFile file('jstudioplay-release.jks')
-        storePassword 'jstudioplay2026'
+        storePassword releaseSecret('ANDROID_KEYSTORE_PASSWORD')  // CREDENCIAIS/.env
         keyAlias 'jstudioplay'
-        keyPassword 'jstudioplay2026'
+        keyPassword releaseSecret('ANDROID_KEY_PASSWORD')
     }
 }
 buildTypes {
